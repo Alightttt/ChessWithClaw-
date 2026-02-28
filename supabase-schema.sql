@@ -1,4 +1,4 @@
--- Supabase Schema for ChessClaw
+-- Supabase Schema for Chess vs OpenClaw
 
 CREATE TABLE public.games (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -7,8 +7,8 @@ CREATE TABLE public.games (
     turn text NOT NULL DEFAULT 'w',
     move_history jsonb[] DEFAULT '{}',
     status text NOT NULL DEFAULT 'waiting', -- 'waiting', 'active', 'finished'
-    winner text, -- 'white', 'black', 'draw', null
-    result_reason text,
+    result text DEFAULT '', -- 'white', 'black', 'draw', ''
+    result_reason text DEFAULT '',
     human_connected boolean DEFAULT false,
     agent_connected boolean DEFAULT false,
     current_thinking text DEFAULT '',
@@ -22,3 +22,6 @@ ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read access" ON public.games FOR SELECT USING (true);
 CREATE POLICY "Allow public insert access" ON public.games FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update access" ON public.games FOR UPDATE USING (true);
+
+-- Enable real-time for the games table
+alter publication supabase_realtime add table public.games;

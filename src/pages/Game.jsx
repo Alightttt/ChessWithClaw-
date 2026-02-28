@@ -1,0 +1,312 @@
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Chess } from 'chess.js';
+import { toast } from 'sonner';
+import ChessBoard from '../components/chess/ChessBoard';
+import ThinkingPanel from '../components/chess/ThinkingPanel';
+import MoveHistory from '../components/chess/MoveHistory';
+import { supabase } from '../lib/supabase';
+
+export default function Game() {
+  const [searchParams] = useSearchParams();
+  const gameId = searchParams.get('id');
+  const [game, setGame] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [gameOver, setGameOver] = useState(false);
+
+  useEffect(() => {
+    if (!gameId) {
+      toast.error('No game ID provided');
+      return;
+    }
+    loadGame();
+  }, [gameId]);
+
+  useEffect(() => {
+    if (!gameId) return;
+
+    const channel = supabase
+      .channel(`game_${gameId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'games',
+        filter: `id=eq.${gameId}`
+      }, (payload) => {
+        const updatedGame = payload.new;
+        setGame(updatedGame);
+        if (!updatedGame.human_connected) {
+          supabase.from('games').update({ human_connected: true }).eq('id', gameId).then();
+        }
+        if (updatedGame.status === 'finished' && !gameOver) {
+          setGameOver(true);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameId, gameOver]);
+
+  const loadGame = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('games')
+        .select('*')
+        .eq('id', gameId)
+        .single();
+
+      if (error) {
+        if (error.message.includes('Could not find the table')) {
+          throw new Error('Database table "games" is missing. Please run the SQL script in your Supabase SQL Editor.');
+        }
+        throw error;
+      }
+      setGame(data);
+      await supabase.from('games').update({ human_connected: true }).eq('id', gameId);
+    } catch (error) {
+      toast.error('Failed to load game');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const makeMove = async (from, to, promotion) => {
+    if (!game || game.turn !== 'w' || !isMyTurn) return;
+
+    const chess = new Chess(game.fen);
+    const move = chess.move({ from, to, promotion });
+
+    if (!move) {
+      toast.error('Illegal move');
+      return;
+    }
+
+    const newMoveHistory = [
+      ...(game.move_history || []),
+      {
+        number: Math.floor((game.move_history || []).length / 2) + 1,
+        color: 'w',
+        from,
+        to,
+        san: move.san,
+        uci: from + to,
+        timestamp: Date.now()
+      }
+    ];
+
+    const updates = {
+      fen: chess.fen(),
+      turn: 'b',
+      move_history: newMoveHistory
+    };
+
+    if (chess.isCheckmate()) {
+      updates.status = 'finished';
+      updates.result = 'white';
+      updates.result_reason = 'checkmate';
+    } else if (chess.isStalemate()) {
+      updates.status = 'finished';
+      updates.result = 'draw';
+      updates.result_reason = 'stalemate';
+    } else if (chess.isDraw()) {
+      updates.status = 'finished';
+      updates.result = 'draw';
+      updates.result_reason = 'draw';
+    } else if (game.status !== 'active') {
+      updates.status = 'active';
+    }
+
+    await supabase.from('games').update(updates).eq('id', gameId);
+  };
+
+  const playAgain = async () => {
+    await supabase.from('games').update({
+      status: 'active',
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      turn: 'w',
+      move_history: [],
+      thinking_log: [],
+      current_thinking: '',
+      result: '',
+      result_reason: ''
+    }).eq('id', gameId);
+    setGameOver(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center text-white font-mono">
+        Loading game...
+      </div>
+    );
+  }
+
+  if (!game) {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center text-white font-mono">
+        Game not found
+      </div>
+    );
+  }
+
+  const chess = new Chess(game.fen);
+  const isMyTurn = game.turn === 'w' && game.agent_connected && game.status !== 'finished';
+  const isAgentTurn = game.turn === 'b' && game.agent_connected && game.status !== 'finished';
+  const lastMove = (game.move_history || [])[(game.move_history || []).length - 1] || null;
+  const lastThinking = (game.thinking_log || [])[(game.thinking_log || []).length - 1] || null;
+  const currentMoveNumber = Math.floor((game.move_history || []).length / 2) + 1;
+  const agentUrl = `${window.location.origin}/Agent?id=${gameId}`;
+
+  let statusMessage = '';
+  let statusColor = '';
+  let statusBg = '';
+  let statusBorder = '';
+
+  if (game.status === 'finished') {
+    if (game.result === 'white') {
+      statusMessage = '🏆 CHECKMATE! YOU WIN!';
+      statusColor = '#2dc653';
+    } else if (game.result === 'black') {
+      statusMessage = '💀 CHECKMATE. OPENCLAW WINS.';
+      statusColor = '#e63946';
+    } else {
+      statusMessage = '🤝 DRAW';
+      statusColor = '#c9973a';
+    }
+    statusBg = 'bg-[#1c1c1c]';
+    statusBorder = 'border-[#333]';
+  } else if (!game.agent_connected) {
+    statusMessage = '⏳ WAITING FOR OPENCLAW TO JOIN...';
+    statusColor = '#c9973a';
+    statusBg = 'bg-[#1c1c1c]';
+    statusBorder = 'border-[#333]';
+  } else if (isMyTurn) {
+    if (chess.inCheck()) {
+      statusMessage = '⚠️ YOU ARE IN CHECK! YOUR MOVE (WHITE)';
+      statusColor = '#e63946';
+    } else {
+      statusMessage = '♟ YOUR TURN — MAKE YOUR MOVE (WHITE)';
+      statusColor = '#2dc653';
+    }
+    statusBg = 'bg-[#1a2e1a]';
+    statusBorder = 'border-[#2dc653]';
+  } else if (isAgentTurn) {
+    if (chess.inCheck()) {
+      statusMessage = '⚠️ OPENCLAW IS IN CHECK — THINKING...';
+      statusColor = '#c9973a';
+    } else {
+      statusMessage = '🤖 OPENCLAW IS THINKING...';
+      statusColor = '#a0a0a0';
+    }
+    statusBg = 'bg-[#1a1a2e]';
+    statusBorder = 'border-[#a0a0a0]';
+  } else {
+    statusMessage = 'WAITING...';
+    statusColor = '#a0a0a0';
+    statusBg = 'bg-[#1c1c1c]';
+    statusBorder = 'border-[#333]';
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#0d0d0d] via-[#1a1a1a] to-[#0d0d0d] flex flex-col font-mono pb-20">
+      {/* Header */}
+      <header className="bg-[#1c1c1c] border-b-2 border-[#c9973a] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <img 
+            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
+            alt="Logo" 
+            className="w-10 h-10 rounded-full border border-[#c9973a]"
+          />
+          <h1 className="text-[#c9973a] text-xl sm:text-2xl font-serif" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+            Chess vs OpenClaw
+          </h1>
+        </div>
+        <div className="text-[#666] text-sm sm:text-base">
+          Room: {gameId.substring(0, 6)}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 flex flex-col lg:flex-row gap-6 lg:gap-8">
+        {/* Left: Chess Board */}
+        <div className="flex-shrink-0 w-full lg:w-auto flex justify-center overflow-hidden">
+          <div className="scale-[0.58] sm:scale-75 md:scale-90 lg:scale-100 origin-top">
+            <ChessBoard 
+              fen={game.fen} 
+              onMove={makeMove} 
+              isMyTurn={isMyTurn} 
+              lastMove={lastMove} 
+            />
+          </div>
+        </div>
+
+        {/* Right: Panels */}
+        <div className="flex-1 flex flex-col gap-4 sm:gap-6 min-w-0">
+          <ThinkingPanel 
+            agentConnected={game.agent_connected}
+            agentUrl={agentUrl}
+            currentThinking={game.current_thinking}
+            lastThinking={lastThinking}
+            isAgentTurn={isAgentTurn}
+            isHumanTurn={isMyTurn}
+          />
+          <MoveHistory 
+            moveHistory={game.move_history || []} 
+            currentMoveNumber={currentMoveNumber} 
+          />
+        </div>
+      </main>
+
+      {/* Fixed Bottom Status Bar */}
+      <footer className={`fixed bottom-0 left-0 right-0 border-t-4 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center z-40 transition-colors duration-300 ${statusBg} ${statusBorder}`}>
+        <div className="flex items-center gap-3">
+          <div 
+            className="w-3 h-3 rounded-full animate-pulse" 
+            style={{ backgroundColor: statusColor }}
+          />
+          <span className="font-bold text-sm sm:text-base" style={{ color: statusColor }}>
+            {statusMessage}
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-[#a0a0a0] text-sm sm:text-base">
+          <span>Move: {currentMoveNumber}</span>
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${game.agent_connected ? 'bg-[#2dc653]' : 'bg-[#e63946]'}`} />
+            <span className="hidden sm:inline">Agent {game.agent_connected ? 'Online' : 'Offline'}</span>
+          </div>
+        </div>
+      </footer>
+
+      {/* Game Over Modal */}
+      {gameOver && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1c1c1c] border-4 border-[#c9973a] rounded-lg p-8 max-w-sm w-full text-center shadow-2xl">
+            <img 
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
+              alt="Logo" 
+              className="w-20 h-20 mx-auto mb-6 rounded-full border-2 border-[#c9973a]"
+            />
+            <h2 className="text-3xl font-bold text-[#c9973a] mb-2">
+              {game.result === 'white' ? '🏆 You Win!' : game.result === 'black' ? '💀 You Lose' : '🤝 Draw'}
+            </h2>
+            <p className="text-[#a0a0a0] mb-6">
+              {game.result_reason === 'checkmate' ? `Checkmate on move ${currentMoveNumber}` : 
+               game.result_reason === 'stalemate' ? 'Stalemate' : 
+               'Draw by repetition or insufficient material'}
+            </p>
+            <hr className="border-[#333] mb-6" />
+            <p className="text-[#f0f0f0] mb-8">Total Moves: {Math.ceil((game.move_history || []).length / 2)}</p>
+            <button
+              onClick={playAgain}
+              className="w-full bg-[#c9973a] hover:bg-[#e8b84b] text-black font-bold py-3 px-4 rounded transition-transform hover:scale-105"
+            >
+              Play Again
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
