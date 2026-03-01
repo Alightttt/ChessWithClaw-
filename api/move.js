@@ -1,0 +1,90 @@
+import { createClient } from '@supabase/supabase-js';
+import { Chess } from 'chess.js';
+
+export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+  
+  const { id, move, reasoning } = req.body || {};
+  if (!id || !move) return res.status(400).json({ error: 'Missing id or move in JSON body' });
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(500).json({ error: 'Server configuration error: Missing Supabase credentials' });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { data: game, error } = await supabase.from('games').select('*').eq('id', id).single();
+
+  if (error || !game) return res.status(404).json({ error: 'Game not found' });
+  if (game.turn !== 'b' || game.status !== 'active') return res.status(400).json({ error: 'Not your turn or game over' });
+
+  const chess = new Chess(game.fen);
+  let moveObj = null;
+  
+  try {
+    moveObj = chess.move(move);
+  } catch (e) {
+    try {
+      const from = move.substring(0, 2);
+      const to = move.substring(2, 4);
+      const promotion = move.length > 4 ? move.substring(4, 5) : 'q';
+      moveObj = chess.move({ from, to, promotion });
+    } catch (err) {
+      moveObj = null;
+    }
+  }
+
+  if (!moveObj) {
+    const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
+    return res.status(400).json({ error: `Invalid move: ${move}`, legal_moves: legalMoves });
+  }
+
+  const newThinkingLog = [...(game.thinking_log || []), {
+    moveNumber: Math.floor((game.move_history || []).length / 2) + 1,
+    text: reasoning || '(no reasoning provided)',
+    finalMove: moveObj.san,
+    timestamp: Date.now()
+  }];
+
+  const newMoveHistory = [...(game.move_history || []), {
+    number: Math.floor((game.move_history || []).length / 2) + 1,
+    color: 'b',
+    from: moveObj.from,
+    to: moveObj.to,
+    san: moveObj.san,
+    uci: moveObj.from + moveObj.to,
+    timestamp: Date.now()
+  }];
+
+  const updates = {
+    fen: chess.fen(),
+    turn: 'w',
+    move_history: newMoveHistory,
+    thinking_log: newThinkingLog,
+    current_thinking: ''
+  };
+
+  if (chess.isCheckmate()) {
+    updates.status = 'finished'; updates.result = 'black'; updates.result_reason = 'checkmate';
+  } else if (chess.isStalemate()) {
+    updates.status = 'finished'; updates.result = 'draw'; updates.result_reason = 'stalemate';
+  } else if (chess.isDraw()) {
+    updates.status = 'finished'; updates.result = 'draw'; updates.result_reason = 'draw';
+  }
+
+  await supabase.from('games').update(updates).eq('id', id);
+  res.status(200).json({ success: true, fen: chess.fen(), message: 'Move accepted. Waiting for White to play.' });
+}

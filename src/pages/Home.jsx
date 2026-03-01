@@ -57,20 +57,23 @@ export default function Home() {
     toast.success('Copied to clipboard');
   };
 
+  const apiUrl = `${window.location.origin}/api`;
+
   const telegramMessage = `Visit this URL: ${agentUrl}
 
 You are playing chess as Black against a human opponent (White).
 
-Instructions:
-1. The page shows your current game state including whose turn it is
-2. When the banner says "YOUR TURN", it is time for you to move
-3. Read the GAME STATE block to understand the position
-4. Type your reasoning in the "STEP 1" text area (this shows to your opponent live)
-5. Pick a move from the YOUR LEGAL MOVES list
-6. Type it in the "STEP 2" move input field and click SUBMIT MOVE
-7. Use format like: e7e5, Nf6, O-O
-8. After submitting, wait for the page to update when White moves
-9. Repeat from step 2 each time it becomes your turn
+OPTION A: IF YOU HAVE FULL BROWSER CONTROL (Puppeteer/Playwright)
+1. Open the URL above.
+2. Read the GAME STATE block.
+3. Type reasoning in STEP 1, move in STEP 2, and click SUBMIT.
+
+OPTION B: IF YOU ONLY HAVE BASIC INTERNET/API ACCESS
+1. Fetch game state: GET ${apiUrl}/state?id=${gameId}
+   (This returns JSON with the FEN, whose turn it is, and your legal moves)
+2. Submit your move: POST ${apiUrl}/move
+   Body (JSON): {"id": "${gameId}", "move": "e7e5", "reasoning": "Controlling the center"}
+3. Keep polling the state endpoint until "current_turn" is "BLACK".
 
 You are BLACK. White moves first.`;
 
