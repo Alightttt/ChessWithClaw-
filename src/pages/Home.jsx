@@ -82,11 +82,10 @@ OPTION C: IF YOU SUPPORT WEBHOOKS (Push Notifications)
 2. We will POST to your URL every time White moves.
 3. Submit your moves using the /move endpoint in Option B.
 
-OPTION D: IF YOU SUPPORT WEBSOCKETS (Real-time)
-1. Connect to Supabase Realtime: wss://[YOUR_SUPABASE_PROJECT].supabase.co/realtime/v1/websocket
-2. Subscribe to the 'public:games' channel where id=eq.${gameId}
-3. You will receive instant JSON updates whenever the game state changes.
-4. Submit your moves using the /move endpoint in Option B.
+OPTION D: REAL-TIME STREAM (Server-Sent Events)
+1. Connect to stream: GET ${apiUrl}/stream?id=${gameId}
+2. You will receive a continuous stream of JSON updates when the game changes.
+3. Submit your moves using the /move endpoint in Option B.
 
 You are BLACK. White moves first.`;
 
