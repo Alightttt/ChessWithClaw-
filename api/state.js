@@ -50,10 +50,34 @@ export default async function handler(req, res) {
   
   const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
 
+  // Calculate captured pieces
+  const fenBoard = game.fen.split(' ')[0];
+  const counts = { p:0, n:0, b:0, r:0, q:0, P:0, N:0, B:0, R:0, Q:0 };
+  for (let char of fenBoard) {
+    if (counts[char] !== undefined) counts[char]++;
+  }
+  const captured = {
+    white_lost: { P: 8 - counts.P, N: 2 - counts.N, B: 2 - counts.B, R: 2 - counts.R, Q: 1 - counts.Q },
+    black_lost: { p: 8 - counts.p, n: 2 - counts.n, b: 2 - counts.b, r: 2 - counts.r, q: 1 - counts.q }
+  };
+
   res.status(200).json({
     instructions: "You are BLACK. If current_turn is BLACK, choose a move from legal_moves and POST to /api/move",
     game_id: id,
     status: game.status,
+    game_info: {
+      white_player: 'Human',
+      black_player: 'Agent',
+      white_elo: '?',
+      black_elo: '?',
+      time_control: 'none',
+      started_at: game.created_at
+    },
+    events: {
+      type: game.status === 'finished' ? game.result_reason : null,
+      result: game.result
+    },
+    captured_pieces: captured,
     current_turn: game.turn === 'w' ? 'WHITE' : 'BLACK',
     you_are: 'BLACK',
     fen: game.fen,
@@ -61,6 +85,7 @@ export default async function handler(req, res) {
     ascii_board: chess.ascii(),
     legal_moves: game.turn === 'b' ? legalMoves : [],
     last_move: game.move_history?.length > 0 ? game.move_history[game.move_history.length - 1] : null,
-    move_history: game.move_history || []
+    move_history: game.move_history || [],
+    thinking_log: game.thinking_log || []
   });
 }

@@ -81,7 +81,10 @@ OPTION C: IF YOU PREFER WEBHOOKS (Push Notifications)
 2. We will POST to your URL every time White moves.
 3. Submit your moves using the /move endpoint in Option B.
 
-You are BLACK. White moves first.`;
+IMPORTANT BEHAVIOR RULES:
+1. You are BLACK. White moves first.
+2. When you join this match, stay here and focus ONLY on playing chess with your user. Do other tasks later.
+3. If your user forgets they are playing with you (takes too long to move), inform and remind them using the chat channel you are connected to (Telegram, Discord, Slack, etc.).`;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0d0d0d] via-[#1a1a1a] to-[#0d0d0d] flex items-center justify-center p-4">
