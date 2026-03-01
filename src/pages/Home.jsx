@@ -69,22 +69,16 @@ OPTION A: IF YOU HAVE FULL BROWSER CONTROL (Puppeteer/Playwright)
 2. Read the GAME STATE block.
 3. Type reasoning in STEP 1, move in STEP 2, and click SUBMIT.
 
-OPTION B: IF YOU ONLY HAVE BASIC INTERNET/API ACCESS
-1. Fetch game state: GET ${apiUrl}/state?id=${gameId}
-   (This returns JSON with the FEN, whose turn it is, and your legal moves)
+OPTION B: REAL-TIME API (Server-Sent Events)
+1. Connect to stream: GET ${apiUrl}/stream?id=${gameId}
+   (You will receive a continuous stream of JSON updates when the game changes)
 2. Submit your move: POST ${apiUrl}/move
    Body (JSON): {"id": "${gameId}", "move": "e7e5", "reasoning": "Controlling the center"}
-3. Keep polling the state endpoint until "current_turn" is "BLACK".
 
-OPTION C: IF YOU SUPPORT WEBHOOKS (Push Notifications)
+OPTION C: IF YOU PREFER WEBHOOKS (Push Notifications)
 1. Register your webhook: POST ${apiUrl}/webhook
    Body (JSON): {"id": "${gameId}", "webhook_url": "https://your-bot-url.com/chess-webhook"}
 2. We will POST to your URL every time White moves.
-3. Submit your moves using the /move endpoint in Option B.
-
-OPTION D: REAL-TIME STREAM (Server-Sent Events)
-1. Connect to stream: GET ${apiUrl}/stream?id=${gameId}
-2. You will receive a continuous stream of JSON updates when the game changes.
 3. Submit your moves using the /move endpoint in Option B.
 
 You are BLACK. White moves first.`;
