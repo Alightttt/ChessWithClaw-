@@ -104,6 +104,29 @@ export default function Game() {
       }
 
       await supabase.from('games').update(updates).eq('id', gameId);
+
+      // Trigger webhook if the agent has registered one
+      if (game.webhook_url && updates.status !== 'finished') {
+        try {
+          fetch(game.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'your_turn',
+              game_id: gameId,
+              fen: updates.fen,
+              last_move: {
+                from,
+                to,
+                san: move.san
+              }
+            })
+          }).catch(err => console.error('Webhook failed to send:', err));
+        } catch (e) {
+          console.error('Webhook error:', e);
+        }
+      }
+
     } catch (e) {
       toast.error('Illegal move');
     }
@@ -121,6 +144,27 @@ export default function Game() {
       result_reason: null
     }).eq('id', gameId);
     setGameOver(false);
+  };
+
+  const resign = async () => {
+    if (confirm('Are you sure you want to resign?')) {
+      await supabase.from('games').update({
+        status: 'finished',
+        result: 'black',
+        result_reason: 'resignation'
+      }).eq('id', gameId);
+    }
+  };
+
+  const copyPgn = () => {
+    const chess = new Chess();
+    if (game.move_history && game.move_history.length > 0) {
+      game.move_history.forEach(m => {
+        try { chess.move(m.san); } catch (e) {}
+      });
+    }
+    navigator.clipboard.writeText(chess.pgn());
+    toast.success('PGN copied to clipboard');
   };
 
   if (loading) {
@@ -211,8 +255,24 @@ export default function Game() {
             Chess vs OpenClaw
           </h1>
         </div>
-        <div className="text-[#666] text-xs sm:text-sm hidden sm:block">
-          Room: {gameId.substring(0, 6)}
+        <div className="flex items-center gap-4">
+          {game.status === 'active' && (
+            <button 
+              onClick={resign}
+              className="text-xs sm:text-sm text-red-400 hover:text-red-300 border border-red-900 hover:border-red-500 px-3 py-1 rounded transition-colors"
+            >
+              Resign
+            </button>
+          )}
+          <button 
+            onClick={copyPgn}
+            className="text-xs sm:text-sm text-[#a0a0a0] hover:text-[#f0f0f0] border border-[#333] hover:border-[#666] px-3 py-1 rounded transition-colors"
+          >
+            Copy PGN
+          </button>
+          <div className="text-[#666] text-xs sm:text-sm hidden sm:block">
+            Room: {gameId.substring(0, 6)}
+          </div>
         </div>
       </div>
 
@@ -296,12 +356,20 @@ export default function Game() {
               Total Moves: {(game.move_history || []).length}
             </div>
 
-            <button
-              onClick={playAgain}
-              className="w-full bg-[#c9973a] hover:bg-[#e8b84b] text-black font-bold py-3 px-4 rounded transition-transform hover:scale-105"
-            >
-              PLAY AGAIN
-            </button>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={playAgain}
+                className="w-full bg-[#c9973a] hover:bg-[#e8b84b] text-black font-bold py-3 px-4 rounded transition-transform hover:scale-105"
+              >
+                PLAY AGAIN
+              </button>
+              <button
+                onClick={copyPgn}
+                className="w-full bg-transparent border border-[#333] hover:border-[#666] text-[#a0a0a0] hover:text-[#f0f0f0] font-bold py-3 px-4 rounded transition-colors"
+              >
+                COPY PGN
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -32,7 +32,8 @@ export default function Home() {
           human_connected: false,
           agent_connected: false,
           result: null,
-          result_reason: null
+          result_reason: null,
+          webhook_url: null
         }])
         .select()
         .single();
@@ -74,6 +75,18 @@ OPTION B: IF YOU ONLY HAVE BASIC INTERNET/API ACCESS
 2. Submit your move: POST ${apiUrl}/move
    Body (JSON): {"id": "${gameId}", "move": "e7e5", "reasoning": "Controlling the center"}
 3. Keep polling the state endpoint until "current_turn" is "BLACK".
+
+OPTION C: IF YOU SUPPORT WEBHOOKS (Push Notifications)
+1. Register your webhook: POST ${apiUrl}/webhook
+   Body (JSON): {"id": "${gameId}", "webhook_url": "https://your-bot-url.com/chess-webhook"}
+2. We will POST to your URL every time White moves.
+3. Submit your moves using the /move endpoint in Option B.
+
+OPTION D: IF YOU SUPPORT WEBSOCKETS (Real-time)
+1. Connect to Supabase Realtime: wss://[YOUR_SUPABASE_PROJECT].supabase.co/realtime/v1/websocket
+2. Subscribe to the 'public:games' channel where id=eq.${gameId}
+3. You will receive instant JSON updates whenever the game state changes.
+4. Submit your moves using the /move endpoint in Option B.
 
 You are BLACK. White moves first.`;
 

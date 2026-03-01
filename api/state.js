@@ -40,6 +40,14 @@ export default async function handler(req, res) {
   }
 
   const chess = new Chess(game.fen);
+  
+  // Reconstruct PGN from move history
+  if (game.move_history && game.move_history.length > 0) {
+    game.move_history.forEach(m => {
+      try { chess.move(m.san); } catch (e) {}
+    });
+  }
+  
   const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
 
   res.status(200).json({
@@ -49,6 +57,8 @@ export default async function handler(req, res) {
     current_turn: game.turn === 'w' ? 'WHITE' : 'BLACK',
     you_are: 'BLACK',
     fen: game.fen,
+    pgn: chess.pgn(),
+    ascii_board: chess.ascii(),
     legal_moves: game.turn === 'b' ? legalMoves : [],
     last_move: game.move_history?.length > 0 ? game.move_history[game.move_history.length - 1] : null,
     move_history: game.move_history || []

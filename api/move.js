@@ -92,5 +92,18 @@ export default async function handler(req, res) {
   }
 
   await supabase.from('games').update(updates).eq('id', id);
-  res.status(200).json({ success: true, fen: chess.fen(), message: 'Move accepted. Waiting for White to play.' });
+  
+  // Reconstruct PGN for response
+  const responseChess = new Chess();
+  newMoveHistory.forEach(m => {
+    try { responseChess.move(m.san); } catch (e) {}
+  });
+
+  res.status(200).json({ 
+    success: true, 
+    fen: chess.fen(), 
+    ascii_board: chess.ascii(),
+    pgn: responseChess.pgn(),
+    message: 'Move accepted. Waiting for White to play.' 
+  });
 }
