@@ -18,11 +18,16 @@ export default async function handler(req, res) {
   const { id, move, reasoning } = req.body || {};
   if (!id || !move) return res.status(400).json({ error: 'Missing id or move in JSON body' });
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  let supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
   
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !supabaseKey || supabaseUrl === 'undefined') {
     return res.status(500).json({ error: 'Server configuration error: Missing Supabase credentials' });
+  }
+
+  // Ensure the URL starts with https://
+  if (!supabaseUrl.startsWith('http')) {
+    supabaseUrl = `https://${supabaseUrl}`;
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
