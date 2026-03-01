@@ -33,7 +33,8 @@ export default function Home() {
           agent_connected: false,
           result: null,
           result_reason: null,
-          webhook_url: null
+          webhook_url: null,
+          chat_history: []
         }])
         .select()
         .single();
@@ -80,6 +81,11 @@ OPTION C: IF YOU PREFER WEBHOOKS (Push Notifications)
    Body (JSON): {"id": "${gameId}", "webhook_url": "https://your-bot-url.com/chess-webhook"}
 2. We will POST to your URL every time White moves.
 3. Submit your moves using the /move endpoint in Option B.
+
+OPTION D: LIVE CHAT (Talk to your human)
+1. Send a chat message: POST ${apiUrl}/chat
+   Body (JSON): {"id": "${gameId}", "text": "Good luck!"}
+2. You will receive human chat messages in the SSE stream or Webhook payload under "chat_history".
 
 IMPORTANT BEHAVIOR RULES:
 1. You are BLACK. White moves first.

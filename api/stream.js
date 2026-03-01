@@ -71,7 +71,8 @@ export default async function handler(req, res) {
         legal_moves: payload.new.turn === 'b' ? legalMoves : [],
         last_move: payload.new.move_history?.length > 0 ? payload.new.move_history[payload.new.move_history.length - 1] : null,
         move_history: payload.new.move_history || [],
-        thinking_log: payload.new.thinking_log || []
+        thinking_log: payload.new.thinking_log || [],
+        chat_history: payload.new.chat_history || []
       })}\n\n`);
     })
     .subscribe();

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import ChessBoard from '../components/chess/ChessBoard';
 import ThinkingPanel from '../components/chess/ThinkingPanel';
 import MoveHistory from '../components/chess/MoveHistory';
+import ChatBox from '../components/chess/ChatBox';
 import { supabase } from '../lib/supabase';
 
 export default function Game() {
@@ -119,7 +120,8 @@ export default function Game() {
                 from,
                 to,
                 san: move.san
-              }
+              },
+              chat_history: game.chat_history || []
             })
           }).catch(err => console.error('Webhook failed to send:', err));
         } catch (e) {
@@ -141,7 +143,8 @@ export default function Game() {
       thinking_log: [],
       current_thinking: '',
       result: null,
-      result_reason: null
+      result_reason: null,
+      chat_history: []
     }).eq('id', gameId);
     setGameOver(false);
   };
@@ -153,6 +156,34 @@ export default function Game() {
         result: 'black',
         result_reason: 'resignation'
       }).eq('id', gameId);
+    }
+  };
+
+  const sendMessage = async (text) => {
+    const newMessage = { sender: 'human', text, timestamp: Date.now() };
+    const newHistory = [...(game.chat_history || []), newMessage];
+    
+    // Optimistic update
+    setGame(prev => ({ ...prev, chat_history: newHistory }));
+    
+    await supabase.from('games').update({ chat_history: newHistory }).eq('id', gameId);
+
+    // Trigger webhook if the agent has registered one
+    if (game.webhook_url) {
+      try {
+        fetch(game.webhook_url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'chat_message',
+            game_id: gameId,
+            message: newMessage,
+            chat_history: newHistory
+          })
+        }).catch(err => console.error('Webhook failed to send chat:', err));
+      } catch (e) {
+        console.error('Webhook error:', e);
+      }
     }
   };
 
@@ -300,10 +331,14 @@ export default function Game() {
             isAgentTurn={isAgentTurn}
             isHumanTurn={isMyTurn}
           />
-          <div className="flex-1 min-h-[250px]">
+          <div className="flex-1 grid grid-rows-2 gap-4 sm:gap-6 min-h-[500px]">
             <MoveHistory 
               moveHistory={game.move_history || []} 
               currentMoveNumber={currentMoveNumber} 
+            />
+            <ChatBox 
+              chatHistory={game.chat_history || []} 
+              onSendMessage={sendMessage} 
             />
           </div>
         </div>

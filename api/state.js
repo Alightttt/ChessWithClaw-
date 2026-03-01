@@ -86,6 +86,7 @@ export default async function handler(req, res) {
     legal_moves: game.turn === 'b' ? legalMoves : [],
     last_move: game.move_history?.length > 0 ? game.move_history[game.move_history.length - 1] : null,
     move_history: game.move_history || [],
-    thinking_log: game.thinking_log || []
+    thinking_log: game.thinking_log || [],
+    chat_history: game.chat_history || []
   });
 }
