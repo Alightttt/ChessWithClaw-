@@ -33,6 +33,12 @@ export default async function handler(req, res) {
 
   if (error || !game) return res.status(404).json({ error: 'Game not found' });
 
+  // If the agent checks the state via API, mark them as connected!
+  if (!game.agent_connected) {
+    await supabase.from('games').update({ agent_connected: true }).eq('id', id);
+    game.agent_connected = true;
+  }
+
   const chess = new Chess(game.fen);
   const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
 

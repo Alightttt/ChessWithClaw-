@@ -79,7 +79,8 @@ export default async function handler(req, res) {
     turn: 'w',
     move_history: newMoveHistory,
     thinking_log: newThinkingLog,
-    current_thinking: ''
+    current_thinking: '',
+    agent_connected: true
   };
 
   if (chess.isCheckmate()) {
