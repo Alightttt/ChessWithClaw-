@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { Chess } from 'chess.js';
 
 export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordinates = true, interactive = true }) {
+  const [chess, setChess] = useState(new Chess(fen));
   const [selectedSquare, setSelectedSquare] = useState(null);
   const [legalMoves, setLegalMoves] = useState([]);
-  const [chess, setChess] = useState(new Chess(fen));
 
   useEffect(() => {
     setChess(new Chess(fen));
@@ -22,56 +22,26 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
-  const isLight = (row, col) => (row + col) % 2 === 0;
-  const squareToNotation = (row, col) => files[col] + ranks[row];
-  
-  const isKingInCheck = (row, col) => {
-    const sq = squareToNotation(row, col);
-    const piece = chess.get(sq);
-    return chess.inCheck() && piece && piece.type === 'k' && piece.color === chess.turn();
-  };
-
-  const isLastMoveSquare = (row, col) => {
-    if (!lastMove) return false;
-    const sq = squareToNotation(row, col);
-    return lastMove.from === sq || lastMove.to === sq;
-  };
-
-  const isLegalDestination = (row, col) => {
-    const sq = squareToNotation(row, col);
-    return legalMoves.some(m => m.to === sq);
-  };
-
-  const isCapture = (row, col) => {
-    const sq = squareToNotation(row, col);
-    return legalMoves.some(m => m.to === sq && m.flags.includes('c'));
-  };
-
-  const selectPiece = (row, col) => {
-    const sq = squareToNotation(row, col);
-    const moves = chess.moves({ square: sq, verbose: true });
-    setSelectedSquare(sq);
-    setLegalMoves(moves);
-  };
-
   const handleSquareClick = (row, col) => {
     if (!interactive || !isMyTurn) return;
 
-    const sq = squareToNotation(row, col);
-    const piece = chess.get(sq);
+    const square = files[col] + ranks[row];
+    const piece = chess.get(square);
 
     if (!selectedSquare) {
       if (piece && piece.color === 'w') {
-        selectPiece(row, col);
+        setSelectedSquare(square);
+        setLegalMoves(chess.moves({ square, verbose: true }));
       }
     } else {
-      const move = legalMoves.find(m => m.to === sq);
+      const move = legalMoves.find(m => m.to === square);
       if (move) {
-        onMove(selectedSquare, sq, move.flags.includes('p') ? 'q' : undefined);
+        onMove(selectedSquare, square, 'q'); // Auto-promote to queen for simplicity
         setSelectedSquare(null);
         setLegalMoves([]);
       } else if (piece && piece.color === 'w') {
-        selectPiece(row, col);
+        setSelectedSquare(square);
+        setLegalMoves(chess.moves({ square, verbose: true }));
       } else {
         setSelectedSquare(null);
         setLegalMoves([]);
@@ -79,72 +49,77 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
     }
   };
 
-  const boardOpacity = (!interactive || !isMyTurn) ? 'opacity-90' : 'opacity-100';
+  const isLight = (row, col) => (row + col) % 2 === 0;
+  
+  const isLastMoveSquare = (sq) => {
+    if (!lastMove) return false;
+    // lastMove could be a string like 'e2e4' or object {from: 'e2', to: 'e4'}
+    if (typeof lastMove === 'string') {
+        return sq === lastMove.substring(0, 2) || sq === lastMove.substring(2, 4);
+    }
+    return lastMove.from === sq || lastMove.to === sq || lastMove.uci?.includes(sq);
+  };
+  
+  const isLegalDestination = (sq) => legalMoves.some(m => m.to === sq);
+  const isCapture = (sq) => legalMoves.some(m => m.to === sq && m.captured);
+  const isKingInCheck = (sq, piece) => piece && piece.type === 'k' && piece.color === chess.turn() && chess.inCheck();
 
   return (
-    <div className={`flex flex-col items-center ${boardOpacity} transition-opacity duration-300`}>
-      <div className="w-[480px] h-[480px] grid grid-cols-8 grid-rows-8 border-4 border-[#444] shadow-2xl relative">
-        {ranks.map((rank, row) => (
+    <div className={`flex flex-col select-none ${!interactive || !isMyTurn ? 'opacity-90' : 'opacity-100'}`}>
+      <div className="grid grid-cols-8 w-[480px] h-[480px] border-2 border-[#333]">
+        {ranks.map((rank, row) =>
           files.map((file, col) => {
-            const sq = squareToNotation(row, col);
+            const sq = file + rank;
             const piece = chess.get(sq);
-            const light = isLight(row, col);
-            
+            const isSelected = selectedSquare === sq;
+            const isLast = isLastMoveSquare(sq);
+            const isLegal = isLegalDestination(sq);
+            const isCap = isCapture(sq);
+            const isCheck = isKingInCheck(sq, piece);
+
             return (
               <div
                 key={sq}
                 onClick={() => handleSquareClick(row, col)}
-                className={`relative flex items-center justify-center w-[60px] h-[60px] cursor-${interactive && isMyTurn ? 'pointer' : 'default'} ${light ? 'bg-[#f0d9b5]' : 'bg-[#b58863]'}`}
+                className={`relative w-[60px] h-[60px] flex items-center justify-center text-5xl cursor-pointer
+                  ${isLight(row, col) ? 'bg-[#f0d9b5]' : 'bg-[#b58863]'}
+                `}
               >
                 {/* Overlays */}
-                {selectedSquare === sq && (
-                  <div className="absolute inset-0 bg-yellow-400 opacity-60 z-0 pointer-events-none" />
-                )}
-                {isLastMoveSquare(row, col) && selectedSquare !== sq && (
-                  <div className="absolute inset-0 bg-orange-400 opacity-30 z-0 pointer-events-none" />
-                )}
-                {isKingInCheck(row, col) && (
-                  <div className="absolute inset-0 bg-red-600 opacity-50 animate-pulse z-0 pointer-events-none" />
-                )}
-                {isLegalDestination(row, col) && !isCapture(row, col) && (
-                  <div className="absolute w-4 h-4 rounded-full bg-green-500 opacity-50 z-0 pointer-events-none" />
-                )}
-                {isLegalDestination(row, col) && isCapture(row, col) && (
-                  <div className="absolute inset-0 border-4 border-green-500 opacity-60 z-0 pointer-events-none" />
-                )}
+                {isSelected && <div className="absolute inset-0 bg-yellow-400 opacity-60 z-0" />}
+                {!isSelected && isLast && <div className="absolute inset-0 bg-orange-400 opacity-30 z-0" />}
+                {isCheck && <div className="absolute inset-0 bg-red-600 opacity-50 animate-pulse z-0" />}
+                {isLegal && !isCap && <div className="absolute w-4 h-4 rounded-full bg-green-500 opacity-50 z-0" />}
+                {isLegal && isCap && <div className="absolute inset-0 border-4 border-green-500 opacity-60 z-0" />}
 
                 {/* Piece */}
                 {piece && (
-                  <span 
-                    className="text-5xl z-10 select-none"
+                  <span
+                    className="relative z-10 drop-shadow-md"
                     style={{
                       color: piece.color === 'w' ? '#ffffff' : '#000000',
-                      textShadow: piece.color === 'w' 
-                        ? '0px 0px 2px #000, 0px 0px 2px #000' 
-                        : '0px 0px 2px #fff, 0px 0px 2px #fff'
+                      textShadow: piece.color === 'w' ? '0 0 2px #000' : '0 0 2px #fff'
                     }}
                   >
                     {pieceMap[piece.color + piece.type.toUpperCase()]}
                   </span>
                 )}
 
-                {/* Inline Coordinates (Agent View) */}
+                {/* Coordinates (if showCoordinates is false, show small in corner) */}
                 {!showCoordinates && (
-                  <span className="absolute bottom-0.5 right-0.5 text-[8px] text-gray-600 font-bold z-0 pointer-events-none">
+                  <span className="absolute bottom-0.5 right-0.5 text-[8px] text-gray-800 opacity-50 z-0">
                     {sq}
                   </span>
                 )}
               </div>
             );
           })
-        ))}
+        )}
       </div>
-
-      {/* External Coordinates (Human View) */}
       {showCoordinates && (
-        <div className="flex w-[480px] mt-1">
+        <div className="flex w-[480px] h-6 bg-[#1c1c1c]">
           {files.map(file => (
-            <div key={file} className="w-[60px] text-center text-[#666] text-sm font-bold">
+            <div key={file} className="flex-1 flex items-center justify-center text-xs text-[#666] font-mono">
               {file}
             </div>
           ))}
