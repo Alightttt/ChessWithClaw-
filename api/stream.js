@@ -28,6 +28,9 @@ export default async function handler(req, res) {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // Mark agent as connected in the database
+  await supabase.from('games').update({ agent_connected: true }).eq('id', id);
+
   // Send initial connection success message
   res.write(`data: ${JSON.stringify({ status: 'connected', game_id: id, message: 'Listening for game updates...' })}\n\n`);
 
@@ -83,9 +86,10 @@ export default async function handler(req, res) {
   }, 15000);
 
   // Cleanup when the bot disconnects
-  req.on('close', () => {
+  req.on('close', async () => {
     clearInterval(interval);
     supabase.removeChannel(channel);
+    await supabase.from('games').update({ agent_connected: false }).eq('id', id);
     res.end();
   });
 }

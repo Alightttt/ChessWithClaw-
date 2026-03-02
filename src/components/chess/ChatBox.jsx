@@ -4,11 +4,23 @@ import { Send } from 'lucide-react';
 export default function ChatBox({ chatHistory, onSendMessage }) {
   const [message, setMessage] = useState('');
   const scrollRef = useRef(null);
+  const [botJustMessaged, setBotJustMessaged] = useState(false);
+  const [userJustMessaged, setUserJustMessaged] = useState(false);
+  const prevChatHistoryLength = useRef(chatHistory.length);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+    
+    if (chatHistory.length > prevChatHistoryLength.current) {
+      const lastMsg = chatHistory[chatHistory.length - 1];
+      if (lastMsg.sender === 'agent') {
+        setBotJustMessaged(true);
+        setTimeout(() => setBotJustMessaged(false), 3000);
+      }
+    }
+    prevChatHistoryLength.current = chatHistory.length;
   }, [chatHistory]);
 
   const handleSubmit = (e) => {
@@ -16,12 +28,22 @@ export default function ChatBox({ chatHistory, onSendMessage }) {
     if (!message.trim()) return;
     onSendMessage(message.trim());
     setMessage('');
+    setUserJustMessaged(true);
+    setTimeout(() => setUserJustMessaged(false), 3000);
   };
 
   return (
     <div className="bg-[#1c1c1c] border border-[#333] rounded-lg flex flex-col h-full shadow-lg">
-      <div className="p-3 sm:p-4 border-b border-[#333]">
+      <div className="p-3 sm:p-4 border-b border-[#333] flex justify-between items-center">
         <h2 className="text-[#c9973a] font-bold text-sm sm:text-base tracking-wider">LIVE CHAT</h2>
+        <div className="flex items-center gap-2">
+          {userJustMessaged && (
+            <span className="text-[#2dc653] text-[10px] sm:text-xs font-mono animate-pulse">Bot informed</span>
+          )}
+          {botJustMessaged && (
+            <div className="w-2.5 h-2.5 rounded-full bg-[#2dc653] animate-pulse shadow-[0_0_8px_#2dc653]" title="Bot just messaged" />
+          )}
+        </div>
       </div>
       
       <div 
