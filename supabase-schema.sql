@@ -1,4 +1,4 @@
--- Supabase Schema for Chess vs OpenClaw
+-- Supabase Schema for ChessWithClaw
 
 CREATE TABLE public.games (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

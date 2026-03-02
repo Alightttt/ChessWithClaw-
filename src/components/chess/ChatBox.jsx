@@ -36,7 +36,7 @@ export default function ChatBox({ chatHistory, onSendMessage }) {
           chatHistory.map((msg, idx) => (
             <div key={idx} className={`flex flex-col ${msg.sender === 'human' ? 'items-end' : 'items-start'}`}>
               <span className="text-[10px] text-[#666] mb-1">
-                {msg.sender === 'human' ? 'You' : '🤖 OpenClaw'}
+                {msg.sender === 'human' ? 'You' : '🤖 Claw'}
               </span>
               <div 
                 className={`px-3 py-2 rounded-lg max-w-[85%] break-words ${

@@ -1,5 +1,5 @@
 {
-  "name": "ChessClaw",
-  "description": "A real-time, turn-based chess platform playing against a strong AI opponent named OpenClaw.",
+  "name": "ChessWithClaw",
+  "description": "A real-time, turn-based chess platform playing against a strong AI opponent named Claw.",
   "requestFramePermissions": []
 }

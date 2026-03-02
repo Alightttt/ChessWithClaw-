@@ -65,9 +65,10 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
   const isKingInCheck = (sq, piece) => piece && piece.type === 'k' && piece.color === chess.turn() && chess.inCheck();
 
   return (
-    <div className={`flex flex-col select-none ${!interactive || !isMyTurn ? 'opacity-90' : 'opacity-100'}`}>
-      <div className="grid grid-cols-8 w-[480px] h-[480px] border-2 border-[#333]">
-        {ranks.map((rank, row) =>
+    <div className={`flex flex-col select-none w-full ${!interactive || !isMyTurn ? 'opacity-90' : 'opacity-100'}`}>
+      <div className="relative w-full aspect-square border-2 border-[#333]">
+        <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
+          {ranks.map((rank, row) =>
           files.map((file, col) => {
             const sq = file + rank;
             const piece = chess.get(sq);
@@ -81,7 +82,7 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
               <div
                 key={sq}
                 onClick={() => handleSquareClick(row, col)}
-                className={`relative w-[60px] h-[60px] flex items-center justify-center text-5xl cursor-pointer
+                className={`relative w-full h-full flex items-center justify-center text-[9vw] sm:text-5xl cursor-pointer
                   ${isLight(row, col) ? 'bg-[#f0d9b5]' : 'bg-[#b58863]'}
                 `}
               >
@@ -115,11 +116,12 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
             );
           })
         )}
+        </div>
       </div>
       {showCoordinates && (
-        <div className="flex w-[480px] h-6 bg-[#1c1c1c]">
+        <div className="flex w-full h-4 sm:h-6 bg-[#1c1c1c]">
           {files.map(file => (
-            <div key={file} className="flex-1 flex items-center justify-center text-xs text-[#666] font-mono">
+            <div key={file} className="flex-1 flex items-center justify-center text-[8px] sm:text-xs text-[#666] font-mono">
               {file}
             </div>
           ))}

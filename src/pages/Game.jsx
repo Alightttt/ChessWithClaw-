@@ -6,8 +6,8 @@ import { Chess } from 'chess.js';
 import { toast } from 'sonner';
 import ChessBoard from '../components/chess/ChessBoard';
 import ThinkingPanel from '../components/chess/ThinkingPanel';
-import MoveHistory from '../components/chess/MoveHistory';
 import ChatBox from '../components/chess/ChatBox';
+import CapturedPieces from '../components/chess/CapturedPieces';
 import { supabase } from '../lib/supabase';
 
 export default function Game() {
@@ -232,7 +232,7 @@ export default function Game() {
       statusMessage = '🏆 CHECKMATE! YOU WIN!';
       statusColor = '#2dc653';
     } else if (game.result === 'black') {
-      statusMessage = '💀 CHECKMATE. OPENCLAW WINS.';
+      statusMessage = '💀 CHECKMATE. CLAW WINS.';
       statusColor = '#e63946';
     } else {
       statusMessage = '🤝 DRAW';
@@ -241,7 +241,7 @@ export default function Game() {
     statusBg = '#1c1c1c';
     statusBorder = '#333';
   } else if (!game.agent_connected) {
-    statusMessage = '⏳ WAITING FOR OPENCLAW TO JOIN...';
+    statusMessage = '⏳ WAITING FOR CLAW TO JOIN...';
     statusColor = '#c9973a';
     statusBg = '#1c1c1c';
     statusBorder = '#333';
@@ -257,10 +257,10 @@ export default function Game() {
     statusBorder = '#2dc653';
   } else if (isAgentTurn) {
     if (chess.inCheck()) {
-      statusMessage = '⚠️ OPENCLAW IS IN CHECK — THINKING...';
+      statusMessage = '⚠️ CLAW IS IN CHECK — THINKING...';
       statusColor = '#c9973a';
     } else {
-      statusMessage = '🤖 OPENCLAW IS THINKING...';
+      statusMessage = '🤖 CLAW IS THINKING...';
       statusColor = '#a0a0a0';
     }
     statusBg = '#1a1a2e';
@@ -272,18 +272,39 @@ export default function Game() {
     statusBorder = '#333';
   }
 
+  const getCapturedPieces = (fen) => {
+    if (!fen) return { white_lost: {}, black_lost: {} };
+    const fenBoard = fen.split(' ')[0];
+    const counts = { p:0, n:0, b:0, r:0, q:0, P:0, N:0, B:0, R:0, Q:0 };
+    for (let char of fenBoard) {
+      if (counts[char] !== undefined) counts[char]++;
+    }
+    return {
+      white_lost: { 
+        P: Math.max(0, 8 - counts.P), N: Math.max(0, 2 - counts.N), 
+        B: Math.max(0, 2 - counts.B), R: Math.max(0, 2 - counts.R), Q: Math.max(0, 1 - counts.Q) 
+      },
+      black_lost: { 
+        p: Math.max(0, 8 - counts.p), n: Math.max(0, 2 - counts.n), 
+        b: Math.max(0, 2 - counts.b), r: Math.max(0, 2 - counts.r), q: Math.max(0, 1 - counts.q) 
+      }
+    };
+  };
+
+  const captured = getCapturedPieces(game?.fen);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0d0d0d] via-[#1a1a1a] to-[#0d0d0d] flex flex-col font-mono pb-20">
       {/* HEADER */}
-      <div className="bg-[#1c1c1c] border-b border-[#c9973a] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center z-10">
-        <div className="flex items-center gap-3">
+      <div className="bg-[#1c1c1c] border-b border-[#c9973a] px-3 sm:px-6 h-14 sm:h-16 flex justify-between items-center z-10 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
           <img 
             src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
             alt="Logo" 
             className="w-10 h-10 rounded-full border border-[#c9973a]"
           />
           <h1 className="text-xl sm:text-2xl text-[#c9973a] font-serif" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-            Chess vs OpenClaw
+            ChessWithClaw
           </h1>
         </div>
         <div className="flex items-center gap-4">
@@ -308,21 +329,10 @@ export default function Game() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 sm:p-6 gap-6 max-w-[1400px] mx-auto w-full">
-        {/* LEFT: Chess Board */}
-        <div className="flex-shrink-0 w-full lg:w-auto flex justify-center overflow-hidden">
-          <div className="scale-[0.58] sm:scale-75 md:scale-90 lg:scale-100 origin-top">
-            <ChessBoard 
-              fen={game.fen} 
-              onMove={makeMove} 
-              isMyTurn={isMyTurn} 
-              lastMove={lastMove} 
-            />
-          </div>
-        </div>
-
-        {/* RIGHT: Panels */}
-        <div className="flex-1 flex flex-col gap-4 sm:gap-6 min-w-0">
+      <div className="flex-1 flex flex-col lg:flex-row p-1.5 sm:p-6 gap-1.5 sm:gap-6 max-w-[1400px] mx-auto w-full pb-16 sm:pb-28">
+        
+        {/* MOBILE: Thinking Panel on top */}
+        <div className="block lg:hidden w-full shrink-0">
           <ThinkingPanel 
             agentConnected={game.agent_connected}
             agentUrl={agentUrl}
@@ -331,11 +341,43 @@ export default function Game() {
             isAgentTurn={isAgentTurn}
             isHumanTurn={isMyTurn}
           />
-          <div className="flex-1 grid grid-rows-2 gap-4 sm:gap-6 min-h-[500px]">
-            <MoveHistory 
-              moveHistory={game.move_history || []} 
-              currentMoveNumber={currentMoveNumber} 
+        </div>
+
+        {/* LEFT: Chess Board */}
+        <div className="flex-shrink-0 w-full lg:w-auto flex flex-col items-center justify-center overflow-hidden gap-0.5 sm:gap-2">
+          {/* Top: Agent (Black) captured pieces -> White pieces lost */}
+          <div className="w-full flex justify-start px-1" style={{ maxWidth: 'min(100vw - 0.75rem, 100vh - 310px, 480px)' }}>
+             <CapturedPieces pieces={captured.white_lost} isWhitePieces={true} />
+          </div>
+          
+          <div className="w-full" style={{ maxWidth: 'min(100vw - 0.75rem, 100vh - 310px, 480px)' }}>
+            <ChessBoard 
+              fen={game.fen} 
+              onMove={makeMove} 
+              isMyTurn={isMyTurn} 
+              lastMove={lastMove} 
             />
+          </div>
+
+          {/* Bottom: Human (White) captured pieces -> Black pieces lost */}
+          <div className="w-full flex justify-start px-1" style={{ maxWidth: 'min(100vw - 0.75rem, 100vh - 310px, 480px)' }}>
+             <CapturedPieces pieces={captured.black_lost} isWhitePieces={false} />
+          </div>
+        </div>
+
+        {/* RIGHT: Panels */}
+        <div className="flex-1 flex flex-col gap-1.5 sm:gap-6 min-w-0">
+          <div className="hidden lg:block">
+            <ThinkingPanel 
+              agentConnected={game.agent_connected}
+              agentUrl={agentUrl}
+              currentThinking={game.current_thinking}
+              lastThinking={lastThinking}
+              isAgentTurn={isAgentTurn}
+              isHumanTurn={isMyTurn}
+            />
+          </div>
+          <div className="flex-1 flex flex-col min-h-[250px] sm:min-h-[300px]">
             <ChatBox 
               chatHistory={game.chat_history || []} 
               onSendMessage={sendMessage} 
@@ -344,26 +386,36 @@ export default function Game() {
         </div>
       </div>
 
-      {/* FIXED BOTTOM STATUS BAR */}
+      {/* FIXED BOTTOM STATUS BAR (Universal Information Tab) */}
       <div 
-        className="fixed bottom-0 left-0 right-0 border-t-4 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center z-20 transition-colors duration-300"
-        style={{ backgroundColor: statusBg, borderColor: statusBorder }}
+        className="fixed bottom-0 left-0 right-0 border-t-2 px-3 sm:px-6 h-14 sm:h-16 flex justify-between items-center z-20 transition-colors duration-300 backdrop-blur-md shrink-0"
+        style={{ backgroundColor: `${statusBg}F2`, borderTopColor: statusBorder }}
       >
-        <div className="flex items-center gap-3">
-          <div 
-            className={`w-3 h-3 rounded-full ${isMyTurn ? 'animate-pulse' : ''}`} 
-            style={{ backgroundColor: statusColor }}
-          />
-          <span className="font-bold text-sm sm:text-base" style={{ color: statusColor }}>
-            {statusMessage}
+        <div className="flex flex-col justify-center h-full">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div 
+              className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${isMyTurn ? 'animate-pulse' : ''}`} 
+              style={{ backgroundColor: statusColor }}
+            />
+            <span className="font-bold text-[10px] sm:text-base truncate max-w-[160px] sm:max-w-none" style={{ color: statusColor }}>
+              {statusMessage}
+            </span>
+          </div>
+          <span className="text-[9px] sm:text-xs text-[#a0a0a0] mt-0.5">
+            {game.status === 'active' ? 'Match in progress' : 'Match concluded'}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[#a0a0a0] text-xs sm:text-sm">
-          <span className="hidden sm:inline">Move: {currentMoveNumber}</span>
-          <div className="flex items-center gap-2" title={game.agent_connected ? "Agent Online" : "Agent Offline"}>
-            <div className={`w-2 h-2 rounded-full ${game.agent_connected ? 'bg-[#2dc653]' : 'bg-red-500'}`} />
-            <span className="hidden sm:inline">Agent</span>
+        
+        <div className="flex flex-col items-end justify-center h-full gap-0.5 text-[#a0a0a0]">
+          <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-sm">
+            <span className="font-mono">Move: {currentMoveNumber}</span>
+            <span className="text-[#333] hidden sm:inline">|</span>
+            <div className="flex items-center gap-1" title={game.agent_connected ? "Agent Online" : "Agent Offline"}>
+              <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${game.agent_connected ? 'bg-[#2dc653]' : 'bg-red-500'}`} />
+              <span className="font-bold">{game.agent_connected ? 'Online' : 'Offline'}</span>
+            </div>
           </div>
+          <span className="text-[8px] sm:text-[10px] text-[#666] font-mono tracking-widest uppercase">Room: {gameId.substring(0, 6)}</span>
         </div>
       </div>
 

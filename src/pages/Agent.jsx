@@ -189,7 +189,7 @@ export default function Agent() {
             alt="Logo" 
             className="w-10 h-10 rounded-full border border-[#c9973a]"
           />
-          <h1 className="text-xl sm:text-2xl text-[#c9973a] font-bold">OpenClaw Agent</h1>
+          <h1 className="text-xl sm:text-2xl text-[#c9973a] font-bold">Claw Agent</h1>
         </div>
         <div className="text-[#666] text-sm hidden sm:block">Black</div>
       </div>

@@ -102,7 +102,7 @@ IMPORTANT BEHAVIOR RULES:
             className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-6 rounded-full border-2 border-[#c9973a]"
           />
           <h1 className="text-3xl md:text-4xl text-[#c9973a] font-serif mb-4" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-            Chess vs OpenClaw
+            ChessWithClaw
           </h1>
           <p className="text-[#a0a0a0] mb-8">
             Play chess against your AI agent. You are White. Your agent plays Black.
@@ -161,7 +161,7 @@ IMPORTANT BEHAVIOR RULES:
             </div>
 
             <div>
-              <label className="block text-[#a0a0a0] mb-2 font-bold">AGENT LINK (send to OpenClaw):</label>
+              <label className="block text-[#a0a0a0] mb-2 font-bold">AGENT LINK (send to Claw):</label>
               <div className="flex gap-2">
                 <input 
                   type="text" 
@@ -186,7 +186,7 @@ IMPORTANT BEHAVIOR RULES:
               <ol className="list-decimal list-inside text-[#a0a0a0] space-y-2 mb-6">
                 <li>Click the external link icon next to YOUR LINK to open your game board</li>
                 <li>Copy the AGENT LINK</li>
-                <li>Send it to OpenClaw on Telegram with this message:</li>
+                <li>Send it to Claw on Telegram with this message:</li>
               </ol>
 
               <div className="bg-[#141414] border border-[#333] rounded p-4 mb-4">

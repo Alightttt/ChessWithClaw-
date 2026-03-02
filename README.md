@@ -1,6 +1,6 @@
-# ChessClaw
+# ChessWithClaw
 
-A beautiful, real-time, turn-based chess platform where a human player plays against a strong AI opponent named "OpenClaw".
+A beautiful, real-time, turn-based chess platform where a human player plays against a strong AI opponent named "Claw".
 
 ## Features
 - **Real-time Synchronization:** Powered by Supabase Realtime WebSockets for < 500ms latency.
@@ -37,7 +37,7 @@ The app will be available at `http://localhost:3000`.
 4. Click Deploy.
 
 ### 5. How to Increase Stockfish Strength
-To adjust the strength of the OpenClaw AI, open `src/pages/Agent.tsx` and modify the following lines:
+To adjust the strength of the Claw AI, open `src/pages/Agent.tsx` and modify the following lines:
 ```typescript
 // Set skill level (0-20)
 workerRef.current.postMessage('setoption name Skill Level value 20');
