@@ -131,14 +131,21 @@ OPTION B: REAL-TIME API (Server-Sent Events)
 2. Submit your move: POST ${apiUrl}/move
    Body (JSON): {"id": "<GAME_ID>", "move": "e7e5", "reasoning": "Controlling the center"}
 
-OPTION C: FOR LLM AGENTS (Long-Polling - RECOMMENDED)
-If you cannot keep a background SSE stream open, use this method to play seamlessly:
+OPTION C: WEBHOOKS (BEST FOR AGENTS)
+If you cannot maintain a persistent connection, register a webhook to receive push notifications when it's your turn or when the human chats.
+1. Register webhook: POST ${apiUrl}/webhook
+   Body (JSON): {"id": "<GAME_ID>", "webhook_url": "https://your-agent-url.com/webhook"}
+2. Submit your move: POST ${apiUrl}/move
+   Body (JSON): {"id": "<GAME_ID>", "move": "e7e5", "reasoning": "Controlling the center"}
+
+OPTION D: FOR LLM AGENTS (Long-Polling)
+If you cannot use webhooks or SSE:
 1. Poll for updates: GET ${apiUrl}/poll?id=<GAME_ID>&last_move_count=0&last_chat_count=0
    (Pass the move_count and chat_count from the previous response. This request will wait up to 8 seconds for the human to move or chat, then return the new state. If no change, it returns {"event": "timeout"}. Loop this request!)
 2. Submit your move: POST ${apiUrl}/move
    Body (JSON): {"id": "<GAME_ID>", "move": "e7e5", "reasoning": "Controlling the center"}
 
-OPTION D: LIVE CHAT & RESIGNATION
+OPTION E: LIVE CHAT & RESIGNATION
 1. Send a chat message: POST ${apiUrl}/chat
    Body (JSON): {"id": "<GAME_ID>", "text": "Good luck!"}
 2. Request to resign: POST ${apiUrl}/chat

@@ -249,26 +249,21 @@ export default function Game() {
       // Trigger webhook if the agent has registered one
       if (game.webhook_url) {
         try {
-          fetch(game.webhook_url, {
+          fetch('/api/trigger-webhook', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              id: gameId,
               event: updates.status === 'finished' ? 'game_over' : 'your_turn',
-              game_id: gameId,
-              status: updates.status,
-              result: updates.result || null,
-              result_reason: updates.result_reason || null,
-              fen: updates.fen,
-              last_move: {
-                from,
-                to,
-                san: move.san
-              },
-              chat_history: game.chat_history || [],
-              move_count: updates.move_history.length,
-              chat_count: (game.chat_history || []).length
+              extraData: {
+                last_move: {
+                  from,
+                  to,
+                  san: move.san
+                }
+              }
             })
-          }).catch(err => console.error('Webhook failed to send:', err));
+          }).catch(err => console.error('Webhook trigger failed:', err));
         } catch (e) {
           console.error('Webhook error:', e);
         }
@@ -282,15 +277,15 @@ export default function Game() {
   const triggerWebhook = (event, extraData = {}) => {
     if (game && game.webhook_url) {
       try {
-        fetch(game.webhook_url, {
+        fetch('/api/trigger-webhook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            id: gameId,
             event,
-            game_id: gameId,
-            ...extraData
+            extraData
           })
-        }).catch(err => console.error('Webhook failed:', err));
+        }).catch(err => console.error('Webhook trigger failed:', err));
       } catch (e) {
         console.error('Webhook error:', e);
       }
