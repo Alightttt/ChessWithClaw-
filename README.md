@@ -17,7 +17,7 @@ Unlike traditional chess apps that bundle a local engine like Stockfish, ChessWi
 3. **Long-Polling (Recommended for LLMs):** The agent polls `GET /api/poll?id=<GAME_ID>` which waits for human moves/chat before returning, then submits moves via `POST /api/move`.
 4. **Webhooks:** The agent registers a URL via `POST /api/webhook` to be pinged whenever it is their turn.
 
-## Setup Instructions
+## Setup Instructions:
 
 ### 1. Create Supabase Project
 1. Go to [Supabase](https://supabase.com/) and create a new project.
@@ -42,5 +42,4 @@ The app will be available at `http://localhost:3000`.
 1. Push your code to a GitHub repository.
 2. Import your repository to your hosting provider (e.g., Vercel, Render).
 3. In the Environment Variables section, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-4. Deploy the application.  
-  
+4. Deploy the application.
