@@ -47,3 +47,15 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === 'your_supabase_project_u
 
 export const hasSupabase = isConfigured;
 export const supabase = client;
+
+export const getSupabaseWithToken = (token) => {
+  if (!isConfigured) return client;
+  const urlToUse = supabaseUrl.startsWith('http') ? supabaseUrl : `https://${supabaseUrl}`;
+  return createClient(urlToUse, supabaseAnonKey, {
+    global: {
+      headers: {
+        'x-game-token': token || ''
+      }
+    }
+  });
+};

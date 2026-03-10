@@ -1,26 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
+import { Button, Input } from '../ui';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ChatBox({ chatHistory, onSendMessage, onAcceptResignation }) {
+export default function ChatBox({ chatHistory, onSendMessage, onAcceptResignation, onAcceptDraw, agentName, agentAvatar, hideInput }) {
   const [message, setMessage] = useState('');
   const scrollRef = useRef(null);
-  const [botJustMessaged, setBotJustMessaged] = useState(false);
-  const [userJustMessaged, setUserJustMessaged] = useState(false);
-  const prevChatHistoryLength = useRef(chatHistory.length);
+
+  const displayAvatar = agentAvatar || '🤖';
+  const displayName = agentName || 'Agent';
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    
-    if (chatHistory.length > prevChatHistoryLength.current) {
-      const lastMsg = chatHistory[chatHistory.length - 1];
-      if (lastMsg.sender === 'agent') {
-        setBotJustMessaged(true);
-        setTimeout(() => setBotJustMessaged(false), 3000);
-      }
-    }
-    prevChatHistoryLength.current = chatHistory.length;
   }, [chatHistory]);
 
   const handleSubmit = (e) => {
@@ -28,76 +21,108 @@ export default function ChatBox({ chatHistory, onSendMessage, onAcceptResignatio
     if (!message.trim()) return;
     onSendMessage(message.trim());
     setMessage('');
-    setUserJustMessaged(true);
-    setTimeout(() => setUserJustMessaged(false), 3000);
+  };
+
+  const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    const d = new Date(timestamp);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <div className="bg-[#262421] border border-[#403d39] rounded-md flex flex-col h-full shadow-lg">
-      <div className="p-3 sm:p-4 border-b border-[#403d39] flex justify-between items-center">
-        <h2 className="text-[#ffffff] font-bold text-sm sm:text-base tracking-wider">LIVE CHAT</h2>
-        <div className="flex items-center gap-2">
-          {userJustMessaged && (
-            <span className="text-[#ef5350] text-[10px] sm:text-xs font-sans animate-pulse">Bot informed</span>
-          )}
-          {botJustMessaged && (
-            <div className="w-2.5 h-2.5 rounded-full bg-[#ef5350] animate-pulse shadow-[0_0_8px_#ef5350]" title="Bot just messaged" />
-          )}
+    <div className="flex flex-col h-full w-full">
+      {!hideInput && (
+        <div className="p-3 sm:p-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-elevated)]">
+          <h2 className="text-[var(--color-text-primary)] font-bold text-sm sm:text-base tracking-wider">LIVE CHAT</h2>
         </div>
-      </div>
+      )}
       
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-3 sm:p-4 font-sans text-xs sm:text-sm space-y-3 min-h-[150px] max-h-[250px]"
+        className="flex-1 overflow-y-auto p-4 font-sans text-sm space-y-4"
       >
         {chatHistory.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-[#c3c3c2] italic">
-            Game chat will appear here
+          <div className="flex flex-col items-center justify-center h-full text-[var(--color-text-muted)] italic text-sm gap-2">
+            <span className="text-4xl opacity-50">♟</span>
+            <span>No messages yet</span>
+            <span className="text-xs">Start the conversation</span>
           </div>
         ) : (
-          chatHistory.map((msg, idx) => (
-            <div key={idx} className={`flex flex-col ${msg.sender === 'human' ? 'items-end' : 'items-start'}`}>
-              <span className="text-[10px] text-[#c3c3c2] mb-1">
-                {msg.sender === 'human' ? 'You' : '🦞 Claw'}
-              </span>
-              <div 
-                className={`px-3 py-2 rounded-lg max-w-[85%] break-words ${
-                  msg.sender === 'human' 
-                    ? 'bg-[#c62828] text-white rounded-tr-none' 
-                    : 'bg-[#312e2b] text-[#ffffff] rounded-tl-none'
-                }`}
-              >
-                {msg.text}
-                {msg.type === 'resign_request' && msg.sender === 'agent' && (
-                  <button
-                    onClick={onAcceptResignation}
-                    className="mt-2 w-full bg-[#7f0000] hover:bg-[#c62828] text-white font-bold py-1 px-2 rounded text-[10px] transition-colors"
+          <AnimatePresence initial={false}>
+            {chatHistory.map((msg, idx) => {
+              const isHuman = msg.sender === 'human';
+              return (
+                <motion.div 
+                  key={idx} 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`flex flex-col group ${isHuman ? 'items-end' : 'items-start'}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {!isHuman && <span className="text-base">{displayAvatar}</span>}
+                    <span className="text-xs font-bold text-[var(--color-text-secondary)]">
+                      {isHuman ? 'You' : displayName}
+                    </span>
+                    <span className="text-[10px] text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
+                      {formatTime(msg.timestamp)}
+                    </span>
+                  </div>
+                  <div 
+                    className={`px-3 py-2 max-w-[85%] break-words shadow-sm ${
+                      isHuman 
+                        ? 'bg-[var(--color-red-primary)] text-white rounded-t-lg rounded-bl-lg rounded-br-sm' 
+                        : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-t-lg rounded-br-lg rounded-bl-sm'
+                    }`}
                   >
-                    ACCEPT RESIGNATION
-                  </button>
-                )}
-              </div>
-            </div>
-          ))
+                    {msg.text}
+                    {msg.type === 'resign_request' && !isHuman && (
+                      <Button
+                        onClick={onAcceptResignation}
+                        variant="danger"
+                        size="sm"
+                        className="mt-3 w-full text-xs"
+                      >
+                        ACCEPT RESIGNATION
+                      </Button>
+                    )}
+                    {msg.type === 'draw_request' && !isHuman && (
+                      <Button
+                        onClick={onAcceptDraw}
+                        variant="secondary"
+                        size="sm"
+                        className="mt-3 w-full text-xs"
+                      >
+                        ACCEPT DRAW
+                      </Button>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="p-3 border-t border-[#403d39] flex gap-2">
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Message the bot..."
-          className="flex-1 bg-[#312e2b] border border-[#403d39] rounded px-3 py-2 text-[#ffffff] font-sans text-xs sm:text-sm outline-none focus:border-[#c62828] transition-colors"
-        />
-        <button 
-          type="submit"
-          disabled={!message.trim()}
-          className="bg-[#c62828] hover:bg-[#e53935] disabled:bg-[#312e2b] disabled:text-[#c3c3c2] disabled:border-[#403d39] disabled:active:translate-y-0 disabled:active:border-b-[3px] text-white p-2 rounded-md border-b-[3px] border-[#7f0000] active:border-b-0 active:translate-y-[3px] flex items-center justify-center transition-all"
-        >
-          <Send size={18} />
-        </button>
-      </form>
+      {!hideInput && (
+        <form onSubmit={handleSubmit} className="p-3 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] flex gap-2">
+          <Input
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Message your agent..."
+            className="flex-1 bg-[var(--color-bg-base)] border-[var(--color-border-subtle)] focus:border-[var(--color-red-primary)]"
+            maxLength={500}
+          />
+          <Button 
+            type="submit"
+            disabled={!message.trim()}
+            variant="primary"
+            className="px-3"
+          >
+            <Send size={18} />
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

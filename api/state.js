@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { Chess } from 'chess.js';
+import { sanitizeText, validateUUID } from './_utils/sanitize.js';
+import { checkRateLimit } from './_utils/rateLimit.js';
+import { applySecurityHeaders, applyCacheControl, applyRateLimitHeaders } from './_middleware/headers.js';
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
+  applyCacheControl(res);
+
   // CORS headers to allow agents to fetch from anywhere
   res.setHeader('Access-Control-Allow-Credentials', true);
   const origin = req.headers.origin;
@@ -10,7 +16,7 @@ export default async function handler(req, res) {
   } else {
     res.setHeader('Access-Control-Allow-Origin', '*'); // Fallback for non-browser agents
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,PATCH,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -21,8 +27,65 @@ export default async function handler(req, res) {
     return;
   }
 
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  
+  if (req.method === 'PATCH') {
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > 10240) {
+      return res.status(413).json({ error: 'Payload too large' });
+    }
+
+    const rateLimitResult = checkRateLimit(ip, '/api/state:patch', 60, 60000);
+    applyRateLimitHeaders(res, 60, rateLimitResult.remaining, rateLimitResult.resetTime);
+    
+    if (!rateLimitResult.allowed) {
+      res.setHeader('Retry-After', Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000));
+      return res.status(429).json({ error: 'Too many requests', retry_after: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000) });
+    }
+
+    const { id, current_thinking } = req.body || {};
+    if (!id || current_thinking === undefined) return res.status(400).json({ error: 'Missing id or current_thinking' });
+    
+    if (!validateUUID(id)) {
+      return res.status(400).json({ error: 'Invalid game ID format' });
+    }
+
+    const sanitizedThinking = sanitizeText(current_thinking, 2000);
+
+    let supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey || supabaseUrl === 'undefined') {
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+    if (!supabaseUrl.startsWith('http')) supabaseUrl = `https://${supabaseUrl}`;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: game, error } = await supabase.from('games').select('id, status').eq('id', id).single();
+    if (error || !game) return res.status(404).json({ error: 'Game not found' });
+    if (game.status === 'finished') return res.status(400).json({ error: 'Game over' });
+
+    await supabase.from('games').update({ current_thinking: sanitizedThinking }).eq('id', id);
+    return res.status(200).json({ success: true, message: 'Thinking updated' });
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const rateLimitResult = checkRateLimit(ip, '/api/state:get', 120, 60000);
+  applyRateLimitHeaders(res, 120, rateLimitResult.remaining, rateLimitResult.resetTime);
+  
+  if (!rateLimitResult.allowed) {
+    res.setHeader('Retry-After', Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000));
+    return res.status(429).json({ error: 'Too many requests', retry_after: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000) });
+  }
+
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'Missing game ID' });
+
+  if (!validateUUID(id)) {
+    return res.status(400).json({ error: 'Invalid game ID format' });
+  }
 
   let supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -37,7 +100,7 @@ export default async function handler(req, res) {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const { data: game, error } = await supabase.from('games').select('id, fen, turn, status, move_history, thinking_log, chat_history, result, result_reason, created_at, agent_connected').eq('id', id).single();
+  const { data: game, error } = await supabase.from('games').select('id, fen, turn, status, move_history, chat_history, thinking_log, current_thinking, result, result_reason, agent_connected, human_connected, webhook_url, agent_capabilities, pending_events, move_count, created_at, updated_at, agent_name, agent_avatar, agent_tagline').eq('id', id).single();
 
   if (error || !game) return res.status(404).json({ error: 'Game not found' });
 
@@ -77,7 +140,7 @@ export default async function handler(req, res) {
   };
 
   res.status(200).json({
-    instructions: "You are BLACK. If current_turn is BLACK, choose a move from legal_moves and POST to /api/move",
+    instructions: "You are BLACK. If current_turn is BLACK, choose a move from legal_moves and POST to /api/move. Consult your 'skill.md' and search the internet for chess theory to play smartly. CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move.",
     game_id: id,
     status: game.status,
     game_info: {

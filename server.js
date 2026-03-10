@@ -8,6 +8,7 @@ import chatHandler from './api/chat.js';
 import stateHandler from './api/state.js';
 import webhookHandler from './api/webhook.js';
 import triggerWebhookHandler from './api/trigger-webhook.js';
+import thinkingHandler from './api/thinking.js';
 
 // Simple in-memory rate limiter
 const rateLimit = new Map();
@@ -52,6 +53,7 @@ async function startServer() {
   app.get('/api/state', stateHandler);
   app.post('/api/webhook', webhookHandler);
   app.post('/api/trigger-webhook', triggerWebhookHandler);
+  app.post('/api/thinking', thinkingHandler);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {

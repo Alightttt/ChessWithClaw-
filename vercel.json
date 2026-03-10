@@ -1,8 +1,12 @@
 {
-  "rewrites": [
+  "crons": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "path": "/api/presence-check",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/expire-games",
+      "schedule": "0 * * * *"
     }
   ]
 }

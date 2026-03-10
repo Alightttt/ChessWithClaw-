@@ -1,28 +1,63 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { toast } from 'sonner';
-import { ExternalLink, Copy, Play, Twitter, Github, MessageSquare, Zap, Link as LinkIcon, Swords } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useToast } from '../contexts/ToastContext';
+import { ExternalLink, Copy, Play, Twitter, Github, ChevronDown, ArrowRight, MessageSquare } from 'lucide-react';
 import { supabase, hasSupabase } from '../lib/supabase';
+import { Button, Card, Badge, Modal } from '../components/ui';
+import AppHeader from '../components/AppHeader';
+import GameCreated from '../components/GameCreated';
+
+function FadeInSection({ children, delay = 0, className = '' }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const domRef = useRef();
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+    
+    const currentRef = domRef.current;
+    if (currentRef) observer.observe(currentRef);
+    
+    return () => {
+      if (currentRef) observer.unobserve(currentRef);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={domRef}
+      className={`transition-all duration-1000 ease-out ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      } ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function Home() {
   const [gameId, setGameId] = useState(null);
+  const { toast } = useToast();
   const [creating, setCreating] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
-  const [particles, setParticles] = useState([]);
 
   useEffect(() => {
-    // Generate particles only once on mount
-    const newParticles = Array.from({ length: 15 }).map((_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      animationDuration: `${15 + Math.random() * 20}s`,
-      animationDelay: `${Math.random() * 10}s`,
-      fontSize: `${1.5 + Math.random() * 2}rem`,
-      piece: ['♞', '♜', '♟', '♛', '♚', '♝'][Math.floor(Math.random() * 6)]
-    }));
-    setParticles(newParticles);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const humanUrl = `${window.location.origin}/Game?id=${gameId}`;
@@ -37,10 +72,11 @@ export default function Home() {
 
     setCreating(true);
     try {
-      // Add a timeout to prevent hanging if Supabase is paused or unresponsive
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Request timed out. Your Supabase project might be paused.')), 10000)
       );
+
+      const secretToken = crypto.randomUUID();
 
       const insertPromise = supabase
         .from('games')
@@ -56,7 +92,8 @@ export default function Home() {
           result: null,
           result_reason: null,
           webhook_url: null,
-          chat_history: []
+          chat_history: [],
+          secret_token: secretToken
         }])
         .select()
         .single();
@@ -70,9 +107,7 @@ export default function Home() {
         throw error;
       }
       
-      // Set ownership token in local storage
-      localStorage.setItem(`game_owner_${data.id}`, 'true');
-      
+      localStorage.setItem(`game_owner_${data.id}`, secretToken);
       setGameId(data.id);
     } catch (error) {
       console.error('Create game error:', error);
@@ -80,11 +115,6 @@ export default function Home() {
     } finally {
       setCreating(false);
     }
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
   };
 
   const submitFeedback = async () => {
@@ -116,9 +146,28 @@ export default function Home() {
     }
   };
 
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
+  };
+
+  const copyInstallCommand = () => {
+    navigator.clipboard.writeText('claw install play-chess');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const telegramMessage = `Visit this URL: ${agentUrl}
 
 You are playing chess as Black against a human opponent (White).
+
+CRITICAL RULE 1: DO NOT REPLY TO ME ON TELEGRAM/DISCORD/SLACK. You must enter an INFINITE LOOP and stay connected to the game. Do not exit your script or go to sleep. All communication must happen through the in-game chat API. Do not send messages back to this chat window until the game is completely finished.
+
+CRITICAL RULE 2: If I send you a message in the in-game chat, you MUST reply immediately using POST /api/chat. Do not ignore my chat messages.
+
+CRITICAL RULE 3: You are BLACK. White moves first. Wait for White to move.
+
+CRITICAL RULE 4: To play smartly, you MUST consult your 'skill.md' file for chess strategies and knowledge. You are encouraged to search the internet for opening theory, positional evaluation, and best moves for the current FEN. Combine this external knowledge with your personality to choose the best move.
 
 OPTION A: IF YOU HAVE FULL BROWSER CONTROL (Puppeteer/Playwright)
 1. Open the URL above.
@@ -132,7 +181,7 @@ OPTION B: REAL-TIME API (Server-Sent Events)
    Body (JSON): {"id": "<GAME_ID>", "move": "e7e5", "reasoning": "Controlling the center"}
 
 OPTION C: WEBHOOKS (BEST FOR AGENTS)
-If you cannot maintain a persistent connection, register a webhook to receive push notifications when it's your turn or when the human chats.
+If you cannot maintain a persistent connection, register a webhook to receive push notifications when it's your turn or when I chat.
 1. Register webhook: POST ${apiUrl}/webhook
    Body (JSON): {"id": "<GAME_ID>", "webhook_url": "https://your-agent-url.com/webhook"}
 2. Submit your move: POST ${apiUrl}/move
@@ -141,7 +190,7 @@ If you cannot maintain a persistent connection, register a webhook to receive pu
 OPTION D: FOR LLM AGENTS (Long-Polling)
 If you cannot use webhooks or SSE:
 1. Poll for updates: GET ${apiUrl}/poll?id=<GAME_ID>&last_move_count=0&last_chat_count=0
-   (Pass the move_count and chat_count from the previous response. This request will wait up to 8 seconds for the human to move or chat, then return the new state. If no change, it returns {"event": "timeout"}. Loop this request!)
+   (Pass the move_count and chat_count from the previous response. This request will wait up to 8 seconds. If no change, it returns {"event": "timeout"}. YOU MUST LOOP THIS REQUEST INFINITELY!)
 2. Submit your move: POST ${apiUrl}/move
    Body (JSON): {"id": "<GAME_ID>", "move": "e7e5", "reasoning": "Controlling the center"}
 
@@ -149,225 +198,325 @@ OPTION E: LIVE CHAT & RESIGNATION
 1. Send a chat message: POST ${apiUrl}/chat
    Body (JSON): {"id": "<GAME_ID>", "text": "Good luck!"}
 2. Request to resign: POST ${apiUrl}/chat
-   Body (JSON): {"id": "<GAME_ID>", "text": "I am completely lost. Do you accept my resignation?", "type": "resign_request"}
-   (This will show an "Accept Resignation" button to the human in the app)
+   Body (JSON): {"id": "<GAME_ID>", "text": "I am completely lost. Do you accept my resignation?", "type": "resign_request"}`;
 
-IMPORTANT BEHAVIOR RULES:
-1. You are BLACK. White moves first.
-2. When you join this match, stay here and focus ONLY on playing chess with your user. Do other tasks later.
-3. If your user forgets they are playing with you (takes too long to move), inform and remind them using the chat channel you are connected to (Telegram, Discord, Slack, etc.).`;
+  if (gameId) {
+    return <GameCreated gameId={gameId} agentUrl={agentUrl} />;
+  }
+
+  const floatingPieces = [
+    { piece: '♟', top: '20%', left: '10%', duration: '8s', delay: '0s' },
+    { piece: '♜', top: '10%', left: '80%', duration: '10s', delay: '1s' },
+    { piece: '♝', top: '80%', left: '20%', duration: '7s', delay: '2s' },
+    { piece: '♞', top: '70%', left: '75%', duration: '12s', delay: '0.5s' },
+    { piece: '♛', top: '15%', left: '50%', duration: '9s', delay: '1.5s' },
+    { piece: '♚', top: '50%', left: '85%', duration: '11s', delay: '0.2s' },
+    { piece: '🦞', top: '60%', left: '15%', duration: '8.5s', delay: '0.8s' },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#1a1917] text-white font-sans relative overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-[var(--color-bg-base)] text-[var(--color-text-primary)] font-sans selection:bg-[var(--color-red-primary)] selection:text-white">
       <style>{`
-        @keyframes float-up {
-          0% { transform: translateY(100px) rotate(0deg); opacity: 0; }
-          10% { opacity: 0.05; }
-          90% { opacity: 0.05; }
-          100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-30px) rotate(5deg); }
         }
-        .chess-particle {
-          position: absolute;
-          bottom: -100px;
-          color: #c62828;
-          user-select: none;
-          pointer-events: none;
-          z-index: 0;
-          animation-name: float-up;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
+        @keyframes pulse-ring {
+          0% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(1.3); opacity: 0; }
+        }
+        @keyframes bounce-subtle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(5px); }
+        }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        .animate-float {
+          animation: float ease-in-out infinite;
+        }
+        .animate-pulse-ring {
+          animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        .animate-bounce-subtle {
+          animation: bounce-subtle 2s ease-in-out infinite;
+        }
+        .animate-blink {
+          animation: blink 1s step-end infinite;
+        }
+        .text-gradient {
+          background: linear-gradient(135deg, var(--color-red-primary), var(--color-red-hover));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
         }
       `}</style>
 
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        {particles.map(p => (
-          <div 
-            key={p.id} 
-            className="chess-particle"
-            style={{
-              left: p.left,
-              animationDuration: p.animationDuration,
-              animationDelay: p.animationDelay,
-              fontSize: p.fontSize
-            }}
-          >
-            {p.piece}
-          </div>
-        ))}
-      </div>
+      {/* SECTION 1 — HERO */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20 pb-16">
+        {/* Background Gradient */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(229,62,62,0.08)_0%,transparent_70%)] pointer-events-none" />
+        
+        {/* Floating Pieces */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {floatingPieces.map((p, i) => (
+            <div
+              key={i}
+              className="absolute text-white opacity-[0.05] animate-float"
+              style={{
+                top: p.top,
+                left: p.left,
+                fontSize: `${80 + Math.random() * 80}px`,
+                animationDuration: p.duration,
+                animationDelay: p.delay,
+              }}
+            >
+              {p.piece}
+            </div>
+          ))}
+        </div>
 
-      {gameId === null ? (
-        <>
-          {/* Main Content for Landing */}
-          <div className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 md:p-8">
-            {/* Hero Section */}
-            <div className="text-center max-w-3xl mx-auto mb-12 mt-4 md:mt-8">
-              <div className="relative inline-block mb-4">
-                <div className="absolute -inset-2 bg-gradient-to-r from-[#c62828] to-[#ef5350] rounded-full blur-md opacity-75 animate-pulse"></div>
-                <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
-                  alt="ChessWithClaw Logo" 
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
-                  className="relative w-32 h-32 md:w-40 md:h-40 mx-auto rounded-full border-2 border-[#1a1917] object-cover"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "https://images.unsplash.com/photo-1580541832626-2a7131ee809f?w=400&q=80";
-                  }}
-                />
-              </div>
-              <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-2 tracking-tight">
-                ChessWith<span className="text-[#c62828]">Claw</span>
-              </h1>
-              <p className="text-lg md:text-xl text-[#c3c3c2] mb-8 max-w-2xl mx-auto">
-                Challenge your OpenClaw AI agent to a real-time game of chess. Connect via Telegram and test your strategy.
-              </p>
-              
-              <button
-                onClick={createGame}
-                disabled={creating}
-                className="relative group inline-flex items-center justify-center px-10 py-5 text-xl md:text-2xl font-bold text-white transition-all duration-300 bg-gradient-to-r from-[#c62828] to-[#ef5350] rounded-full hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_30px_rgba(198,40,40,0.4)] hover:shadow-[0_0_50px_rgba(198,40,40,0.8)]"
-              >
-                <span className="relative flex items-center gap-3">
-                  {creating ? 'CREATING ROOM...' : (
-                    <>
-                      <Play fill="currentColor" size={28} />
-                      PLAY NOW
-                    </>
-                  )}
-                </span>
-              </button>
-              
-              {!hasSupabase && (
-                <p className="mt-4 text-[#ef5350] text-sm font-medium">
-                  Supabase configuration missing. Please check your environment variables.
-                </p>
+        <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-4xl mx-auto">
+          {/* Logo Area */}
+          <div className="relative mb-8 animate-in fade-in duration-700 delay-200 fill-mode-both">
+            <div className="absolute inset-0 m-auto w-[112px] h-[112px] border-2 border-[var(--color-red-primary)]/30 rounded-full animate-pulse-ring" />
+            <div className="relative w-24 h-24 rounded-full border-2 border-[var(--color-red-primary)] overflow-hidden bg-[var(--color-bg-elevated)] z-10">
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
+                alt="Logo" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Title */}
+          <h1 className="text-[56px] md:text-[80px] font-black leading-none tracking-tight mb-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-400 fill-mode-both">
+            ChessWith<span className="text-gradient">Claw</span>
+          </h1>
+
+          {/* Tagline */}
+          <div className="text-[18px] md:text-[22px] text-[var(--color-text-secondary)] mb-10 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-500 fill-mode-both space-y-2">
+            <p>Your OpenClaw agent. Your opponent.</p>
+            <p>Real chess. Real rivalry.</p>
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto animate-in slide-in-from-bottom-8 fade-in duration-700 delay-[600ms] fill-mode-both">
+            <Button
+              onClick={createGame}
+              loading={creating}
+              className="w-full sm:w-auto min-w-[200px] h-14 text-lg font-bold bg-[var(--color-red-primary)] hover:bg-[var(--color-red-hover)] shadow-[0_0_20px_rgba(229,62,62,0.4)] hover:shadow-[0_0_40px_rgba(229,62,62,0.6)] transition-all group rounded-full"
+            >
+              {!creating && (
+                <>
+                  Start a Game
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
               )}
-            </div>
-
-            {/* How to Play Section */}
-            <div className="max-w-5xl w-full mx-auto mb-16">
-              <h2 className="text-2xl md:text-3xl font-bold text-center mb-10 text-white">How It Works</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-[#262421] border border-[#403d39] rounded-xl p-6 flex flex-col items-center text-center hover:border-[#c62828] hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(198,40,40,0.15)] transition-all duration-300 shadow-lg">
-                  <div className="w-16 h-16 bg-[#312e2b] rounded-full flex items-center justify-center mb-6 border border-[#403d39] text-[#c62828]">
-                    <Zap size={32} />
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-3">1. Click Play Now</h3>
-                  <p className="text-[#c3c3c2]">Instantly create a secure, real-time game room.</p>
-                </div>
-
-                <div className="bg-[#262421] border border-[#403d39] rounded-xl p-6 flex flex-col items-center text-center hover:border-[#c62828] hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(198,40,40,0.15)] transition-all duration-300 shadow-lg">
-                  <div className="w-16 h-16 bg-[#312e2b] rounded-full flex items-center justify-center mb-6 border border-[#403d39] text-[#c62828]">
-                    <LinkIcon size={32} />
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-3">2. Copy Agent Link</h3>
-                  <p className="text-[#c3c3c2]">Send the connection link to your agent.</p>
-                </div>
-
-                <div className="bg-[#262421] border border-[#403d39] rounded-xl p-6 flex flex-col items-center text-center hover:border-[#c62828] hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(198,40,40,0.15)] transition-all duration-300 shadow-lg">
-                  <div className="w-16 h-16 bg-[#312e2b] rounded-full flex items-center justify-center mb-6 border border-[#403d39] text-[#c62828]">
-                    <Swords size={32} />
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-3">3. Wait & Play</h3>
-                  <p className="text-[#c3c3c2]">Make your first move as White and enjoy!</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="relative z-10 flex-grow flex items-center justify-center p-4">
-          <div className="bg-[#262421] border border-[#403d39] rounded-xl p-6 md:p-8 max-w-2xl w-full shadow-2xl transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
-                  alt="Logo" 
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
-                  className="w-12 h-12 rounded-full border border-[#403d39] object-cover"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "https://images.unsplash.com/photo-1580541832626-2a7131ee809f?w=400&q=80";
-                  }}
-                />
-                <div>
-                  <h2 className="text-xl md:text-2xl text-[#ffffff] font-bold">Game Created</h2>
-                  <p className="text-[#c3c3c2] text-sm">Room #{gameId.substring(0, 6).toUpperCase()}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-8">
-              {/* STEP 1 */}
-              <div className="bg-[#211f1c] border border-[#403d39] rounded-md p-5 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-[#c62828]"></div>
-                <h3 className="text-[#c62828] font-bold mb-1 text-sm uppercase tracking-wider">Step 1</h3>
-                <p className="text-[#ffffff] mb-4 text-lg">Open your chess board</p>
-                <button 
-                  onClick={() => window.open(`${window.location.origin}/Game?id=${gameId}`, '_blank')}
-                  className="w-full bg-[#c62828] hover:bg-[#e53935] text-white font-bold py-4 px-4 rounded-lg border-b-[4px] border-[#7f0000] active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2 text-xl shadow-sm"
-                >
-                  <ExternalLink size={20} />
-                  Open Board in New Tab
-                </button>
-              </div>
-
-              {/* STEP 2 */}
-              <div className="bg-[#211f1c] border border-[#403d39] rounded-md p-5 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-[#ef5350]"></div>
-                <h3 className="text-[#ef5350] font-bold mb-1 text-sm uppercase tracking-wider">Step 2</h3>
-                <p className="text-[#ffffff] mb-4 text-lg">Invite your agent</p>
-                
-                <div className="bg-[#1a1917] border border-[#403d39] rounded-lg p-4 mb-4">
-                  <p className="text-[#c3c3c2] text-sm mb-2">Copy this message and send it to Claw:</p>
-                  <div className="relative">
-                    <pre className="whitespace-pre-wrap font-sans text-sm text-[#c3c3c2] max-h-48 overflow-y-auto p-3 bg-[#262421] rounded border border-[#403d39]">
-                      {telegramMessage.replace(gameId, `...${gameId.substring(0, 6).toUpperCase()}`)}
-                    </pre>
-                    <button
-                      onClick={() => copyToClipboard(telegramMessage)}
-                      className="absolute top-2 right-2 bg-[#312e2b] hover:bg-[#403d39] text-white p-2 rounded-md transition-colors shadow-md"
-                      title="Copy Message"
-                    >
-                      <Copy size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+              {creating && 'Creating...'}
+            </Button>
+            <a 
+              href="https://github.com/openclaw" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto h-14 px-8 flex items-center justify-center rounded-full text-[var(--color-red-primary)] border border-[var(--color-red-primary)]/30 hover:border-[var(--color-red-primary)] hover:bg-[var(--color-red-primary)]/10 hover:shadow-[0_0_20px_rgba(229,62,62,0.2)] transition-all font-medium"
+            >
+              View on ClawHub →
+            </a>
           </div>
         </div>
-      )}
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-[#403d39] bg-[#1a1917] py-6 px-4 mt-auto w-full">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="text-[#c3c3c2] text-sm font-medium">
-            Built for the <span className="text-[#c62828] font-bold">OpenClaw</span> community
+        {/* Scroll Indicator */}
+        <div className={`absolute bottom-8 flex flex-col items-center text-[var(--color-text-muted)] transition-opacity duration-500 ${scrolled ? 'opacity-0' : 'opacity-100'} animate-in fade-in duration-1000 delay-1000 fill-mode-both`}>
+          <span className="text-sm font-medium mb-2 uppercase tracking-widest">Scroll</span>
+          <ChevronDown className="w-5 h-5 animate-bounce-subtle" />
+        </div>
+      </section>
+
+      {/* SECTION 2 — STATS BAR */}
+      <FadeInSection>
+        <section className="w-full bg-[var(--color-bg-elevated)] border-y border-[var(--color-border-subtle)] py-8 px-4">
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-0 divide-y md:divide-y-0 md:divide-x divide-[var(--color-border-subtle)]">
+            <div className="flex flex-col items-center text-center px-4 pt-4 md:pt-0 first:pt-0">
+              <span className="text-2xl font-bold text-[var(--color-text-primary)] mb-1">Real-time</span>
+              <span className="text-[var(--color-text-muted)] text-sm">Move by Move</span>
+            </div>
+            <div className="flex flex-col items-center text-center px-4 pt-4 md:pt-0">
+              <span className="text-2xl font-bold text-[var(--color-text-primary)] mb-1">Every Agent</span>
+              <span className="text-[var(--color-text-muted)] text-sm">Every Style</span>
+            </div>
+            <div className="flex flex-col items-center text-center px-4 pt-4 md:pt-0">
+              <span className="text-2xl font-bold text-[var(--color-text-primary)] mb-1">One Game</span>
+              <span className="text-[var(--color-text-muted)] text-sm">Infinite Rivals</span>
+            </div>
+          </div>
+        </section>
+      </FadeInSection>
+
+      {/* SECTION 3 — HOW IT WORKS */}
+      <section className="py-24 px-4 max-w-6xl mx-auto w-full">
+        <FadeInSection>
+          <h2 className="text-3xl md:text-4xl font-black text-center mb-16">How It Works</h2>
+        </FadeInSection>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <FadeInSection delay={0}>
+            <div className="group relative bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] rounded-xl p-8 h-full transition-all duration-300 hover:-translate-y-2 hover:border-[var(--color-red-primary)] hover:shadow-[0_0_30px_rgba(229,62,62,0.15)] overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-red-primary)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="absolute -top-4 -left-4 bg-[var(--color-red-primary)] text-white text-xs font-bold px-3 py-1.5 rounded-br-lg rounded-tl-xl shadow-md">01</div>
+                <div className="text-5xl mb-6 mt-4 text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors group-hover:scale-110 transform origin-left duration-300">♟</div>
+                <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-3">Create Your Board</h3>
+                <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed group-hover:text-gray-300 transition-colors">
+                  Start a game and get your unique room link
+                </p>
+              </div>
+            </div>
+          </FadeInSection>
+
+          <FadeInSection delay={150}>
+            <div className="group relative bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] rounded-xl p-8 h-full transition-all duration-300 hover:-translate-y-2 hover:border-[var(--color-red-primary)] hover:shadow-[0_0_30px_rgba(229,62,62,0.15)] overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-red-primary)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="absolute -top-4 -left-4 bg-[var(--color-red-primary)] text-white text-xs font-bold px-3 py-1.5 rounded-br-lg rounded-tl-xl shadow-md">02</div>
+                <div className="text-5xl mb-6 mt-4 text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors group-hover:scale-110 transform origin-left duration-300">🦞</div>
+                <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-3">Invite Your Agent</h3>
+                <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed group-hover:text-gray-300 transition-colors">
+                  Send the link to your OpenClaw — it joins instantly
+                </p>
+              </div>
+            </div>
+          </FadeInSection>
+
+          <FadeInSection delay={300}>
+            <div className="group relative bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] rounded-xl p-8 h-full transition-all duration-300 hover:-translate-y-2 hover:border-[var(--color-red-primary)] hover:shadow-[0_0_30px_rgba(229,62,62,0.15)] overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-red-primary)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="absolute -top-4 -left-4 bg-[var(--color-red-primary)] text-white text-xs font-bold px-3 py-1.5 rounded-br-lg rounded-tl-xl shadow-md">03</div>
+                <div className="text-5xl mb-6 mt-4 text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors group-hover:scale-110 transform origin-left duration-300">⚔</div>
+                <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-3">Play and Compete</h3>
+                <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed group-hover:text-gray-300 transition-colors">
+                  Make your move. Your agent thinks and strikes back
+                </p>
+              </div>
+            </div>
+          </FadeInSection>
+        </div>
+      </section>
+
+      {/* SECTION 4 — INSTALL SKILL SECTION */}
+      <section className="bg-[var(--color-bg-base)] py-24 px-4 w-full">
+        <FadeInSection>
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl font-black mb-4">Install the Chess Skill</h2>
+            <p className="text-[var(--color-text-secondary)] text-lg mb-10">Give your OpenClaw the power to play</p>
+            
+            <div className="relative bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] rounded-lg text-left mb-8 mx-auto max-w-lg font-mono text-sm md:text-base shadow-2xl overflow-hidden">
+              <div className="bg-[var(--color-bg-elevated)] px-4 py-2 border-b border-[var(--color-border-subtle)] flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
+                <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+              </div>
+              <div className="p-6 relative">
+                <button 
+                  onClick={copyInstallCommand}
+                  className="absolute top-4 right-4 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors p-2 rounded-md hover:bg-white/5"
+                  title="Copy command"
+                >
+                  {copied ? <span className="text-xs text-green-400 font-sans">Copied!</span> : <Copy size={18} />}
+                </button>
+                <div className="flex items-center text-[var(--color-text-secondary)]">
+                  <span className="mr-3 select-none">$</span>
+                  <span>claw install <span className="text-[var(--color-red-primary)]">play-chess</span><span className="animate-blink inline-block w-2 h-4 bg-[var(--color-red-primary)] ml-1 align-middle"></span></span>
+                </div>
+              </div>
+            </div>
+
+            <a 
+              href="https://github.com/openclaw" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center h-12 px-6 rounded-md text-[var(--color-red-primary)] border border-[var(--color-red-primary)]/30 hover:border-[var(--color-red-primary)] hover:bg-[var(--color-red-primary)]/10 transition-colors font-medium"
+            >
+              View on ClawHub →
+            </a>
+          </div>
+        </FadeInSection>
+      </section>
+
+      {/* SECTION 5 — FINAL CTA */}
+      <section className="relative py-32 px-4 w-full flex flex-col items-center text-center overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(229,62,62,0.15)_0%,transparent_70%)] pointer-events-none" />
+        <FadeInSection className="relative z-10">
+          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">Ready to play?</h2>
+          <p className="text-xl md:text-2xl text-[var(--color-text-secondary)] mb-10 max-w-2xl mx-auto">Challenge your agent. See who wins.</p>
+          <Button
+            onClick={createGame}
+            loading={creating}
+            className="h-16 px-12 text-xl font-bold bg-[var(--color-red-primary)] hover:bg-[var(--color-red-hover)] shadow-[0_0_40px_rgba(229,62,62,0.5)] hover:shadow-[0_0_60px_rgba(229,62,62,0.8)] transition-all rounded-full group"
+          >
+            {!creating && (
+              <>
+                Create Game
+                <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
+            {creating && 'Creating...'}
+          </Button>
+        </FadeInSection>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="w-full relative bg-[var(--color-bg-surface)] py-8 px-4">
+        {/* Top border: thin red gradient line */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[var(--color-red-primary)] to-transparent opacity-50" />
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
+              alt="Logo" 
+              className="w-8 h-8 rounded-full object-cover border border-[var(--color-border-subtle)]"
+            />
+            <span className="font-bold text-[var(--color-text-primary)] tracking-tight">ChessWithClaw</span>
           </div>
           
-          <div className="flex items-center gap-4">
-            <a 
-              href="mailto:hello@openclaw.com?subject=ChessWithClaw Feedback"
-              className="text-[#c3c3c2] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium bg-[#262421] px-4 py-2 rounded-full border border-[#403d39] hover:border-[#c62828]"
-            >
-              <MessageSquare size={16} />
+          <div className="flex items-center gap-6">
+            <button onClick={() => setShowFeedback(true)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors flex items-center gap-2 text-sm font-medium">
+              <MessageSquare size={18} />
               Feedback
+            </button>
+            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
+              <Twitter size={20} />
             </a>
-            
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#262421] border border-[#403d39] flex items-center justify-center text-[#c3c3c2] hover:text-white hover:border-[#c62828] transition-all">
-              <Twitter size={18} />
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
+              <Github size={20} />
             </a>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#262421] border border-[#403d39] flex items-center justify-center text-[#c3c3c2] hover:text-white hover:border-[#c62828] transition-all">
-              <Github size={18} />
-            </a>
+          </div>
+
+          <div className="text-[var(--color-text-muted)] text-sm">
+            Built for OpenClaw
           </div>
         </div>
       </footer>
+
+      {/* FEEDBACK MODAL */}
+      <Modal open={showFeedback} onClose={() => setShowFeedback(false)} title="Send Feedback">
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            Have a suggestion or found a bug? Let us know!
+          </p>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Your feedback..."
+            className="w-full h-32 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-md p-3 text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-red-primary)] resize-none"
+          />
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setShowFeedback(false)}>Cancel</Button>
+            <Button onClick={submitFeedback} disabled={!feedbackText.trim()}>Submit</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
-

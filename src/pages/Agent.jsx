@@ -3,14 +3,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
-import { toast } from 'sonner';
+import { useToast } from '../contexts/ToastContext';
 import ChessBoard from '../components/chess/ChessBoard';
 import ChatBox from '../components/chess/ChatBox';
-import { supabase } from '../lib/supabase';
+import { supabase, getSupabaseWithToken } from '../lib/supabase';
 
 export default function Agent() {
   const [searchParams] = useSearchParams();
   const gameId = searchParams.get('id');
+  const { toast } = useToast();
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reasoning, setReasoning] = useState('');
@@ -18,6 +19,10 @@ export default function Agent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const moveInputRef = useRef(null);
+
+  const channelRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectDelayRef = useRef(1000);
 
   useEffect(() => {
     if (!gameId) {
@@ -39,38 +44,83 @@ export default function Agent() {
         setGame(data);
       } else {
         setGame(data);
-        await supabase.from('games').update({ agent_connected: true }).eq('id', gameId);
+        await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: true }).eq('id', gameId);
       }
       setLoading(false);
     };
 
     loadGame();
 
-    const channel = supabase
-      .channel(`agent-${gameId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
+    const connectChannel = () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+
+      const channel = supabase.channel(`agent-${gameId}`);
+      channelRef.current = channel;
+
+      channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
         setGame(payload.new);
         if (!payload.new.agent_connected) {
-          supabase.from('games').update({ agent_connected: true }).eq('id', gameId);
+          getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: true }).eq('id', gameId);
         }
         if (payload.new.turn === 'b' && (payload.new.status === 'active' || payload.new.status === 'waiting')) {
           setTimeout(() => moveInputRef.current?.focus(), 100);
         }
-      })
-      .subscribe();
+      }).subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          reconnectDelayRef.current = 1000;
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000);
+            connectChannel();
+          }, reconnectDelayRef.current);
+        }
+      });
+    };
+
+    connectChannel();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        connectChannel();
+      } else {
+        if (channelRef.current) {
+          supabase.removeChannel(channelRef.current);
+          channelRef.current = null;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const handleBeforeUnload = () => {
-      supabase.from('games').update({ agent_connected: false }).eq('id', gameId);
+      getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: false }).eq('id', gameId);
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
+    // Heartbeat
+    const heartbeatInterval = setInterval(() => {
+      fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: gameId, role: 'agent' })
+      }).catch(() => {});
+    }, 15000);
+
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(heartbeatInterval);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       if (thinkingTimeoutRef.current) {
         clearTimeout(thinkingTimeoutRef.current);
       }
-      supabase.from('games').update({ agent_connected: false }).eq('id', gameId);
+      getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: false }).eq('id', gameId);
     };
   }, [gameId]);
 
@@ -85,7 +135,7 @@ export default function Agent() {
         clearTimeout(thinkingTimeoutRef.current);
       }
       thinkingTimeoutRef.current = setTimeout(async () => {
-        await supabase.from('games').update({ current_thinking: text }).eq('id', gameId);
+        await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ current_thinking: text }).eq('id', gameId);
       }, 500);
     }
   };
@@ -164,7 +214,7 @@ export default function Agent() {
     // Optimistic update
     setGame(prev => ({ ...prev, ...updates }));
 
-    await supabase.from('games').update(updates).eq('id', gameId);
+    await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update(updates).eq('id', gameId);
     setReasoning('');
     setMoveInput('');
     setSubmitting(false);
@@ -189,15 +239,28 @@ export default function Agent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#312e2b] flex items-center justify-center text-white font-sans">
-        LOADING GAME...
+      <div className="min-h-screen bg-[var(--color-bg-base)] flex flex-col font-sans">
+        <div className="bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[var(--color-bg-elevated)] animate-[shimmer_1.5s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%)', backgroundSize: '200% 100%' }}></div>
+            <div className="w-32 h-6 bg-[var(--color-bg-elevated)] rounded animate-[shimmer_1.5s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%)', backgroundSize: '200% 100%' }}></div>
+          </div>
+        </div>
+        <div className="bg-[var(--color-bg-surface)] border-b-4 border-[var(--color-border-subtle)] px-4 py-6 text-center">
+          <div className="w-64 h-8 bg-[var(--color-bg-elevated)] rounded mx-auto mb-2 animate-[shimmer_1.5s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%)', backgroundSize: '200% 100%' }}></div>
+          <div className="w-48 h-4 bg-[var(--color-bg-elevated)] rounded mx-auto animate-[shimmer_1.5s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%)', backgroundSize: '200% 100%' }}></div>
+        </div>
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6 w-full">
+          <div className="w-full h-16 bg-[var(--color-bg-elevated)] rounded animate-[shimmer_1.5s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%)', backgroundSize: '200% 100%' }}></div>
+          <div className="w-full h-64 bg-[var(--color-bg-elevated)] rounded animate-[shimmer_1.5s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%)', backgroundSize: '200% 100%' }}></div>
+        </div>
       </div>
     );
   }
 
   if (!game) {
     return (
-      <div className="min-h-screen bg-[#312e2b] flex items-center justify-center text-white font-sans">
+      <div className="min-h-screen bg-[var(--color-bg-base)] flex items-center justify-center text-[var(--color-text-primary)] font-sans">
         GAME NOT FOUND
       </div>
     );
@@ -209,87 +272,87 @@ export default function Agent() {
   const lastMove = (game.move_history || [])[(game.move_history || []).length - 1] || null;
   const moveNumber = Math.floor((game.move_history || []).length / 2) + 1;
 
-  let bannerBg = 'bg-[#262421]';
-  let bannerBorder = 'border-[#403d39]';
+  let bannerBg = 'bg-[var(--color-bg-surface)]';
+  let bannerBorder = 'border-[var(--color-border-subtle)]';
   let bannerTitle = '⏳ WAITING FOR YOUR TURN...';
   let bannerSubtitle = 'Waiting for the game to start...';
 
   if (isMyTurn) {
-    bannerBg = 'bg-[#7f0000]/30';
-    bannerBorder = 'border-[#c62828]';
+    bannerBg = 'bg-[var(--color-red-primary)]/30';
+    bannerBorder = 'border-[var(--color-red-primary)]';
     bannerTitle = '⚡ YOUR TURN — YOU ARE BLACK';
     bannerSubtitle = 'Read the game state below. Type your reasoning. Submit your move.';
   } else if (game.turn === 'w') {
-    bannerBg = 'bg-[#262421]';
-    bannerBorder = 'border-[#c3c3c2]';
+    bannerBg = 'bg-[var(--color-bg-surface)]';
+    bannerBorder = 'border-[var(--color-border-subtle)]';
     bannerTitle = '⏳ WHITE IS MOVING...';
     bannerSubtitle = 'White (human player) is making their move...';
   }
 
   return (
-    <div className="min-h-screen bg-[#312e2b] font-sans text-[#ffffff]">
+    <div className="min-h-screen bg-[var(--color-bg-base)] font-sans text-[var(--color-text-primary)]">
       {/* HEADER */}
-      <div className="bg-[#262421] border-b border-[#403d39] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+      <div className="bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <img 
             src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/699888c91e97454c7b995e2f/5384ee56f_gpt-image-15-high-fidelity_a_Make_a_logo_for_my_a.png" 
             alt="Logo" 
             referrerPolicy="no-referrer"
             crossOrigin="anonymous"
-            className="w-10 h-10 rounded-full border border-[#403d39] object-cover"
+            className="w-10 h-10 rounded-full border border-[var(--color-border-subtle)] object-cover"
             onError={(e) => {
               e.target.onerror = null;
               e.target.src = "https://images.unsplash.com/photo-1580541832626-2a7131ee809f?w=400&q=80";
             }}
           />
-          <h1 className="text-xl sm:text-2xl text-[#ffffff] font-bold">Claw Agent</h1>
+          <h1 className="text-xl sm:text-2xl text-[var(--color-text-primary)] font-bold">Claw Agent</h1>
         </div>
-        <div className="text-[#c3c3c2] text-sm hidden sm:block">Black</div>
+        <div className="text-[var(--color-text-secondary)] text-sm hidden sm:block">Black</div>
       </div>
 
       {/* TURN BANNER */}
       <div className={`${bannerBg} border-b-4 ${bannerBorder} px-4 py-6 text-center transition-colors duration-300`}>
         <h2 className="text-2xl sm:text-3xl font-bold mb-2">{bannerTitle}</h2>
-        <p className="text-[#c3c3c2]">{bannerSubtitle}</p>
+        <p className="text-[var(--color-text-secondary)]">{bannerSubtitle}</p>
       </div>
 
       {/* CONTENT */}
       <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
         
         {/* 1. Connection Status Card */}
-        <div className="bg-[#7f0000]/20 border-2 border-[#ef5350] rounded p-4 flex justify-between items-center">
+        <div className="bg-[var(--color-red-primary)]/20 border-2 border-[var(--color-red-primary)] rounded p-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-[#ef5350] animate-pulse" />
-            <span className="text-[#ef5350] font-bold">CONNECTED TO GAME</span>
+            <div className="w-3 h-3 rounded-full bg-[var(--color-red-primary)] animate-pulse" />
+            <span className="text-[var(--color-red-primary)] font-bold">CONNECTED TO GAME</span>
           </div>
-          <div className="text-[#c3c3c2] text-sm font-bold">
+          <div className="text-[var(--color-text-secondary)] text-sm font-bold">
             Room #{gameId.substring(0, 6).toUpperCase()}
           </div>
         </div>
 
         {/* 2. Game State Block */}
-        <div className="bg-[#211f1c] border-2 border-[#403d39] rounded overflow-hidden">
-          <div className="bg-[#262421] border-b border-[#403d39] p-3 flex justify-between items-center">
-            <h3 className="font-bold text-[#ffffff]">GAME STATE</h3>
+        <div className="bg-[var(--color-bg-elevated)] border-2 border-[var(--color-border-subtle)] rounded overflow-hidden">
+          <div className="bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] p-3 flex justify-between items-center">
+            <h3 className="font-bold text-[var(--color-text-primary)]">GAME STATE</h3>
             <div className="flex gap-4 text-xs">
-              <span className="flex items-center gap-2 text-[#c3c3c2]">
-                Human: <div className={`w-2 h-2 rounded-full ${game.human_connected ? 'bg-[#ef5350]' : 'bg-[#403d39]'}`} />
+              <span className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                Human: <div className={`w-2 h-2 rounded-full ${game.human_connected ? 'bg-[var(--color-red-primary)]' : 'bg-[var(--color-border-subtle)]'}`} />
               </span>
-              <span className="flex items-center gap-2 text-[#c3c3c2]">
-                Agent: <div className={`w-2 h-2 rounded-full ${game.agent_connected ? 'bg-[#ef5350]' : 'bg-[#403d39]'}`} />
+              <span className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                Agent: <div className={`w-2 h-2 rounded-full ${game.agent_connected ? 'bg-[var(--color-red-primary)]' : 'bg-[var(--color-border-subtle)]'}`} />
               </span>
             </div>
           </div>
           
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-[#c3c3c2] mb-1">YOU ARE: <span className="text-white font-bold">BLACK</span></p>
-              <p className="text-[#c3c3c2] mb-1">CURRENT TURN: <span className="text-white font-bold">{game.turn === 'w' ? 'WHITE' : 'BLACK'}</span></p>
-              <p className="text-[#c3c3c2] mb-1">MOVE NUMBER: <span className="text-white font-bold">{moveNumber}</span></p>
-              <p className="text-[#c3c3c2] mb-1">GAME STATUS: <span className="text-white font-bold">{game.status.toUpperCase()}</span></p>
+              <p className="text-[var(--color-text-secondary)] mb-1">YOU ARE: <span className="text-[var(--color-text-primary)] font-bold">BLACK</span></p>
+              <p className="text-[var(--color-text-secondary)] mb-1">CURRENT TURN: <span className="text-[var(--color-text-primary)] font-bold">{game.turn === 'w' ? 'WHITE' : 'BLACK'}</span></p>
+              <p className="text-[var(--color-text-secondary)] mb-1">MOVE NUMBER: <span className="text-[var(--color-text-primary)] font-bold">{moveNumber}</span></p>
+              <p className="text-[var(--color-text-secondary)] mb-1">GAME STATUS: <span className="text-[var(--color-text-primary)] font-bold">{game.status.toUpperCase()}</span></p>
               {lastMove && (
-                <p className="text-[#c3c3c2] mt-2">
-                  LAST MOVE: <span className="text-[#ef5350] font-bold">{lastMove.uci}</span> (played by {lastMove.color === 'w' ? 'WHITE' : 'BLACK'})
+                <p className="text-[var(--color-text-secondary)] mt-2">
+                  LAST MOVE: <span className="text-[var(--color-red-primary)] font-bold">{lastMove.uci}</span> (played by {lastMove.color === 'w' ? 'WHITE' : 'BLACK'})
                 </p>
               )}
             </div>
@@ -297,23 +360,23 @@ export default function Agent() {
             <div className="space-y-4">
               {isMyTurn && (
                 <div>
-                  <p className="text-[#c3c3c2] mb-1 font-bold">YOUR LEGAL MOVES:</p>
-                  <div className="bg-[#312e2b] border border-[#403d39] rounded p-2 max-h-24 overflow-y-auto text-[#ef5350] break-words font-mono">
+                  <p className="text-[var(--color-text-secondary)] mb-1 font-bold">YOUR LEGAL MOVES:</p>
+                  <div className="bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded p-2 max-h-24 overflow-y-auto text-[var(--color-red-primary)] break-words font-mono">
                     {legalMoves.join(', ')}
                   </div>
                 </div>
               )}
               
               <div>
-                <p className="text-[#c3c3c2] mb-1 font-bold">FEN POSITION:</p>
-                <div className="bg-[#312e2b] border border-[#403d39] rounded p-2 text-[10px] sm:text-xs text-[#c3c3c2] break-all font-mono">
+                <p className="text-[var(--color-text-secondary)] mb-1 font-bold">FEN POSITION:</p>
+                <div className="bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded p-2 text-[10px] sm:text-xs text-[var(--color-text-secondary)] break-all font-mono">
                   {game.fen}
                 </div>
               </div>
 
               <div>
-                <p className="text-[#c3c3c2] mb-1 font-bold">FULL MOVE HISTORY:</p>
-                <div className="bg-[#312e2b] border border-[#403d39] rounded p-2 text-xs text-[#c3c3c2] max-h-24 overflow-y-auto font-mono">
+                <p className="text-[var(--color-text-secondary)] mb-1 font-bold">FULL MOVE HISTORY:</p>
+                <div className="bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded p-2 text-xs text-[var(--color-text-secondary)] max-h-24 overflow-y-auto font-mono">
                   {(game.move_history || []).map((m, i) => (
                     <span key={i}>
                       {i % 2 === 0 ? `${m.number}. ` : ''}{m.san} 
@@ -330,32 +393,32 @@ export default function Agent() {
         {isMyTurn && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Step 1 */}
-            <div className="bg-[#211f1c] border-2 border-[#403d39] rounded overflow-hidden">
-              <div className="bg-[#262421] border-b border-[#403d39] p-3">
-                <h3 className="font-bold text-[#ffffff]">STEP 1: TYPE YOUR REASONING (optional but encouraged)</h3>
+            <div className="bg-[var(--color-bg-elevated)] border-2 border-[var(--color-border-subtle)] rounded overflow-hidden">
+              <div className="bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] p-3">
+                <h3 className="font-bold text-[var(--color-text-primary)]">STEP 1: TYPE YOUR REASONING (optional but encouraged)</h3>
               </div>
               <div className="p-4">
                 <textarea
                   value={reasoning}
                   onChange={handleReasoningChange}
                   rows={8}
-                  className="w-full bg-[#312e2b] border border-[#403d39] focus:border-[#c62828] rounded p-3 text-[#ffffff] font-mono outline-none resize-y transition-colors"
+                  className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] focus:border-[var(--color-red-primary)] rounded p-3 text-[var(--color-text-primary)] font-mono outline-none resize-y transition-colors"
                   placeholder="I see that White just played... My evaluation is... I should respond with..."
                 />
-                <p className="text-[#c3c3c2] text-xs mt-2 italic">
+                <p className="text-[var(--color-text-secondary)] text-xs mt-2 italic">
                   (Your reasoning will be shown live to your opponent as you type)
                 </p>
               </div>
             </div>
 
             {/* Step 2 */}
-            <div className="bg-[#211f1c] border-2 border-[#403d39] rounded overflow-hidden">
-              <div className="bg-[#262421] border-b border-[#403d39] p-3">
-                <h3 className="font-bold text-[#ffffff]">STEP 2: ENTER YOUR MOVE AND SUBMIT</h3>
+            <div className="bg-[var(--color-bg-elevated)] border-2 border-[var(--color-border-subtle)] rounded overflow-hidden">
+              <div className="bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] p-3">
+                <h3 className="font-bold text-[var(--color-text-primary)]">STEP 2: ENTER YOUR MOVE AND SUBMIT</h3>
               </div>
               <div className="p-4 space-y-4">
                 {error && (
-                  <div className="bg-[#7f0000]/20 border border-[#ef5350] rounded p-3 text-[#ef5350] text-sm">
+                  <div className="bg-[var(--color-red-primary)]/20 border border-[var(--color-red-primary)] rounded p-3 text-[var(--color-red-primary)] text-sm">
                     {error}
                   </div>
                 )}
@@ -367,17 +430,17 @@ export default function Agent() {
                     onChange={(e) => setMoveInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && submitMove()}
                     placeholder="e.g. e7e5 or Nf6"
-                    className="flex-1 bg-[#312e2b] border border-[#403d39] focus:border-[#c62828] rounded px-4 py-3 text-xl text-[#ffffff] font-mono outline-none transition-colors"
+                    className="flex-1 bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] focus:border-[var(--color-red-primary)] rounded px-4 py-3 text-xl text-[var(--color-text-primary)] font-mono outline-none transition-colors"
                   />
                   <button
                     onClick={submitMove}
                     disabled={submitting || !moveInput.trim()}
-                    className="bg-[#c62828] hover:bg-[#e53935] disabled:opacity-50 disabled:hover:bg-[#c62828] text-white font-bold py-3 px-8 rounded-lg border-b-[4px] border-[#7f0000] active:border-b-0 active:translate-y-[4px] transition-all disabled:active:border-b-[4px] disabled:active:translate-y-0 text-lg"
+                    className="bg-[var(--color-red-primary)] hover:bg-[var(--color-red-hover)] disabled:opacity-50 disabled:hover:bg-[var(--color-red-primary)] text-white font-bold py-3 px-8 rounded-lg border-b-[4px] border-[var(--color-red-hover)] active:border-b-0 active:translate-y-[4px] transition-all disabled:active:border-b-[4px] disabled:active:translate-y-0 text-lg"
                   >
                     {submitting ? 'SUBMITTING...' : 'SUBMIT MOVE'}
                   </button>
                 </div>
-                <p className="text-[#ef5350] text-xs font-bold">
+                <p className="text-[var(--color-red-primary)] text-xs font-bold">
                   ⚠️ Only moves from YOUR LEGAL MOVES list above will be accepted.
                 </p>
               </div>
@@ -386,29 +449,29 @@ export default function Agent() {
         )}
 
         {/* 4. Move Format Guide */}
-        <div className="bg-[#211f1c] border-2 border-[#403d39] rounded p-4">
-          <h3 className="font-bold text-center text-[#c3c3c2] mb-4">MOVE FORMAT GUIDE</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#c3c3c2]">
+        <div className="bg-[var(--color-bg-elevated)] border-2 border-[var(--color-border-subtle)] rounded p-4">
+          <h3 className="font-bold text-center text-[var(--color-text-secondary)] mb-4">MOVE FORMAT GUIDE</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[var(--color-text-secondary)]">
             <ul className="space-y-2">
-              <li><span className="text-white">Pawn move:</span> e7e5 (UCI) or e5 (SAN)</li>
-              <li><span className="text-white">Piece move:</span> g8f6 (UCI) or Nf6 (SAN)</li>
-              <li><span className="text-white">Piece symbols:</span> N=Knight B=Bishop R=Rook Q=Queen K=King</li>
+              <li><span className="text-[var(--color-text-primary)]">Pawn move:</span> e7e5 (UCI) or e5 (SAN)</li>
+              <li><span className="text-[var(--color-text-primary)]">Piece move:</span> g8f6 (UCI) or Nf6 (SAN)</li>
+              <li><span className="text-[var(--color-text-primary)]">Piece symbols:</span> N=Knight B=Bishop R=Rook Q=Queen K=King</li>
             </ul>
             <ul className="space-y-2">
-              <li><span className="text-white">Kingside castle:</span> O-O</li>
-              <li><span className="text-white">Queenside castle:</span> O-O-O</li>
-              <li><span className="text-white">Promotion:</span> e7e8q, e7e8r, e7e8b, e7e8n</li>
+              <li><span className="text-[var(--color-text-primary)]">Kingside castle:</span> O-O</li>
+              <li><span className="text-[var(--color-text-primary)]">Queenside castle:</span> O-O-O</li>
+              <li><span className="text-[var(--color-text-primary)]">Promotion:</span> e7e8q, e7e8r, e7e8b, e7e8n</li>
             </ul>
           </div>
-          <p className="text-center text-[#ef5350] text-xs mt-4 font-bold">
+          <p className="text-center text-[var(--color-red-primary)] text-xs mt-4 font-bold">
             IMPORTANT: Only moves in YOUR LEGAL MOVES list are valid.
           </p>
         </div>
 
         {/* 5. Reference Board */}
-        <div className="bg-[#211f1c] border-2 border-[#403d39] rounded overflow-hidden">
-          <div className="bg-[#262421] border-b border-[#403d39] p-3">
-            <h3 className="font-bold text-[#c3c3c2]">BOARD POSITION (REFERENCE ONLY — submit your move above)</h3>
+        <div className="bg-[var(--color-bg-elevated)] border-2 border-[var(--color-border-subtle)] rounded overflow-hidden">
+          <div className="bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] p-3">
+            <h3 className="font-bold text-[var(--color-text-secondary)]">BOARD POSITION (REFERENCE ONLY — submit your move above)</h3>
           </div>
           <div className="p-4 flex justify-center">
             <div className="scale-75 sm:scale-100 origin-top">
@@ -436,11 +499,11 @@ export default function Agent() {
 
         {/* 7. Game Over Block */}
         {game.status === 'finished' && (
-          <div className="bg-[#262421] border-4 border-[#c62828] rounded-xl p-8 text-center animate-in fade-in zoom-in duration-500">
-            <h2 className="text-3xl font-bold text-[#ffffff] mb-2">
+          <div className="bg-[var(--color-bg-surface)] border-4 border-[var(--color-red-primary)] rounded-xl p-8 text-center animate-in fade-in zoom-in duration-500">
+            <h2 className="text-3xl font-bold text-[var(--color-text-primary)] mb-2">
               GAME OVER — {game.result === 'white' ? 'WHITE WINS' : game.result === 'black' ? 'BLACK WINS' : 'DRAW'}
             </h2>
-            <p className="text-[#c3c3c2] text-lg">
+            <p className="text-[var(--color-text-secondary)] text-lg">
               Reason: {game.result_reason === 'checkmate' ? 'Checkmate' : 
                        game.result_reason === 'stalemate' ? 'Stalemate' : 
                        game.result_reason === 'resignation' ? 'Resignation' : 'Draw'}

@@ -1,37 +1,43 @@
-import React, { Suspense, lazy } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Toaster } from 'sonner';
+import { ToastProvider } from './contexts/ToastContext';
+import ToastManager from './components/ToastManager';
 import ErrorBoundary from './components/ErrorBoundary';
+import { motion } from 'framer-motion';
 
 const Home = lazy(() => import('./pages/Home'));
 const Game = lazy(() => import('./pages/Game'));
 const Agent = lazy(() => import('./pages/Agent'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
+const Fallback = () => (
+  <div className="min-h-screen bg-[var(--color-bg-base)] flex items-center justify-center">
+    <motion.div
+      animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+      className="text-6xl text-[var(--color-text-primary)]"
+    >
+      ♟
+    </motion.div>
+  </div>
+);
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <Toaster 
-          position="top-center" 
-          theme="dark" 
-          toastOptions={{
-            style: {
-              background: '#262421',
-              border: '1px solid #c62828',
-              color: '#ffffff',
-            },
-          }}
-        />
-        <Suspense fallback={<div className="min-h-screen bg-[#312e2b] text-white flex items-center justify-center font-sans">Loading...</div>}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/Game" element={<Game />} />
-            <Route path="/Agent" element={<Agent />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <Suspense fallback={<Fallback />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/Game" element={<Game />} />
+              <Route path="/Agent" element={<Agent />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+        <ToastManager />
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

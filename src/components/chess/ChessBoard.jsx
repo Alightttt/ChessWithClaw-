@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Chess } from 'chess.js';
 
-export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordinates = true, interactive = true, boardTheme = 'classic', pieceTheme = 'unicode' }) {
+export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordinates = true, interactive = true, boardTheme = 'green', pieceTheme = 'merida' }) {
   const [chess, setChess] = useState(new Chess(fen));
   const [selectedSquare, setSelectedSquare] = useState(null);
   const [legalMoves, setLegalMoves] = useState([]);
@@ -59,7 +59,6 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
   
   const isLastMoveSquare = (sq) => {
     if (!lastMove) return false;
-    // lastMove could be a string like 'e2e4' or object {from: 'e2', to: 'e4'}
     if (typeof lastMove === 'string') {
         return sq === lastMove.substring(0, 2) || sq === lastMove.substring(2, 4);
     }
@@ -71,21 +70,21 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
   const isKingInCheck = (sq, piece) => piece && piece.type === 'k' && piece.color === chess.turn() && chess.inCheck();
 
   const themes = {
-    classic: { light: '#ebecd0', dark: '#c62828' },
-    green: { light: '#ebecd0', dark: '#739552' },
-    blue: { light: '#ebecd0', dark: '#8ca2ad' },
-    purple: { light: '#ebecd0', dark: '#6f5c7f' },
-    monochrome: { light: '#e0e0e0', dark: '#a0a0a0' },
+    green: { light: '#eeeed2', dark: '#769656' },
+    classic: { light: '#f0d9b5', dark: '#b58863' },
+    blue: { light: '#dee3e6', dark: '#8ca2ad' },
+    purple: { light: '#e1d5e6', dark: '#8a789a' },
+    monochrome: { light: '#e0e0e0', dark: '#888888' },
   };
 
-  const currentTheme = themes[boardTheme] || themes.classic;
+  const currentTheme = themes[boardTheme] || themes.green;
 
   const renderPiece = (piece) => {
     if (!piece) return null;
     if (pieceTheme === 'unicode') {
       return (
         <span
-          className="relative z-10 drop-shadow-md"
+          className="relative z-10 drop-shadow-md text-[9vw] sm:text-5xl leading-none"
           style={{
             color: piece.color === 'w' ? '#ffffff' : '#000000',
             textShadow: piece.color === 'w' ? '0 0 2px #000' : '0 0 2px #fff'
@@ -96,14 +95,19 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
       );
     } else {
       const pieceName = `${piece.color}${piece.type.toUpperCase()}`;
-      const url = `https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/${pieceTheme}/${pieceName}.svg`;
-      return <img src={url} alt={pieceName} className="relative z-10 w-[80%] h-[80%] drop-shadow-md pointer-events-none" />;
+      let url = '';
+      if (pieceTheme === 'merida' || pieceTheme === 'cburnett' || pieceTheme === 'alpha') {
+        url = `https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/${pieceTheme}/${pieceName}.svg`;
+      } else {
+        url = `https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/merida/${pieceName}.svg`;
+      }
+      return <img src={url} alt={pieceName} className="relative z-10 w-[85%] h-[85%] drop-shadow-md pointer-events-none" />;
     }
   };
 
   return (
-    <div className={`flex flex-col select-none w-full ${!interactive || !isMyTurn ? 'opacity-90' : 'opacity-100'}`}>
-      <div className="relative w-full aspect-square border-2 border-[#333]">
+    <div className={`flex flex-col select-none w-full h-full ${!interactive || !isMyTurn ? 'opacity-90' : 'opacity-100'}`}>
+      <div className="relative w-full h-full aspect-square">
         <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
           {ranks.map((rank, row) =>
           files.map((file, col) => {
@@ -119,23 +123,31 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
               <div
                 key={sq}
                 onClick={() => handleSquareClick(row, col)}
-                className="relative w-full h-full flex items-center justify-center text-[9vw] sm:text-5xl cursor-pointer"
+                className="relative w-full h-full flex items-center justify-center cursor-pointer hover:bg-white/50 transition-colors"
                 style={{ backgroundColor: isLight(row, col) ? currentTheme.light : currentTheme.dark }}
+                aria-label={`${sq}, ${piece ? (piece.color === 'w' ? 'white ' : 'black ') + piece.type : 'empty'}`}
               >
                 {/* Overlays */}
-                {isSelected && <div className="absolute inset-0 bg-black opacity-20 z-0" />}
-                {!isSelected && isLast && <div className="absolute inset-0 bg-yellow-400 opacity-40 z-0" />}
-                {isCheck && <div className="absolute inset-0 bg-red-600 opacity-50 animate-pulse z-0" />}
-                {isLegal && !isCap && <div className="absolute w-4 h-4 rounded-full bg-black opacity-20 z-0" />}
-                {isLegal && isCap && <div className="absolute inset-0 border-4 border-black opacity-20 z-0" />}
+                {isSelected && <div className="absolute inset-0 bg-[var(--color-red-primary)]/40 z-0" />}
+                {!isSelected && isLast && <div className="absolute inset-0 bg-[var(--color-red-primary)]/25 z-0" />}
+                {isCheck && <div className="absolute inset-0 bg-[var(--color-red-primary)] opacity-60 animate-pulse z-0" />}
+                
+                {/* Legal move indicators */}
+                {isLegal && !isCap && <div className="absolute w-[25%] h-[25%] rounded-full bg-[var(--color-red-primary)]/60 z-0" />}
+                {isLegal && isCap && <div className="absolute inset-0 border-[6px] border-[var(--color-red-primary)]/60 opacity-80 z-0" />}
 
                 {/* Piece */}
                 {renderPiece(piece)}
 
-                {/* Coordinates (if showCoordinates is false, show small in corner) */}
-                {!showCoordinates && (
-                  <span className="absolute bottom-0.5 right-0.5 text-[8px] text-gray-800 opacity-50 z-0">
-                    {sq}
+                {/* Coordinates */}
+                {showCoordinates && col === 0 && (
+                  <span className={`absolute top-0.5 left-1 text-[10px] sm:text-xs font-bold z-0 ${isLight(row, col) ? 'text-black/50' : 'text-white/60'}`}>
+                    {rank}
+                  </span>
+                )}
+                {showCoordinates && row === 7 && (
+                  <span className={`absolute bottom-0.5 right-1 text-[10px] sm:text-xs font-bold z-0 ${isLight(row, col) ? 'text-black/50' : 'text-white/60'}`}>
+                    {file}
                   </span>
                 )}
               </div>
@@ -144,8 +156,8 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
         )}
         </div>
         {promotionMove && (
-          <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
-            <div className="bg-[#262421] p-4 rounded-lg flex gap-4 border border-[#403d39] shadow-2xl">
+          <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm">
+            <div className="bg-[var(--color-bg-surface)] p-4 rounded-xl flex gap-4 border border-[var(--color-border-subtle)] shadow-2xl">
               {['q', 'r', 'b', 'n'].map(p => (
                 <button 
                   key={p} 
@@ -156,7 +168,7 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
                     setSelectedSquare(null);
                     setLegalMoves([]);
                   }}
-                  className="w-12 h-12 sm:w-16 sm:h-16 bg-[#312e2b] hover:bg-[#403d39] rounded flex items-center justify-center text-4xl sm:text-5xl border border-[#403d39] hover:border-[#c62828] transition-colors"
+                  className="w-14 h-14 sm:w-20 sm:h-20 bg-[var(--color-bg-elevated)] hover:bg-[var(--color-bg-hover)] rounded-lg flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-red-primary)] transition-all transform hover:scale-105"
                 >
                   {renderPiece({ type: p, color: chess.turn() })}
                 </button>
@@ -166,23 +178,14 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
                   e.stopPropagation();
                   setPromotionMove(null);
                 }}
-                className="w-12 h-12 sm:w-16 sm:h-16 bg-[#c62828]/20 hover:bg-[#c62828]/40 text-[#ef5350] rounded flex items-center justify-center text-lg font-bold border border-[#c62828]/50 transition-colors"
+                className="w-14 h-14 sm:w-20 sm:h-20 bg-[var(--color-red-primary)]/10 hover:bg-[var(--color-red-primary)]/20 text-[var(--color-red-primary)] rounded-lg flex items-center justify-center text-xl font-bold border border-[var(--color-red-primary)]/30 transition-all"
               >
-                X
+                ✕
               </button>
             </div>
           </div>
         )}
       </div>
-      {showCoordinates && (
-        <div className="flex w-full h-4 sm:h-6 bg-[#262421]">
-          {files.map(file => (
-            <div key={file} className="flex-1 flex items-center justify-center text-[8px] sm:text-xs text-[#c3c3c2] font-sans font-bold">
-              {file}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

@@ -6,7 +6,7 @@ const pieceSymbols = {
 };
 
 export default function CapturedPieces({ pieces, isWhitePieces }) {
-  if (!pieces) return <div className="h-5 sm:h-8"></div>;
+  if (!pieces) return null;
   
   const captured = [];
   // Order of value: Queen, Rook, Bishop, Knight, Pawn
@@ -19,12 +19,12 @@ export default function CapturedPieces({ pieces, isWhitePieces }) {
     }
   });
 
-  if (captured.length === 0) return <div className="h-5 sm:h-8"></div>;
+  if (captured.length === 0) return null;
 
   return (
-    <div className="flex gap-0.5 sm:gap-1 h-5 sm:h-8 items-center text-base sm:text-2xl text-[#a0a0a0]">
+    <div className="flex gap-0.5 items-center text-lg sm:text-xl text-[var(--color-text-muted)]">
       {captured.map((symbol, idx) => (
-        <span key={idx}>{symbol}</span>
+        <span key={idx} className="leading-none drop-shadow-sm">{symbol}</span>
       ))}
     </div>
   );
