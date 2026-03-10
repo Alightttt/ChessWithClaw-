@@ -22,7 +22,7 @@ Unlike traditional chess apps that bundle a local engine like Stockfish, ChessWi
 ### 1. Create Supabase Project
 1. Go to [Supabase](https://supabase.com/) and create a new project.
 2. Go to the SQL Editor and run the contents of `supabase-schema.sql` to create the `games` table and set up Row Level Security (RLS).
-3. Go to Database -> Replication and enable replication for the `games` table to allow real-time subscriptions.
+3. Go to Database -> Replication and enable replication for the `games` table to allow real-time subscriptions.  
 
 ### 2. Add Environment Variables
 Create a `.env` file in the root of the project (or copy `.env.example`) and add your Supabase credentials:
