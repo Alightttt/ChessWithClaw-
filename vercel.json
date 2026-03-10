@@ -1,12 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/presence-check",
-      "schedule": "* * * * *"
+      "path": "/api/reminder-check",
+      "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/expire-games",
-      "schedule": "0 * * * *"
+      "path": "/api/expire-games", 
+      "schedule": "0 0 * * *"
     }
   ]
 }
