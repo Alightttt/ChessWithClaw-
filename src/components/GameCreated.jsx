@@ -33,7 +33,7 @@ export default function GameCreated({ gameId, agentUrl }) {
   }, [gameId]);
 
   const handleOpenBoard = () => {
-    window.open(`${window.location.origin}/Game?id=${gameId}`, '_blank');
+    window.open(`${window.location.origin}/#/Game?id=${gameId}`, '_blank');
     setBoardOpened(true);
   };
 
@@ -153,7 +153,7 @@ Please connect and make your moves.`;
 
             {agentConnected && (
               <Button 
-                onClick={() => window.location.href = `/Game?id=${gameId}`}
+                onClick={() => window.location.href = `/#/Game?id=${gameId}`}
                 className="w-full sm:w-auto mt-2 relative z-10"
               >
                 Go to Game →

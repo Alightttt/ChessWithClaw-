@@ -60,8 +60,8 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const humanUrl = `${window.location.origin}/Game?id=${gameId}`;
-  const agentUrl = `${window.location.origin}/Agent?id=${gameId}`;
+  const humanUrl = `${window.location.origin}/#/Game?id=${gameId}`;
+  const agentUrl = `${window.location.origin}/#/Agent?id=${gameId}`;
   const apiUrl = `${window.location.origin}/api`;
 
   const createGame = async () => {

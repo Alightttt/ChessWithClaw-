@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { ToastProvider } from './contexts/ToastContext';
 import ToastManager from './components/ToastManager';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -26,7 +26,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Suspense fallback={<Fallback />}>
             <Routes>
               <Route path="/" element={<Home />} />
@@ -35,7 +35,7 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
-        </BrowserRouter>
+        </HashRouter>
         <ToastManager />
       </ToastProvider>
     </ErrorBoundary>

@@ -687,7 +687,7 @@ export default function Game() {
         <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] rounded-lg p-8 max-w-md w-full text-center shadow-2xl">
           <h2 className="text-2xl font-bold text-[var(--color-red-primary)] mb-4">Game Expired</h2>
           <p className="text-[var(--color-text-secondary)] mb-8">This game was abandoned and has expired.</p>
-          <Button onClick={() => window.location.href = '/'} className="w-full" size="lg">
+          <Button onClick={() => window.location.href = '/#/'} className="w-full" size="lg">
             Start New Game
           </Button>
         </div>
@@ -700,7 +700,7 @@ export default function Game() {
   const lastMove = (game.move_history || [])[(game.move_history || []).length - 1] || null;
   const lastThinking = (game.thinking_log || [])[(game.thinking_log || []).length - 1] || null;
   const currentMoveNumber = Math.floor((game.move_history || []).length / 2) + 1;
-  const agentUrl = `${window.location.origin}/Agent?id=${gameId}`;
+  const agentUrl = `${window.location.origin}/#/Agent?id=${gameId}`;
 
   const displayAvatar = showFallbackName ? '🤖' : (game.agent_avatar || '🤖');
   const displayName = showFallbackName ? 'CONNECTED AGENT' : (game.agent_name ? game.agent_name.toUpperCase() : 'YOUR AGENT');
