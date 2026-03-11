@@ -41,6 +41,9 @@ export default function Game() {
   const [showSettings, setShowSettings] = useState(false);
   const [showThinkingMobile, setShowThinkingMobile] = useState(false);
   const [showMoveHistoryMobile, setShowMoveHistoryMobile] = useState(false);
+  const [boardSize, setBoardSize] = useState(
+    typeof window !== 'undefined' ? Math.min(window.innerWidth, window.innerHeight * 0.55) : 400
+  );
   const [boardTheme, setBoardTheme] = useState('green');
   const [pieceTheme, setPieceTheme] = useState('merida');
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -81,6 +84,7 @@ export default function Game() {
 
   useEffect(() => {
     const handleResize = () => {
+      setBoardSize(Math.min(window.innerWidth, window.innerHeight * 0.55));
       if (window.visualViewport && chatContainerRef.current) {
         const keyboardHeight = window.innerHeight - window.visualViewport.height;
         chatContainerRef.current.style.paddingBottom = `${keyboardHeight}px`;
@@ -88,7 +92,11 @@ export default function Game() {
     };
     
     window.visualViewport?.addEventListener('resize', handleResize);
-    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -760,12 +768,12 @@ export default function Game() {
       <main className="flex-1 flex flex-col md:flex-row max-w-[1400px] mx-auto w-full p-0 md:p-6 gap-0 md:gap-6 overflow-hidden">
         
         {/* MOBILE AGENT STATUS BAR */}
-        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">{displayAvatar}</div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-[var(--color-text-primary)]">{displayName}</span>
-              <div className="flex items-center gap-1.5">
+        <div className="md:hidden flex items-center justify-between px-4 h-14 max-h-[56px] bg-[var(--color-bg-surface)] border-b border-[var(--color-border-subtle)] shrink-0">
+          <div className="flex items-center gap-3 w-full">
+            <div className="text-xl">{displayAvatar}</div>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-sm font-bold text-[var(--color-text-primary)] truncate max-w-[140px]">{displayName}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
                 <StatusDot status={agentStatusColor} />
                 <span className={`text-xs ${!game.agent_connected ? 'animate-pulse text-[var(--color-text-muted)]' : 'text-[var(--color-text-secondary)]'}`}>
                   {agentStatusText}
@@ -783,7 +791,11 @@ export default function Game() {
           </div>
 
           {/* Board */}
-          <div className="relative w-full aspect-square md:rounded-lg overflow-hidden border-y md:border border-[var(--color-red-primary)]/20 bg-[var(--color-bg-surface)]" ref={boardRef}>
+          <div 
+            className="relative mx-auto w-full aspect-square md:rounded-lg overflow-hidden border-y md:border border-[var(--color-red-primary)]/20 bg-[var(--color-bg-surface)] mb-0 md:mb-4" 
+            ref={boardRef}
+            style={{ maxWidth: boardSize, maxHeight: boardSize }}
+          >
             <ChessBoard 
               fen={game.fen} 
               onMove={makeMove} 

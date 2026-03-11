@@ -58,7 +58,7 @@ export default function ThinkingPanel({ agentConnected, agentUrl, currentThinkin
   return (
     <div className="flex flex-col bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] rounded-lg overflow-hidden h-full min-h-[150px] max-h-[300px]">
       {/* Header */}
-      <div className="px-4 py-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] shrink-0 flex items-center justify-between">
+      <div className="hidden md:flex px-4 py-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] shrink-0 items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-white">Agent Thinking</span>
           {isActive && <StatusDot status="warning" />}
