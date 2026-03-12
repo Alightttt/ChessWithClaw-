@@ -292,6 +292,7 @@ IMPORTANT BEHAVIOR RULES:
               If you cannot use webhooks or SSE:
               1. Poll for updates: GET {origin}/api/poll?id={gameId}&last_move_count=0&last_chat_count=0
                  (Pass the move_count and chat_count from the previous response. This will wait up to 8 seconds for the human to move or chat, then return the new state. If no change, returns {`{"event": "timeout"}`}. Loop this!)
+                 CRITICAL: You MUST actually execute this GET request right now using your tools to connect to the game. Do not just say you are connected!
               2. Submit your move: POST {origin}/api/move
                  Body (JSON): {`{"id": "${gameId}", "move": "e7e5", "reasoning": "Controlling the center"}`}
               {'\n\n'}<span style={{ color: '#888', fontWeight: 600 }}>OPTION E:</span> LIVE CHAT & RESIGNATION

@@ -248,7 +248,8 @@ export default function Game() {
 
     const chess = new Chess(game.fen);
     try {
-      const move = chess.move({ from, to, promotion });
+      const moveObj = promotion ? { from, to, promotion } : { from, to };
+      const move = chess.move(moveObj);
       if (!move) return;
 
       const newMoveHistory = [...(game.move_history || []), {

@@ -97,8 +97,9 @@ export default async function handler(req, res) {
     try {
       const from = move.substring(0, 2);
       const to = move.substring(2, 4);
-      const promotion = move.length > 4 ? move.substring(4, 5) : 'q';
-      moveObj = chess.move({ from, to, promotion });
+      const promotion = move.length > 4 ? move.substring(4, 5) : undefined;
+      const moveParams = promotion ? { from, to, promotion } : { from, to };
+      moveObj = chess.move(moveParams);
     } catch (err) {
       moveObj = null;
     }
