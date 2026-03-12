@@ -13,7 +13,6 @@ export default function PageTransition({ children }) {
     <div
       style={{
         opacity: state === 'entering' ? 0 : 1,
-        transform: state === 'entering' ? 'translateY(12px)' : 'translateY(0)',
         transition: 'opacity 280ms cubic-bezier(0.22, 1, 0.36, 1), transform 280ms cubic-bezier(0.22, 1, 0.36, 1)',
         willChange: 'transform, opacity',
         WebkitBackfaceVisibility: 'hidden',

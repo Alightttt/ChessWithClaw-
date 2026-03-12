@@ -42,6 +42,15 @@ async function startServer() {
   app.use(cors());
   app.use(express.json());
   
+  // Add Content Security Policy
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co;"
+    );
+    next();
+  });
+  
   // Apply rate limiting to all API routes
   app.use('/api', rateLimiterMiddleware);
 

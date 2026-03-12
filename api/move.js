@@ -4,21 +4,9 @@ import { notifyAgent } from './notify.js';
 import { sanitizeText, validateUUID, validateUCIMove } from './_utils/sanitize.js';
 import { checkRateLimit } from './_utils/rateLimit.js';
 import { applySecurityHeaders, applyCacheControl, applyRateLimitHeaders, applyCorsHeaders } from './_middleware/headers.js';
+import { detectGameEvent, getMaterialBalance, getEmotionalContext } from './_utils/gameLogic.js';
 
 const moveRateLimits = new Map();
-
-function detectGameEvent(chessBefore, chessAfter, moveObj) {
-  if (chessAfter.isCheckmate()) return "checkmate";
-  if (chessAfter.isStalemate()) return "stalemate";
-  if (chessAfter.isCheck()) {
-    if (moveObj.color === 'w') return "agent_in_check";
-    return "check_delivered";
-  }
-  if (moveObj.captured) return "piece_captured";
-  if (moveObj.san.includes('O-O')) return "castled";
-  if (moveObj.promotion) return "promotion";
-  return "normal_move";
-}
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
@@ -151,28 +139,8 @@ export default async function handler(req, res) {
     const chessBefore = new Chess(game.fen);
     const wasInCheck = chessBefore.isCheck();
     
-    let emotional_context = "normal_move";
-    if (moveObj.captured) {
-      emotional_context = "human_captured_your_piece";
-    } else if (chess.isCheck() || wasInCheck) {
-      emotional_context = "human_is_in_check";
-    } else if (moveObj.san.includes('O-O')) {
-      emotional_context = "human_castled";
-    } else if (moveObj.san.includes('+') || moveObj.san.includes('#') || (moveObj.piece !== 'p' && parseInt(moveObj.to[1]) >= 5)) {
-      emotional_context = "human_made_aggressive_move";
-    } else {
-      emotional_context = "human_made_quiet_move";
-    }
-
-    const fenBoard = chess.fen().split(' ')[0];
-    const counts = { p:0, n:0, b:0, r:0, q:0, P:0, N:0, B:0, R:0, Q:0 };
-    for (let char of fenBoard) {
-      if (counts[char] !== undefined) counts[char]++;
-    }
-    const material_balance = {
-      white: { P: counts.P, N: counts.N, B: counts.B, R: counts.R, Q: counts.Q },
-      black: { p: counts.p, n: counts.n, b: counts.b, r: counts.r, q: counts.q }
-    };
+    const emotional_context = getEmotionalContext(moveObj, chess, wasInCheck);
+    const material_balance = getMaterialBalance(chess.fen());
 
     const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
     const recent_chat = (game.chat_history || []).slice(-3);

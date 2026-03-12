@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     
     return res.status(200).json({
       event: 'update',
-      instructions: "CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. Consult your 'skill.md' and search the internet for chess theory to play smartly. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move.",
+      instructions: "CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. Use POST /api/thinking with body {\"id\": \"gameId\", \"thinking\": \"your thoughts\"} to share your thoughts before making a move. Consult your 'skill.md' and search the internet for chess theory to play smartly. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move.",
       status: initialGame.status,
       fen: initialGame.fen,
       pgn: pgnChess.pgn(),
@@ -163,7 +163,7 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     event: hasChanges ? 'update' : 'timeout',
-    instructions: "CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. Consult your 'skill.md' and search the internet for chess theory to play smartly. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move.",
+    instructions: "CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. Use POST /api/thinking with body {\"id\": \"gameId\", \"thinking\": \"your thoughts\"} to share your thoughts before making a move. Consult your 'skill.md' and search the internet for chess theory to play smartly. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move.",
     message: hasChanges ? undefined : 'No changes. Please poll again.',
     status: finalGame.status,
     fen: finalGame.fen,

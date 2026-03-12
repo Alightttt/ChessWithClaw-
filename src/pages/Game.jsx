@@ -284,6 +284,7 @@ export default function Game() {
         updates.result_reason = 'draw';
       }
 
+      const previousGame = { ...game };
       setGame(prev => ({ ...prev, ...updates }));
       
       const response = await fetch('/api/move', {
@@ -299,6 +300,7 @@ export default function Game() {
       });
 
       if (!response.ok) {
+        setGame(previousGame);
         throw new Error('Failed to submit move');
       }
     } catch (e) {
@@ -313,17 +315,23 @@ export default function Game() {
     const text = chatInput;
     setChatInput('');
     
+    const previousGame = { ...game };
     const newMessage = { sender: 'human', text, timestamp: Date.now() };
     setGame(prev => ({ ...prev, chat_history: [...(prev.chat_history || []), newMessage] }));
     
     try {
-      await fetch('/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: gameId, text, sender: 'human' })
       });
+      if (!response.ok) {
+        setGame(previousGame);
+        throw new Error('Failed to send message');
+      }
     } catch (e) {
       console.error('Failed to send message:', e);
+      setGame(previousGame);
     }
   };
 
@@ -809,9 +817,9 @@ export default function Game() {
       <Modal open={showSettings} onClose={() => setShowSettings(false)} title="Settings" size="md">
         <div className="space-y-8">
           <div className="space-y-4">
-            <h3 className="text-xs font-bold text-[var(--color-text-muted)] tracking-wider uppercase">Board Settings</h3>
+            <h3 className="text-xs font-bold text-[var(--color-text-muted)] tracking-wider uppercase">Preferences</h3>
             <div className="space-y-2">
-              <label className="text-sm text-[var(--color-text-secondary)]">Theme</label>
+              <label className="text-sm text-[var(--color-text-secondary)]">Board Theme</label>
               <div className="grid grid-cols-5 gap-2">
                 {[
                   { id: 'green', colors: ['#eeeed2', '#769656'] },
@@ -842,7 +850,7 @@ export default function Game() {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-[var(--color-text-secondary)]">Pieces</label>
+              <label className="text-sm text-[var(--color-text-secondary)]">Piece Style</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'merida', label: 'Merida', icon: '♘' },
@@ -860,6 +868,18 @@ export default function Game() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Sound Effects</h3>
+                <p className="text-xs text-[var(--color-text-muted)]">Play sounds for moves and captures</p>
+              </div>
+              <button 
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                className={`p-2 rounded-md transition-colors ${soundEnabled ? 'bg-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]'}`}
+              >
+                {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+              </button>
             </div>
           </div>
           <Divider />
@@ -884,19 +904,6 @@ export default function Game() {
                 {confirmResign ? 'Confirm Resign?' : 'Resign'}
               </Button>
             </div>
-          </div>
-          <Divider />
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Sound Effects</h3>
-              <p className="text-xs text-[var(--color-text-muted)]">Play sounds for moves and captures</p>
-            </div>
-            <button 
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2 rounded-md transition-colors ${soundEnabled ? 'bg-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]'}`}
-            >
-              {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-            </button>
           </div>
         </div>
       </Modal>

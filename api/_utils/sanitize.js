@@ -3,7 +3,12 @@ export function sanitizeText(input, maxLength = 500) {
   return input
     .trim()
     .slice(0, maxLength)
-    .replace(/[<>]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;')
     .replace(/javascript:/gi, '')
     .replace(/data:/gi, '')
     .replace(/on\w+=/gi, '')

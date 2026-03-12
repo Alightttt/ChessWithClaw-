@@ -128,13 +128,13 @@ export default function ChessBoard({ fen, onMove, isMyTurn, lastMove, showCoordi
                 aria-label={`${sq}, ${piece ? (piece.color === 'w' ? 'white ' : 'black ') + piece.type : 'empty'}`}
               >
                 {/* Overlays */}
-                {isSelected && <div className="absolute inset-0 bg-[var(--color-red-primary)]/40 z-0" />}
-                {!isSelected && isLast && <div className="absolute inset-0 bg-[var(--color-red-primary)]/25 z-0" />}
-                {isCheck && <div className="absolute inset-0 bg-[var(--color-red-primary)] opacity-60 animate-pulse z-0" />}
+                {isSelected && <div className="absolute inset-0 bg-[#e63946]/40 z-0" />}
+                {!isSelected && isLast && <div className="absolute inset-0 bg-[#e63946]/25 z-0" />}
+                {isCheck && <div className="absolute inset-0 bg-[#e63946] opacity-60 animate-pulse z-0" />}
                 
                 {/* Legal move indicators */}
-                {isLegal && !isCap && <div className="absolute w-[25%] h-[25%] rounded-full bg-[var(--color-red-primary)]/60 z-0" />}
-                {isLegal && isCap && <div className="absolute inset-0 border-[6px] border-[var(--color-red-primary)]/60 opacity-80 z-0" />}
+                {isLegal && !isCap && <div className="absolute w-[25%] h-[25%] rounded-full bg-[#e63946]/60 z-0" />}
+                {isLegal && isCap && <div className="absolute inset-0 border-[6px] border-[#e63946]/60 opacity-80 z-0" />}
 
                 {/* Piece */}
                 {renderPiece(piece)}

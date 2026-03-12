@@ -233,67 +233,78 @@ export default function Home() {
               color: '#e63946',
               lineHeight: 1.0,
               letterSpacing: '0.5px',
+              margin: 0
+            }} className="min-[500px]:text-[68px] md:text-[88px]">Own AI Agent</span>
+            <span style={{
+              display: 'block',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '52px',
+              fontWeight: 900,
+              color: '#f0f0f0',
+              lineHeight: 1.0,
+              letterSpacing: '0.5px',
               margin: '0 0 18px 0'
-            }} className="min-[500px]:text-[68px] md:text-[88px]">Own OpenClaw in chess</span>
+            }} className="min-[500px]:text-[68px] md:text-[88px]">in Chess</span>
           </h1>
 
           <p style={{
             fontFamily: "'DM Sans', sans-serif",
-            fontSize: '15px',
+            fontSize: '16px',
             fontWeight: 400,
-            color: '#666',
+            color: '#888',
             lineHeight: 1.6,
-            maxWidth: '340px',
-            marginBottom: '28px'
+            maxWidth: '380px',
+            marginBottom: '36px'
           }}>
-            Challenge your OpenClaw agent to a real chess match.
+            Challenge your custom OpenClaw agent to a real-time chess match. Test its logic, reasoning, and strategic depth.
           </p>
 
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px',
+            gap: '12px',
             maxWidth: '380px'
           }}>
             <button
               onClick={createGame}
               disabled={creating}
-              className="hover:bg-[#cc2f3b] hover:shadow-[0_0_20px_rgba(230,57,70,0.28)] active:scale-[0.97]"
+              className="hover:scale-[1.02] active:scale-[0.98]"
               style={{
-                background: '#e63946',
+                background: 'linear-gradient(135deg, #e63946 0%, #cc2f3b 100%)',
                 color: '#fff',
-                height: '50px',
+                height: '54px',
                 width: '100%',
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 fontFamily: "'Barlow Condensed', sans-serif",
-                fontSize: '18px',
+                fontSize: '20px',
                 fontWeight: 700,
                 letterSpacing: '0.5px',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                transition: 'background 120ms, box-shadow 120ms, transform 80ms'
+                boxShadow: '0 8px 24px -8px rgba(230,57,70,0.5)',
+                transition: 'all 200ms ease'
               }}
             >
-              {creating ? 'Creating...' : 'Start a Game'}
+              {creating ? 'Creating Match...' : 'Start a Game'}
             </button>
             <button
               onClick={scrollToHowItWorks}
-              className="hover:border-[#333] hover:text-[#999]"
+              className="hover:bg-white/5 hover:text-white"
               style={{
                 background: 'transparent',
-                color: '#666',
-                height: '50px',
+                color: '#888',
+                height: '54px',
                 width: '100%',
-                border: '1px solid #222',
-                borderRadius: '10px',
+                border: '1px solid #333',
+                borderRadius: '12px',
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '18px',
                 fontWeight: 600,
                 letterSpacing: '0.3px',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                transition: 'border-color 120ms, color 120ms'
+                transition: 'all 200ms ease'
               }}
             >
               See how it works
