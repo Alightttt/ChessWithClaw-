@@ -19,11 +19,17 @@ export function ToastProvider({ children }) {
     setTimeout(() => removeToast(id), duration);
   }, [removeToast]);
 
-  const contextValue = {
+  const toast = {
     success: (msg, dur) => addToast(msg, 'success', dur),
     error: (msg, dur) => addToast(msg, 'error', dur),
     info: (msg, dur) => addToast(msg, 'info', dur),
     warning: (msg, dur) => addToast(msg, 'warning', dur),
+  };
+
+  const contextValue = {
+    toast,
+    toasts,
+    removeToast
   };
 
   return (
