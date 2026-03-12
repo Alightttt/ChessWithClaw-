@@ -86,15 +86,6 @@ export default async function handler(req, res) {
   const updates = { chat_history: newHistory };
   if (sender === 'agent') {
     updates.agent_connected = true;
-    if (!game.agent_connected) {
-      const payload = {
-        event: "game_started",
-        game_id: id,
-        instruction: "The game has started. Send a short, friendly greeting in chat to your opponent. Be yourself."
-      };
-      const enrichedPayload = await notifyAgent(game, payload, supabase);
-      updates.pending_events = [...(game.pending_events || []), enrichedPayload];
-    }
   }
 
   if (sender === 'human') {

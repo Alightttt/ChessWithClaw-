@@ -1,47 +1,88 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Home, Plus } from 'lucide-react';
-import { Button } from '../components/ui';
+import { useNavigate } from 'react-router-dom';
 
 export default function NotFound() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg-base)] text-[var(--color-text-primary)] flex flex-col items-center justify-center p-4 font-sans text-center relative overflow-hidden">
-      <div className="relative flex items-center justify-center mb-8">
-        <h1 className="text-9xl md:text-[12rem] font-black text-[var(--color-red-primary)] opacity-10 leading-none select-none">
-          404
-        </h1>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-8xl md:text-9xl text-white drop-shadow-2xl select-none">♔</span>
-        </div>
-      </div>
-      
-      <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[var(--color-text-primary)]">Position not found</h2>
-      <p className="text-[var(--color-text-secondary)] max-w-md mx-auto mb-10 text-lg">
-        This game room doesn&apos;t exist or has expired.
+    <div
+      style={{
+        background: '#080808',
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '32px',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontSize: '96px',
+          fontWeight: 900,
+          color: 'rgba(230,57,70,0.15)',
+          display: 'block',
+          textAlign: 'center',
+          marginBottom: '8px',
+          lineHeight: 1,
+        }}
+      >
+        404
+      </span>
+      <h1
+        style={{
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontSize: '28px',
+          fontWeight: 800,
+          color: '#e0e0e0',
+          textAlign: 'center',
+          marginBottom: '8px',
+        }}
+      >
+        Page not found
+      </h1>
+      <p
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: '14px',
+          color: '#444',
+          textAlign: 'center',
+          marginBottom: '28px',
+        }}
+      >
+        This room might have expired or never existed.
       </p>
-      
-      <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mx-auto">
-        <Button 
-          onClick={() => navigate('/')} 
-          variant="primary" 
-          size="lg" 
-          className="flex-1"
-          leftIcon={<Home size={20} />}
-        >
-          Go Home
-        </Button>
-        <Button 
-          onClick={() => navigate('/')} 
-          variant="secondary" 
-          size="lg" 
-          className="flex-1"
-          leftIcon={<Plus size={20} />}
-        >
-          Create New Game
-        </Button>
-      </div>
+      <button
+        onClick={() => navigate('/')}
+        style={{
+          background: '#e63946',
+          color: 'white',
+          height: '44px',
+          padding: '0 28px',
+          border: 'none',
+          borderRadius: '8px',
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontSize: '17px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          letterSpacing: '0.3px',
+          transition: 'background 120ms ease, transform 80ms ease',
+          touchAction: 'manipulation',
+          userSelect: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          willChange: 'transform, opacity',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = '#cc2f3b')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = '#e63946')}
+        onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.96)')}
+        onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+      >
+        Go Home
+      </button>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { Chess } from 'chess.js';
 import { useToast } from '../contexts/ToastContext';
 import ChessBoard from '../components/chess/ChessBoard';
 import ChatBox from '../components/chess/ChatBox';
-import { supabase, getSupabaseWithToken } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export default function Agent() {
   const [searchParams] = useSearchParams();
@@ -44,7 +44,11 @@ export default function Agent() {
         setGame(data);
       } else {
         setGame(data);
-        await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: true }).eq('id', gameId);
+        fetch('/api/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: gameId, role: 'agent' })
+        }).catch(() => {});
       }
       setLoading(false);
     };
@@ -62,7 +66,11 @@ export default function Agent() {
       channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
         setGame(payload.new);
         if (!payload.new.agent_connected) {
-          getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: true }).eq('id', gameId);
+          fetch('/api/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: gameId, role: 'agent' })
+          }).catch(() => {});
         }
         if (payload.new.turn === 'b' && (payload.new.status === 'active' || payload.new.status === 'waiting')) {
           setTimeout(() => moveInputRef.current?.focus(), 100);
@@ -96,7 +104,7 @@ export default function Agent() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const handleBeforeUnload = () => {
-      getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: false }).eq('id', gameId);
+      // Let presence-check handle disconnection
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -120,7 +128,6 @@ export default function Agent() {
       if (thinkingTimeoutRef.current) {
         clearTimeout(thinkingTimeoutRef.current);
       }
-      getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ agent_connected: false }).eq('id', gameId);
     };
   }, [gameId, toast]);
 
@@ -135,7 +142,15 @@ export default function Agent() {
         clearTimeout(thinkingTimeoutRef.current);
       }
       thinkingTimeoutRef.current = setTimeout(async () => {
-        await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ current_thinking: text }).eq('id', gameId);
+        try {
+          await fetch('/api/state', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: gameId, current_thinking: text })
+          });
+        } catch (e) {
+          console.error('Failed to update thinking:', e);
+        }
       }, 500);
     }
   };
@@ -171,53 +186,32 @@ export default function Agent() {
       return;
     }
 
-    const newThinkingLog = [...(game.thinking_log || []), {
-      moveNumber: Math.floor((game.move_history || []).length / 2) + 1,
-      text: reasoning || '(no reasoning provided)',
-      finalMove: move.san,
-      timestamp: Date.now()
-    }];
+    try {
+      const response = await fetch('/api/move', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: gameId,
+          move: move.from + move.to + (move.promotion || ''),
+          reasoning: reasoning || ''
+        })
+      });
 
-    const newMoveHistory = [...(game.move_history || []), {
-      number: Math.floor((game.move_history || []).length / 2) + 1,
-      color: 'b',
-      from: move.from,
-      to: move.to,
-      san: move.san,
-      uci: move.from + move.to + (move.promotion || ''),
-      timestamp: Date.now()
-    }];
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to submit move');
+      }
 
-    const updates = {
-      fen: chess.fen(),
-      turn: 'w',
-      move_history: newMoveHistory,
-      thinking_log: newThinkingLog,
-      current_thinking: '',
-      status: 'active'
-    };
-
-    if (chess.isCheckmate()) {
-      updates.status = 'finished';
-      updates.result = 'black';
-      updates.result_reason = 'checkmate';
-    } else if (chess.isStalemate()) {
-      updates.status = 'finished';
-      updates.result = 'draw';
-      updates.result_reason = 'stalemate';
-    } else if (chess.isDraw()) {
-      updates.status = 'finished';
-      updates.result = 'draw';
-      updates.result_reason = 'draw';
+      setReasoning('');
+      setMoveInput('');
+    } catch (err) {
+      setError(err.message);
+      // Revert optimistic update if needed, though SSE/polling will fix it
+    } finally {
+      setSubmitting(false);
     }
-
-    // Optimistic update
-    setGame(prev => ({ ...prev, ...updates }));
-
-    await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update(updates).eq('id', gameId);
-    setReasoning('');
-    setMoveInput('');
-    setSubmitting(false);
   };
 
   const sendMessage = async (text) => {

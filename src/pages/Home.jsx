@@ -13,7 +13,7 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [isHoveringPlay, setIsHoveringPlay] = useState(false);
 
-  const agentUrl = `${window.location.origin}/#/Agent?id=${gameId}`;
+  const agentUrl = `${window.location.origin}/Agent?id=${gameId}`;
 
   const createGame = async () => {
     if (!hasSupabase) {

@@ -1,9 +1,6 @@
-'use client';
-
 import React from 'react';
-import { supabase, hasSupabase } from '../lib/supabase';
 
-class ErrorBoundary extends React.Component {
+export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -13,51 +10,96 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
-    
-    // Log to Supabase if configured
-    if (hasSupabase) {
-      try {
-        supabase.from('error_logs').insert([{
-          error_message: error.toString(),
-          component_stack: errorInfo.componentStack,
-          url: window.location.href,
-          user_agent: navigator.userAgent
-        }]).then(({ error: dbError }) => {
-          if (dbError) console.error("Failed to log error to Supabase:", dbError);
-        });
-      } catch (e) {
-        console.error("Failed to execute error logging:", e);
-      }
+  componentDidCatch(error, info) {
+    try {
+      console.error('[ChessWithClaw Error]', error, info);
+    } catch (e) {
+      // Ignore
     }
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8 text-center">
-          <h1 className="text-4xl font-bold text-red-500 mb-4">Something went wrong.</h1>
-          <p className="text-zinc-400 mb-8 max-w-md">
-            The application encountered an unexpected error. This is often due to a hydration mismatch or a rendering bug.
-          </p>
-          <pre className="bg-zinc-900 p-4 rounded text-left text-sm text-red-400 overflow-auto max-w-2xl w-full border border-red-900/30">
-            {this.state.error?.toString()}
-          </pre>
-          <button 
-            onClick={() => {
-                window.location.reload();
+        <div
+          style={{
+            background: '#080808',
+            minHeight: '100dvh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '32px',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          <span
+            style={{
+              fontSize: '48px',
+              display: 'block',
+              color: '#1a1a1a',
+              marginBottom: '16px',
             }}
-            className="mt-8 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
           >
-            Reload Page
+            ♚
+          </span>
+          <h1
+            style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '26px',
+              fontWeight: 800,
+              color: '#e0e0e0',
+              marginBottom: '8px',
+            }}
+          >
+            Something went wrong
+          </h1>
+          <p
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '13px',
+              color: '#444',
+              maxWidth: '260px',
+              margin: '0 auto 24px',
+            }}
+          >
+            {this.state.error?.message || 'Unexpected error occurred'}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              background: '#e63946',
+              color: 'white',
+              height: '44px',
+              padding: '0 28px',
+              border: 'none',
+              borderRadius: '8px',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '17px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              letterSpacing: '0.3px',
+              transition: 'background 120ms ease, transform 80ms ease',
+              touchAction: 'manipulation',
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
+              willChange: 'transform, opacity',
+              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden',
+              transform: 'translateZ(0)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#cc2f3b')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#e63946')}
+            onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.96)')}
+            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            Reload
           </button>
         </div>
       );
     }
 
-    return this.props.children; 
+    return this.props.children;
   }
 }
-
-export default ErrorBoundary;

@@ -284,21 +284,24 @@ export default function Game() {
       }
 
       setGame(prev => ({ ...prev, ...updates }));
-      await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update(updates).eq('id', gameId);
+      
+      const response = await fetch('/api/move', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-game-token': localStorage.getItem(`game_owner_${gameId}`)
+        },
+        body: JSON.stringify({
+          id: gameId,
+          move: from + to + (promotion || '')
+        })
+      });
 
-      if (game.webhook_url) {
-        fetch('/api/trigger-webhook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: gameId,
-            event: updates.status === 'finished' ? 'game_over' : 'your_turn',
-            extraData: { last_move: { from, to, san: move.san } }
-          })
-        }).catch(() => {});
+      if (!response.ok) {
+        throw new Error('Failed to submit move');
       }
     } catch (e) {
-      toast.error('Illegal move');
+      toast.error('Illegal move or failed to submit');
     }
   };
 
@@ -362,7 +365,7 @@ export default function Game() {
   };
 
   const copyInvite = () => {
-    const url = `${window.location.origin}/#/Agent?id=${gameId}`;
+    const url = `${window.location.origin}/Agent?id=${gameId}`;
     navigator.clipboard.writeText(url);
     setCopiedInvite(true);
     setTimeout(() => setCopiedInvite(false), 2000);

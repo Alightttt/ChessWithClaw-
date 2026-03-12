@@ -65,8 +65,10 @@ export default async function handler(req, res) {
   
   if (role === 'human') {
     updates.human_last_seen = now;
+    updates.human_connected = true;
   } else if (role === 'agent') {
     updates.agent_last_seen = now;
+    updates.agent_connected = true;
   }
 
   await supabase.from('games').update(updates).eq('id', id);
