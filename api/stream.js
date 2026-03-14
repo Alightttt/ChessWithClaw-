@@ -21,6 +21,7 @@ export default async function handler(req) {
 
   const url = new URL(req.url);
   const id = url.searchParams.get('id');
+  const token = url.searchParams.get('token') || req.headers.get('x-agent-token') || '';
 
   if (!id) {
     return new Response(JSON.stringify({ error: 'Missing game ID' }), { status: 400 });
@@ -41,7 +42,19 @@ export default async function handler(req) {
     supabaseUrl = `https://${supabaseUrl}`;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        'x-agent-token': token
+      }
+    }
+  });
+
+  // Verify token before updating
+  const { data: gameCheck } = await supabase.from('games').select('agent_token').eq('id', id).single();
+  if (!gameCheck || gameCheck.agent_token !== token) {
+    return new Response(JSON.stringify({ error: 'Forbidden: Invalid or missing token' }), { status: 403 });
+  }
 
   // Mark agent as connected in the database
   const { data: initialGame } = await supabase.from('games').update({ 
@@ -55,16 +68,37 @@ export default async function handler(req) {
       controller.enqueue(encoder.encode('retry: 3000\n\n'));
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: 'connected', game_id: id, message: 'Listening for game updates...' })}\n\n`));
 
-      const sendUpdate = (gameData) => {
-        const chess = new Chess(gameData.fen);
-        const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
-        
-        const pgnChess = new Chess();
+      const sendUpdate = async (gameData) => {
+        // Fetch move history from the new table
+        const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', id).order('move_number', { ascending: true });
+        gameData.move_history = movesData || [];
+
+        // Fetch chat history from the new table
+        const { data: chatData } = await supabase.from('chat_messages').select('*').eq('game_id', id).order('created_at', { ascending: true });
+        gameData.chat_history = (chatData || []).map(msg => ({
+          ...msg,
+          text: msg.message,
+          timestamp: new Date(msg.created_at).getTime()
+        }));
+
+        // Fetch thinking log from the new table
+        const { data: thoughtsData } = await supabase.from('agent_thoughts').select('*').eq('game_id', id).order('created_at', { ascending: true });
+        gameData.thinking_log = (thoughtsData || []).map(thought => ({
+          ...thought,
+          text: thought.thought,
+          moveNumber: thought.move_number,
+          timestamp: new Date(thought.created_at).getTime()
+        }));
+
+        const chess = new Chess();
         if (gameData.move_history && gameData.move_history.length > 0) {
           gameData.move_history.forEach(m => {
-            try { pgnChess.move(m.san); } catch (e) {}
+            try { chess.move(m.san); } catch (e) {}
           });
+        } else if (gameData.fen && gameData.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+          chess.load(gameData.fen);
         }
+        const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
         
         // Calculate captured pieces
         const fenBoard = gameData.fen.split(' ')[0];
@@ -114,8 +148,8 @@ export default async function handler(req) {
           material_balance: material_balance,
           is_in_check: chess.isCheck(),
           game_phase: game_phase,
-          fen: gameData.fen, 
-          pgn: pgnChess.pgn(),
+          fen: chess.fen(), 
+          pgn: chess.pgn(),
           current_turn: gameData.turn === 'w' ? 'WHITE' : 'BLACK',
           ascii_board: chess.ascii(),
           legal_moves: gameData.turn === 'b' ? legalMoves : [],
@@ -129,12 +163,12 @@ export default async function handler(req) {
       };
 
       if (initialGame) {
-        sendUpdate(initialGame);
+        await sendUpdate(initialGame);
       }
 
       const channel = supabase.channel(`game-${id}-server`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${id}` }, (payload) => {
-          sendUpdate(payload.new);
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${id}` }, async (payload) => {
+          await sendUpdate(payload.new);
         })
         .subscribe();
 

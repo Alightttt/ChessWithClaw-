@@ -48,7 +48,14 @@ export default async function handler(req, res) {
     supabaseUrl = `https://${supabaseUrl}`;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        'x-game-token': req.headers['x-game-token'] || '',
+        'x-agent-token': req.headers['x-agent-token'] || ''
+      }
+    }
+  });
   
   const updates = {};
   const now = new Date().toISOString();
@@ -61,7 +68,10 @@ export default async function handler(req, res) {
     updates.agent_connected = true;
   }
 
-  await supabase.from('games').update(updates).eq('id', id);
+  const { error: updateError } = await supabase.from('games').update(updates).eq('id', id);
+  if (updateError) {
+    return res.status(403).json({ error: 'Forbidden: Invalid or missing token.' });
+  }
 
   // Check for human slow
   if (role === 'human') {

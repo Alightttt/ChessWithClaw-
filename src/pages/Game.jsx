@@ -176,7 +176,14 @@ export default function Game() {
     if (!game) return;
     const currentMoveCount = (game.move_history || []).length;
     if (currentMoveCount > prevMoveCountRef.current) {
-      const chess = new Chess(game.fen);
+      const chess = new Chess();
+      if (game.move_history && game.move_history.length > 0) {
+        game.move_history.forEach(m => {
+          try { chess.move(m.san); } catch (e) {}
+        });
+      } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+        chess.load(game.fen);
+      }
       const lastMove = game.move_history[currentMoveCount - 1];
       if (chess.isCheck()) playSound('check');
       else if (lastMove && lastMove.san.includes('x')) playSound('capture');
@@ -205,8 +212,23 @@ export default function Game() {
     
     checkTimeout();
     const interval = setInterval(checkTimeout, 5000);
-    return () => clearInterval(interval);
-  }, [game, game?.turn, game?.status, game?.agent_last_seen, game?.updated_at, game?.created_at]);
+
+    const heartbeatInterval = setInterval(() => {
+      fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
+        },
+        body: JSON.stringify({ id: gameId, role: 'human' })
+      }).catch(() => {});
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(heartbeatInterval);
+    };
+  }, [game, game?.turn, game?.status, game?.agent_last_seen, game?.updated_at, game?.created_at, gameId]);
 
   const handleClaimVictory = async () => {
     await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({
@@ -232,9 +254,37 @@ export default function Game() {
       if (error || !data) {
         setNotFound(true);
       } else {
+        // Fetch move history from the new table
+        const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', gameId).order('move_number', { ascending: true });
+        data.move_history = movesData || [];
+
+        // Fetch chat history from the new table
+        const { data: chatData } = await supabase.from('chat_messages').select('*').eq('game_id', gameId).order('created_at', { ascending: true });
+        data.chat_history = (chatData || []).map(msg => ({
+          ...msg,
+          text: msg.message,
+          timestamp: new Date(msg.created_at).getTime()
+        }));
+
+        // Fetch thinking log from the new table
+        const { data: thoughtsData } = await supabase.from('agent_thoughts').select('*').eq('game_id', gameId).order('created_at', { ascending: true });
+        data.thinking_log = (thoughtsData || []).map(thought => ({
+          ...thought,
+          text: thought.thought,
+          moveNumber: thought.move_number,
+          timestamp: new Date(thought.created_at).getTime()
+        }));
+
         setGame(data);
         if (data.status === 'finished' || data.status === 'abandoned') setGameOver(true);
-        await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ human_connected: true }).eq('id', gameId);
+        fetch('/api/heartbeat', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
+          },
+          body: JSON.stringify({ id: gameId, role: 'human' })
+        }).catch(() => {});
       }
       setLoading(false);
     };
@@ -247,12 +297,76 @@ export default function Game() {
       channelRef.current = channel;
 
       channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
-        setGame(payload.new);
+        setGame(prev => {
+          if (!prev) return payload.new;
+          const updatedGame = { ...prev, ...payload.new };
+          // Preserve arrays that are no longer in the games table
+          updatedGame.move_history = prev.move_history || [];
+          updatedGame.chat_history = prev.chat_history || [];
+          updatedGame.thinking_log = prev.thinking_log || [];
+          return updatedGame;
+        });
         if (!payload.new.human_connected) {
-          getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ human_connected: true }).eq('id', gameId);
+          fetch('/api/heartbeat', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
+            },
+            body: JSON.stringify({ id: gameId, role: 'human' })
+          }).catch(() => {});
         }
         if (payload.new.status === 'finished' || payload.new.status === 'abandoned') setGameOver(true);
-      }).subscribe();
+      });
+
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'moves', filter: `game_id=eq.${gameId}` }, (payload) => {
+        setGame(prev => {
+          if (!prev) return prev;
+          const newMoveHistory = [...(prev.move_history || []), payload.new];
+          // Sort by move_number to ensure correct order
+          newMoveHistory.sort((a, b) => a.move_number - b.move_number);
+          return { ...prev, move_history: newMoveHistory };
+        });
+      });
+
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `game_id=eq.${gameId}` }, (payload) => {
+        setGame(prev => {
+          if (!prev) return prev;
+          const newMsg = {
+            ...payload.new,
+            text: payload.new.message,
+            timestamp: new Date(payload.new.created_at).getTime()
+          };
+          const newChatHistory = [...(prev.chat_history || []), newMsg];
+          newChatHistory.sort((a, b) => a.timestamp - b.timestamp);
+          return { ...prev, chat_history: newChatHistory };
+        });
+      });
+
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'agent_thoughts', filter: `game_id=eq.${gameId}` }, (payload) => {
+        setGame(prev => {
+          if (!prev) return prev;
+          const newThought = {
+            ...payload.new,
+            text: payload.new.thought,
+            moveNumber: payload.new.move_number,
+            timestamp: new Date(payload.new.created_at).getTime()
+          };
+          const newThinkingLog = [...(prev.thinking_log || []), newThought];
+          newThinkingLog.sort((a, b) => a.timestamp - b.timestamp);
+          // Clear current_thinking when a final thought is received
+          return { ...prev, thinking_log: newThinkingLog, current_thinking: '' };
+        });
+      });
+
+      channel.on('broadcast', { event: 'thinking' }, (payload) => {
+        setGame(prev => {
+          if (!prev) return prev;
+          return { ...prev, current_thinking: payload.payload.text };
+        });
+      });
+
+      channel.subscribe();
     };
 
     connectChannel();
@@ -285,7 +399,14 @@ export default function Game() {
     }
 
     setIsMoving(true);
-    const chess = new Chess(game.fen);
+    const chess = new Chess();
+    if (game.move_history && game.move_history.length > 0) {
+      game.move_history.forEach(m => {
+        try { chess.move(m.san); } catch (e) {}
+      });
+    } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+      chess.load(game.fen);
+    }
     try {
       const moveObj = promotion ? { from, to, promotion } : { from, to };
       const move = chess.move(moveObj);
@@ -366,7 +487,10 @@ export default function Game() {
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-game-token': localStorage.getItem(`game_owner_${gameId}`)
+        },
         body: JSON.stringify({ id: gameId, text, sender: 'human' })
       });
       if (!response.ok) {

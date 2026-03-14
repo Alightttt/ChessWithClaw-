@@ -50,13 +50,36 @@ export default async function handler(req, res) {
     supabaseUrl = `https://${supabaseUrl}`;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        'x-agent-token': req.headers['x-agent-token'] || ''
+      }
+    }
+  });
 
-  const { data: initialGame, error } = await supabase.from('games').select('agent_connected, move_history, chat_history, status, fen, turn, pending_events, webhook_url, webhook_failed, webhook_fail_count').eq('id', id).single();
+  const { data: initialGame, error } = await supabase.from('games').select('agent_connected, status, fen, turn, pending_events, webhook_url, webhook_failed, webhook_fail_count, agent_token').eq('id', id).single();
   
   if (error || !initialGame) {
     return res.status(404).json({ error: 'Game not found' });
   }
+
+  const agentToken = req.headers['x-agent-token'];
+  if (!agentToken || agentToken !== initialGame.agent_token) {
+    return res.status(403).json({ error: 'Forbidden: Invalid or missing x-agent-token.' });
+  }
+
+  // Fetch move history from the new table
+  const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', id).order('move_number', { ascending: true });
+  initialGame.move_history = movesData || [];
+
+  // Fetch chat history from the new table
+  const { data: chatData } = await supabase.from('chat_messages').select('*').eq('game_id', id).order('created_at', { ascending: true });
+  initialGame.chat_history = (chatData || []).map(msg => ({
+    ...msg,
+    text: msg.message,
+    timestamp: new Date(msg.created_at).getTime()
+  }));
 
   // Mark agent as connected only if not already connected
   const initialUpdates = { agent_last_seen: new Date().toISOString() };
@@ -84,15 +107,15 @@ export default async function handler(req, res) {
     (last_chat_count !== undefined && currentChatCount > parseInt(last_chat_count)) ||
     initialGame.status === 'finished'
   ) {
-    const chess = new Chess(initialGame.fen);
-    const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
-    
-    const pgnChess = new Chess();
+    const chess = new Chess();
     if (initialGame.move_history && initialGame.move_history.length > 0) {
       initialGame.move_history.forEach(m => {
-        try { pgnChess.move(m.san); } catch (e) {}
+        try { chess.move(m.san); } catch (e) {}
       });
+    } else if (initialGame.fen && initialGame.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+      chess.load(initialGame.fen);
     }
+    const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
 
     // Calculate captured pieces
     const fenBoard = initialGame.fen.split(' ')[0];
@@ -132,8 +155,8 @@ export default async function handler(req, res) {
       event: 'update',
       instructions: "CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. Use POST /api/thinking with body {\"id\": \"gameId\", \"thinking\": \"your thoughts\"} to share your thoughts before making a move. Consult your 'skill.md' and search the internet for chess theory to play smartly. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move. If your move submission fails due to a network error or 5xx status, retry up to 3 times.",
       status: initialGame.status,
-      fen: initialGame.fen,
-      pgn: pgnChess.pgn(),
+      fen: chess.fen(),
+      pgn: chess.pgn(),
       ascii_board: chess.ascii(),
       is_in_check: chess.isCheck(),
       captured_pieces: captured,
@@ -159,8 +182,21 @@ export default async function handler(req, res) {
     channel.on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${id}` },
-      (payload) => {
+      async (payload) => {
         clearTimeout(timeoutId);
+        
+        // Fetch move history from the new table
+        const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', id).order('move_number', { ascending: true });
+        payload.new.move_history = movesData || [];
+
+        // Fetch chat history from the new table
+        const { data: chatData } = await supabase.from('chat_messages').select('*').eq('game_id', id).order('created_at', { ascending: true });
+        payload.new.chat_history = (chatData || []).map(msg => ({
+          ...msg,
+          text: msg.message,
+          timestamp: new Date(msg.created_at).getTime()
+        }));
+
         resolve(payload.new);
       }
     ).subscribe((status) => {
@@ -177,15 +213,15 @@ export default async function handler(req, res) {
   const finalMoveCount = finalGame.move_history ? finalGame.move_history.length : 0;
   const finalChatCount = finalGame.chat_history ? finalGame.chat_history.length : 0;
 
-  const finalChess = new Chess(finalGame.fen);
-  const finalLegalMoves = finalChess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
-
-  const finalPgnChess = new Chess();
+  const finalChess = new Chess();
   if (finalGame.move_history && finalGame.move_history.length > 0) {
     finalGame.move_history.forEach(m => {
-      try { finalPgnChess.move(m.san); } catch (e) {}
+      try { finalChess.move(m.san); } catch (e) {}
     });
+  } else if (finalGame.fen && finalGame.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+    finalChess.load(finalGame.fen);
   }
+  const finalLegalMoves = finalChess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
 
   // Calculate captured pieces
   const fenBoard = finalGame.fen.split(' ')[0];
@@ -233,8 +269,8 @@ export default async function handler(req, res) {
     instructions: "CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. Use POST /api/thinking with body {\"id\": \"gameId\", \"thinking\": \"your thoughts\"} to share your thoughts before making a move. Consult your 'skill.md' and search the internet for chess theory to play smartly. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move. If your move submission fails due to a network error or 5xx status, retry up to 3 times.",
     message: hasChanges ? undefined : 'No changes. Please poll again.',
     status: finalGame.status,
-    fen: finalGame.fen,
-    pgn: finalPgnChess.pgn(),
+    fen: finalChess.fen(),
+    pgn: finalChess.pgn(),
     ascii_board: finalChess.ascii(),
     is_in_check: finalChess.isCheck(),
     captured_pieces: captured,

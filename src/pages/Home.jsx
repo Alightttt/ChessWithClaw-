@@ -8,6 +8,7 @@ import GameCreated from '../components/GameCreated';
 
 export default function Home() {
   const [gameId, setGameId] = useState(null);
+  const [agentToken, setAgentToken] = useState(null);
   const { toast } = useToast();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -28,6 +29,7 @@ export default function Home() {
       );
 
       const secretToken = crypto.randomUUID();
+      const agentToken = crypto.randomUUID();
 
       const insertPromise = supabase
         .from('games')
@@ -44,7 +46,8 @@ export default function Home() {
           result_reason: null,
           webhook_url: null,
           chat_history: [],
-          secret_token: secretToken
+          secret_token: secretToken,
+          agent_token: agentToken
         }])
         .select()
         .single();
@@ -60,6 +63,7 @@ export default function Home() {
       
       localStorage.setItem(`game_owner_${data.id}`, secretToken);
       setGameId(data.id);
+      setAgentToken(agentToken);
     } catch (error) {
       console.error('Create game error:', error);
       if (error.message === 'Failed to fetch') {
@@ -86,7 +90,7 @@ export default function Home() {
   };
 
   if (gameId) {
-    return <GameCreated gameId={gameId} agentUrl={agentUrl} />;
+    return <GameCreated gameId={gameId} agentToken={agentToken} agentUrl={agentUrl} />;
   }
 
   return (

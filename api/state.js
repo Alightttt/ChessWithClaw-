@@ -20,53 +20,6 @@ export default async function handler(req, res) {
 
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   
-  if (req.method === 'PATCH') {
-    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
-    if (contentLength > 10240) {
-      return res.status(413).json({ error: 'Payload too large' });
-    }
-
-    const rateLimitResult = checkRateLimit(ip, '/api/state:patch', 60, 60000);
-    applyRateLimitHeaders(res, 60, rateLimitResult.remaining, rateLimitResult.resetTime);
-    
-    if (!rateLimitResult.allowed) {
-      res.setHeader('Retry-After', Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000));
-      return res.status(429).json({ error: 'Too many requests', retry_after: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000) });
-    }
-
-    const { id, current_thinking } = req.body || {};
-    if (!id || current_thinking === undefined) return res.status(400).json({ error: 'Missing id or current_thinking' });
-    
-    if (!validateUUID(id)) {
-      return res.status(400).json({ error: 'Invalid game ID format' });
-    }
-
-    const sanitizedThinking = sanitizeText(current_thinking, 2000);
-
-    let supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseKey || supabaseUrl === 'undefined') {
-      return res.status(500).json({ error: 'Server configuration error' });
-    }
-    if (!supabaseUrl.startsWith('http')) supabaseUrl = `https://${supabaseUrl}`;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { data: game, error } = await supabase.from('games').select('id, status, agent_connected').eq('id', id).single();
-    if (error || !game) return res.status(404).json({ error: 'Game not found' });
-    if (game.status === 'finished') return res.status(400).json({ error: 'Game over' });
-
-    const updates = { 
-      current_thinking: sanitizedThinking,
-      agent_last_seen: new Date().toISOString()
-    };
-    if (!game.agent_connected) {
-      updates.agent_connected = true;
-    }
-
-    await supabase.from('games').update(updates).eq('id', id);
-    return res.status(200).json({ success: true, message: 'Thinking updated' });
-  }
-
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -98,26 +51,55 @@ export default async function handler(req, res) {
     supabaseUrl = `https://${supabaseUrl}`;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const { data: game, error } = await supabase.from('games').select('id, fen, turn, status, move_history, chat_history, thinking_log, current_thinking, result, result_reason, agent_connected, human_connected, webhook_url, agent_capabilities, pending_events, move_count, created_at, updated_at, agent_name, agent_avatar, agent_tagline').eq('id', id).single();
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        'x-agent-token': req.headers['x-agent-token'] || ''
+      }
+    }
+  });
+  const { data: game, error } = await supabase.from('games').select('id, fen, turn, status, result, result_reason, agent_connected, human_connected, webhook_url, agent_capabilities, pending_events, move_count, created_at, updated_at, agent_name, agent_avatar, agent_tagline, agent_token').eq('id', id).single();
 
   if (error || !game) return res.status(404).json({ error: 'Game not found' });
 
-  const updates = { agent_last_seen: new Date().toISOString() };
-  if (!game.agent_connected) {
-    updates.agent_connected = true;
-    game.agent_connected = true;
-  }
-  await supabase.from('games').update(updates).eq('id', id);
+  // Fetch move history from the new table
+  const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', id).order('move_number', { ascending: true });
+  game.move_history = movesData || [];
 
-  const chess = new Chess(game.fen);
-  
-  // Reconstruct PGN from move history using a fresh board
-  const pgnChess = new Chess();
+  // Fetch chat history from the new table
+  const { data: chatData } = await supabase.from('chat_messages').select('*').eq('game_id', id).order('created_at', { ascending: true });
+  game.chat_history = (chatData || []).map(msg => ({
+    ...msg,
+    text: msg.message,
+    timestamp: new Date(msg.created_at).getTime()
+  }));
+
+  // Fetch thinking log from the new table
+  const { data: thoughtsData } = await supabase.from('agent_thoughts').select('*').eq('game_id', id).order('created_at', { ascending: true });
+  game.thinking_log = (thoughtsData || []).map(thought => ({
+    ...thought,
+    text: thought.thought,
+    moveNumber: thought.move_number,
+    timestamp: new Date(thought.created_at).getTime()
+  }));
+
+  const agentToken = req.headers['x-agent-token'];
+  if (agentToken && agentToken === game.agent_token) {
+    const updates = { agent_last_seen: new Date().toISOString() };
+    if (!game.agent_connected) {
+      updates.agent_connected = true;
+      game.agent_connected = true;
+    }
+    await supabase.from('games').update(updates).eq('id', id);
+  }
+
+  const chess = new Chess();
   if (game.move_history && game.move_history.length > 0) {
     game.move_history.forEach(m => {
-      try { pgnChess.move(m.san); } catch (e) {}
+      try { chess.move(m.san); } catch (e) {}
     });
+  } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+    chess.load(game.fen);
   }
   
   const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
@@ -173,8 +155,8 @@ export default async function handler(req, res) {
     game_phase: game_phase,
     current_turn: game.turn === 'w' ? 'WHITE' : 'BLACK',
     you_are: 'BLACK',
-    fen: game.fen,
-    pgn: pgnChess.pgn(),
+    fen: chess.fen(),
+    pgn: chess.pgn(),
     ascii_board: chess.ascii(),
     legal_moves: game.turn === 'b' ? legalMoves : [],
     last_move: game.move_history?.length > 0 ? game.move_history[game.move_history.length - 1] : null,

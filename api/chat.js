@@ -58,29 +58,74 @@ export default async function handler(req, res) {
     supabaseUrl = `https://${supabaseUrl}`;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        'x-game-token': req.headers['x-game-token'] || '',
+        'x-agent-token': req.headers['x-agent-token'] || ''
+      }
+    }
+  });
   
   // Verify game exists
-  const { data: game, error } = await supabase.from('games').select('id, chat_history, webhook_url, webhook_failed, webhook_fail_count, move_history, fen, turn, pending_events, agent_connected').eq('id', id).single();
+  const { data: game, error } = await supabase.from('games').select('id, webhook_url, webhook_failed, webhook_fail_count, fen, turn, pending_events, agent_connected, secret_token, agent_token').eq('id', id).single();
   if (error || !game) return res.status(404).json({ error: 'Game not found' });
 
+  if (sender === 'human') {
+    const gameToken = req.headers['x-game-token'];
+    if (!gameToken || gameToken !== game.secret_token) {
+      return res.status(403).json({ error: 'Forbidden: Invalid or missing x-game-token for human.' });
+    }
+  } else if (sender === 'agent') {
+    const agentToken = req.headers['x-agent-token'];
+    if (!agentToken || agentToken !== game.agent_token) {
+      return res.status(403).json({ error: 'Forbidden: Invalid or missing x-agent-token for agent.' });
+    }
+  }
+
+  // Fetch move history from the new table
+  const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', id).order('move_number', { ascending: true });
+  game.move_history = movesData || [];
+
   const newMessage = {
+    game_id: id,
     sender: sender,
-    text: sanitizedText,
-    type: type || 'text', // Support special types like 'resign_request'
-    timestamp: Date.now()
+    message: sanitizedText,
+    type: type || 'text'
   };
 
-  const newHistory = [...(game.chat_history || []), newMessage];
+  const { error: chatInsertError } = await supabase.from('chat_messages').insert(newMessage);
+  if (chatInsertError) {
+    console.error("Error inserting chat:", chatInsertError);
+    if (chatInsertError.code === '42P01') {
+      const { data: oldGame } = await supabase.from('games').select('chat_history').eq('id', id).single();
+      const newHistory = [...(oldGame?.chat_history || []), {
+        sender: sender,
+        text: sanitizedText,
+        type: type || 'text',
+        timestamp: Date.now()
+      }];
+      await supabase.from('games').update({ chat_history: newHistory }).eq('id', id);
+    } else {
+      return res.status(500).json({ error: 'Failed to send message' });
+    }
+  }
 
-  const updates = { chat_history: newHistory };
+  const updates = {};
   if (sender === 'agent') {
     updates.agent_connected = true;
     updates.agent_last_seen = new Date().toISOString();
   }
 
   if (sender === 'human') {
-    const chess = new Chess(game.fen);
+    const chess = new Chess();
+    if (game.move_history && game.move_history.length > 0) {
+      game.move_history.forEach(m => {
+        try { chess.move(m.san); } catch (e) {}
+      });
+    } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+      chess.load(game.fen);
+    }
     const payload = {
       event: "human_sent_chat",
       game_id: id,
@@ -96,8 +141,9 @@ export default async function handler(req, res) {
     updates.pending_events = [...(updates.pending_events || game.pending_events || []), enrichedPayload];
   }
 
-  // Update chat history and pending_events
-  await supabase.from('games').update(updates).eq('id', id);
+  if (Object.keys(updates).length > 0) {
+    await supabase.from('games').update(updates).eq('id', id);
+  }
 
   res.status(200).json({ 
     success: true, 

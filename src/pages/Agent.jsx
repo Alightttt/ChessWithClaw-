@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase';
 export default function Agent() {
   const [searchParams] = useSearchParams();
   const gameId = searchParams.get('id');
+  const agentToken = searchParams.get('token');
   const { toast } = useToast();
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,16 +40,42 @@ export default function Agent() {
 
       if (error || !data) {
         toast.error('Game not found');
-      } else if (data.agent_connected) {
-        toast.error('An agent is already connected to this game.');
-        setGame(data);
       } else {
-        setGame(data);
-        fetch('/api/heartbeat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: gameId, role: 'agent' })
-        }).catch(() => {});
+        // Fetch move history from the new table
+        const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', gameId).order('move_number', { ascending: true });
+        data.move_history = movesData || [];
+
+        // Fetch chat history from the new table
+        const { data: chatData } = await supabase.from('chat_messages').select('*').eq('game_id', gameId).order('created_at', { ascending: true });
+        data.chat_history = (chatData || []).map(msg => ({
+          ...msg,
+          text: msg.message,
+          timestamp: new Date(msg.created_at).getTime()
+        }));
+
+        // Fetch thinking log from the new table
+        const { data: thoughtsData } = await supabase.from('agent_thoughts').select('*').eq('game_id', gameId).order('created_at', { ascending: true });
+        data.thinking_log = (thoughtsData || []).map(thought => ({
+          ...thought,
+          text: thought.thought,
+          moveNumber: thought.move_number,
+          timestamp: new Date(thought.created_at).getTime()
+        }));
+
+        if (data.agent_connected) {
+          toast.error('An agent is already connected to this game.');
+          setGame(data);
+        } else {
+          setGame(data);
+          fetch('/api/heartbeat', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-agent-token': agentToken || ''
+            },
+            body: JSON.stringify({ id: gameId, role: 'agent' })
+          }).catch(() => {});
+        }
       }
       setLoading(false);
     };
@@ -60,22 +87,73 @@ export default function Agent() {
         supabase.removeChannel(channelRef.current);
       }
 
-      const channel = supabase.channel(`agent-${gameId}`);
+      const channel = supabase.channel(`game-${gameId}`);
       channelRef.current = channel;
 
       channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
-        setGame(payload.new);
+        setGame(prev => {
+          if (!prev) return payload.new;
+          const updatedGame = { ...prev, ...payload.new };
+          // Preserve arrays that are no longer in the games table
+          updatedGame.move_history = prev.move_history || [];
+          updatedGame.chat_history = prev.chat_history || [];
+          updatedGame.thinking_log = prev.thinking_log || [];
+          return updatedGame;
+        });
         if (!payload.new.agent_connected) {
           fetch('/api/heartbeat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-agent-token': agentToken || ''
+            },
             body: JSON.stringify({ id: gameId, role: 'agent' })
           }).catch(() => {});
         }
         if (payload.new.turn === 'b' && (payload.new.status === 'active' || payload.new.status === 'waiting')) {
           setTimeout(() => moveInputRef.current?.focus(), 100);
         }
-      }).subscribe((status) => {
+      });
+
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'moves', filter: `game_id=eq.${gameId}` }, (payload) => {
+        setGame(prev => {
+          if (!prev) return prev;
+          const newMoveHistory = [...(prev.move_history || []), payload.new];
+          newMoveHistory.sort((a, b) => a.move_number - b.move_number);
+          return { ...prev, move_history: newMoveHistory };
+        });
+      });
+
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `game_id=eq.${gameId}` }, (payload) => {
+        setGame(prev => {
+          if (!prev) return prev;
+          const newMsg = {
+            ...payload.new,
+            text: payload.new.message,
+            timestamp: new Date(payload.new.created_at).getTime()
+          };
+          const newChatHistory = [...(prev.chat_history || []), newMsg];
+          newChatHistory.sort((a, b) => a.timestamp - b.timestamp);
+          return { ...prev, chat_history: newChatHistory };
+        });
+      });
+
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'agent_thoughts', filter: `game_id=eq.${gameId}` }, (payload) => {
+        setGame(prev => {
+          if (!prev) return prev;
+          const newThought = {
+            ...payload.new,
+            text: payload.new.thought,
+            moveNumber: payload.new.move_number,
+            timestamp: new Date(payload.new.created_at).getTime()
+          };
+          const newThinkingLog = [...(prev.thinking_log || []), newThought];
+          newThinkingLog.sort((a, b) => a.timestamp - b.timestamp);
+          return { ...prev, thinking_log: newThinkingLog };
+        });
+      });
+
+      channel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           reconnectDelayRef.current = 1000;
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
@@ -112,7 +190,10 @@ export default function Agent() {
     const heartbeatInterval = setInterval(() => {
       fetch('/api/heartbeat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-agent-token': agentToken || ''
+        },
         body: JSON.stringify({ id: gameId, role: 'agent' })
       }).catch(() => {});
     }, 15000);
@@ -141,15 +222,13 @@ export default function Agent() {
       if (thinkingTimeoutRef.current) {
         clearTimeout(thinkingTimeoutRef.current);
       }
-      thinkingTimeoutRef.current = setTimeout(async () => {
-        try {
-          await fetch('/api/state', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: gameId, current_thinking: text })
-          });
-        } catch (e) {
-          console.error('Failed to update thinking:', e);
+      thinkingTimeoutRef.current = setTimeout(() => {
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'thinking',
+            payload: { text }
+          }).catch(e => console.error('Failed to broadcast thinking:', e));
         }
       }, 500);
     }
@@ -164,7 +243,14 @@ export default function Agent() {
     setSubmitting(true);
     setError('');
 
-    const chess = new Chess(game.fen);
+    const chess = new Chess();
+    if (game.move_history && game.move_history.length > 0) {
+      game.move_history.forEach(m => {
+        try { chess.move(m.san); } catch (e) {}
+      });
+    } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+      chess.load(game.fen);
+    }
     let move = null;
 
     try {
@@ -191,6 +277,7 @@ export default function Agent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-agent-token': agentToken || ''
         },
         body: JSON.stringify({
           id: gameId,
@@ -223,7 +310,10 @@ export default function Agent() {
     try {
       await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-agent-token': agentToken || ''
+        },
         body: JSON.stringify({ id: gameId, text, sender: 'agent' })
       });
     } catch (e) {
@@ -260,7 +350,14 @@ export default function Agent() {
     );
   }
 
-  const chess = new Chess(game.fen);
+  const chess = new Chess();
+  if (game.move_history && game.move_history.length > 0) {
+    game.move_history.forEach(m => {
+      try { chess.move(m.san); } catch (e) {}
+    });
+  } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+    chess.load(game.fen);
+  }
   const isMyTurn = game.turn === 'b' && (game.status === 'active' || game.status === 'waiting');
   const legalMoves = chess.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
   const lastMove = (game.move_history || [])[(game.move_history || []).length - 1] || null;

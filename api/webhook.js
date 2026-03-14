@@ -53,11 +53,22 @@ export default async function handler(req, res) {
     supabaseUrl = `https://${supabaseUrl}`;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        'x-agent-token': req.headers['x-agent-token'] || ''
+      }
+    }
+  });
   
   // Verify game exists
-  const { data: game, error } = await supabase.from('games').select('id, fen, turn, status, move_history, chat_history, pending_events').eq('id', id).single();
+  const { data: game, error } = await supabase.from('games').select('id, fen, turn, status, move_history, chat_history, pending_events, agent_token').eq('id', id).single();
   if (error || !game) return res.status(404).json({ error: 'Game not found' });
+
+  const agentToken = req.headers['x-agent-token'];
+  if (!agentToken || agentToken !== game.agent_token) {
+    return res.status(403).json({ error: 'Forbidden: Invalid or missing x-agent-token.' });
+  }
 
   const payload = {
     event: 'agent_connected',
