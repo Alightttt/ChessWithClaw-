@@ -568,11 +568,34 @@ export default function Game() {
       });
 
       if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
         setGame(previousGame);
-        throw new Error('Failed to submit move');
+        if (errData.code === 'WAITING_FOR_AGENT') {
+          throw new Error('WAITING_FOR_AGENT');
+        } else if (errData.code === 'TURN_CONFLICT') {
+          throw new Error('TURN_CONFLICT');
+        }
+        throw new Error(errData.error || 'Failed to submit move');
+      }
+
+      const responseData = await response.json();
+      if (responseData.success && responseData.game) {
+        setGame(prev => ({
+          ...prev,
+          ...responseData.game,
+          // Preserve arrays that might not be in the minimal response
+          chat_history: prev.chat_history || [],
+          thinking_log: prev.thinking_log || []
+        }));
       }
     } catch (e) {
-      toast.error('Illegal move or failed to submit');
+      if (e.message === 'WAITING_FOR_AGENT') {
+        toast.error('Waiting for your OpenClaw to join');
+      } else if (e.message === 'TURN_CONFLICT') {
+        toast.error('Move already processed');
+      } else {
+        toast.error(e.message || 'Illegal move or failed to submit');
+      }
     } finally {
       submittingRef.current = false;
       setIsMoving(false);

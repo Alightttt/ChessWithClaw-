@@ -6,24 +6,16 @@ import { checkRateLimit } from './_utils/rateLimit.js';
 import { applySecurityHeaders, applyCacheControl, applyRateLimitHeaders, applyCorsHeaders } from './_middleware/headers.js';
 import { detectGameEvent, getMaterialBalance, getEmotionalContext } from './_utils/gameLogic.js';
 
-const moveRateLimits = new Map();
-
-function computeMaterialBalance(chess) {
-  const values = { p: 1, n: 3, b: 3, r: 5, q: 9 };
-  let white = 0, black = 0;
+function computeMaterial(chess) {
+  const vals = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+  let w = 0, b = 0;
   chess.board().forEach(row => row.forEach(sq => {
     if (!sq) return;
-    const val = values[sq.type] || 0;
-    if (sq.color === 'w') white += val;
-    else black += val;
+    const v = vals[sq.type] || 0;
+    if (sq.color === 'w') w += v; else b += v;
   }));
-  const diff = white - black;
-  return {
-    white,
-    black,
-    advantage: diff > 0 ? 'white' : diff < 0 ? 'black' : 'equal',
-    difference: Math.abs(diff)
-  };
+  const diff = w - b;
+  return { white: w, black: b, advantage: diff > 0 ? 'white' : diff < 0 ? 'black' : 'equal', difference: Math.abs(diff) };
 }
 
 export default async function handler(req, res) {
@@ -66,8 +58,8 @@ export default async function handler(req, res) {
 
   const sanitizedReasoning = sanitizeText(reasoning, 300);
 
-  let supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  let supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   
   if (!supabaseUrl || !supabaseKey || supabaseUrl === 'undefined') {
     return res.status(500).json({ error: 'Server configuration error: Missing Supabase credentials' });
@@ -85,10 +77,21 @@ export default async function handler(req, res) {
       }
     }
   });
+  
   const { data: game, error } = await supabase.from('games').select('id, fen, turn, status, result, result_reason, agent_connected, human_connected, webhook_url, agent_capabilities, pending_events, move_count, created_at, updated_at, webhook_failed, webhook_fail_count, agent_name, agent_avatar, agent_tagline, secret_token, agent_token').eq('id', id).single();
 
   if (error || !game) return res.status(404).json({ error: 'Game not found' });
-  if (game.status !== 'active' && game.status !== 'waiting') return res.status(400).json({ error: 'Game over' });
+  
+  // FIX 1 — BETTER ERROR CODE WHEN WAITING
+  if (game.status === 'waiting') {
+    return res.status(400).json({
+      error: 'Waiting for OpenClaw to join',
+      code: 'WAITING_FOR_AGENT',
+      agent_connected: game.agent_connected
+    });
+  }
+  
+  if (game.status !== 'active') return res.status(400).json({ error: 'Game over' });
 
   // Fetch move history from the new table
   const { data: movesData } = await supabase.from('moves').select('*').eq('game_id', id).order('move_number', { ascending: true });
@@ -120,32 +123,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // FIX 1 — agent_connected NEVER SETS FOR API AGENTS
+    // FIX 3 — SET agent_connected ON AGENT'S FIRST MOVE
     if (!game.agent_connected) {
       await supabase
         .from('games')
-        .update({ 
-          agent_connected: true,
-          updated_at: new Date().toISOString()
-        })
+        .update({ agent_connected: true })
         .eq('id', id)
         .eq('agent_connected', false);
     }
   }
 
-  // FIX 3 — PROTECT AGAINST FEN CORRUPTION
+  // FIX 4 — PROTECT AGAINST CORRUPT FEN
   let chess;
-  try {
-    chess = new Chess();
-    if (game.move_history && game.move_history.length > 0) {
-      game.move_history.forEach(m => {
-        try { chess.move(m.san); } catch (e) {}
-      });
-    } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
-      chess.load(game.fen);
-    }
-  } catch (e) {
-    return res.status(500).json({ error: 'Game state corrupted. Contact support.', code: 'CORRUPT_FEN' });
+  try { 
+    chess = new Chess(game.fen); 
+  } catch(e) {
+    return res.status(500).json({
+      error: 'Game state corrupted',
+      code: 'CORRUPT_FEN'
+    });
   }
 
   const boardBeforeMove = chess.ascii();
@@ -251,14 +247,7 @@ export default async function handler(req, res) {
   }
 
   if (isHumanMove) {
-    const chessBefore = new Chess();
-    if (game.move_history && game.move_history.length > 0) {
-      game.move_history.forEach(m => {
-        try { chessBefore.move(m.san); } catch (e) {}
-      });
-    } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
-      chessBefore.load(game.fen);
-    }
+    const chessBefore = new Chess(game.fen);
     const wasInCheck = chessBefore.isCheck();
     
     const emotional_context = getEmotionalContext(moveObj, chess, wasInCheck);
@@ -287,7 +276,10 @@ export default async function handler(req, res) {
     const baseInstruction = updates.status === 'finished' ? "The game is over. You can send a final chat message if you want. CRITICAL: DO NOT reply on Telegram/Discord." : "It's your turn. Consult your 'skill.md' file and search the internet for chess theory/evaluations for the current FEN to play smartly. Stream your thinking first, then make your move. React in chat as yourself. If you want to resign, send a chat message with type 'resign_request'. If you want to offer a draw, send a chat message with type 'draw_request'. CRITICAL: DO NOT reply on Telegram/Discord. Stay in an infinite loop and use POST /api/chat for all communication. If there are pending chat messages, you MUST reply to them using the chat API before you submit your chess move. If your move submission fails due to a network error or 5xx status, retry up to 3 times.";
     const reactionInstruction = `\n\nReact to the human's move in chat based on emotional_context. 1 sentence max. Be yourself.\nExamples by context:\n- human_captured_your_piece: show surprise or acceptance\n- human_is_in_check: acknowledge you put them in check OR that they escaped one\n- human_castled: brief comment on their king safety\n- human_made_aggressive_move: show alertness\n- human_made_quiet_move: no reaction needed`;
 
-    // FIX 4 — WEBHOOK FIRE WITH COMPLETE PAYLOAD
+    // FIX 6 — COMPLETE WEBHOOK PAYLOAD
+    const agentChess = new Chess(chess.fen());
+    const legalMovesUCI = agentChess.moves({verbose:true}).map(m=>m.from+m.to+(m.promotion||''));
+
     const payload = {
       event: updates.status === 'finished' ? "game_over" : "your_turn",
       game_id: id,
@@ -300,14 +292,14 @@ export default async function handler(req, res) {
         san: moveObj.san,
         uci: moveObj.from + moveObj.to + (moveObj.promotion || '')
       },
-      legal_moves: agentLegalMoves,
-      legal_moves_uci: agentLegalMovesUCI,
+      legal_moves: agentChess.moves(),
+      legal_moves_uci: legalMovesUCI,
       move_history: game.move_history,
-      board_ascii: chess.ascii(),
-      in_check: chess.isCheck(),
-      is_checkmate: chess.isCheckmate(),
-      is_stalemate: chess.isStalemate(),
-      material_balance: computeMaterialBalance(chess),
+      board_ascii: agentChess.ascii(),
+      in_check: agentChess.inCheck(),
+      is_checkmate: agentChess.isCheckmate(),
+      is_stalemate: agentChess.isStalemate(),
+      material_balance: computeMaterial(agentChess),
       callback_url: "https://chesswithclaw.vercel.app/api/move",
       
       // Keeping existing fields as well just in case
@@ -361,14 +353,7 @@ export default async function handler(req, res) {
     }
   } else {
     // Agent move
-    const chessBefore = new Chess();
-    if (game.move_history && game.move_history.length > 0) {
-      game.move_history.forEach(m => {
-        try { chessBefore.move(m.san); } catch (e) {}
-      });
-    } else if (game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
-      chessBefore.load(game.fen);
-    }
+    const chessBefore = new Chess(game.fen);
     const gameEvent = detectGameEvent(chessBefore, chess, moveObj);
     if (gameEvent !== "normal_move") {
       const payload = {
@@ -384,48 +369,35 @@ export default async function handler(req, res) {
     }
   }
 
-  const { data: updatedGame, error: updateError } = await supabase
+  // FIX 5 — RACE CONDITION: TURN CHECK ON UPDATE
+  const { data: updated, error: updateError } = await supabase
     .from('games')
     .update(updates)
     .eq('id', id)
-    .eq('turn', game.turn)
+    .eq('turn', game.turn)  // only updates if turn hasn't changed
     .select()
     .single();
 
-  if (updateError || !updatedGame) {
-    return res.status(409).json({ error: 'Move conflict. The game state has changed. Please fetch the latest state and try again.' });
+  if (!updated) {
+    return res.status(409).json({
+      error: 'Move already processed',
+      code: 'TURN_CONFLICT'
+    });
   }
   
-  // Reconstruct PGN for response
-  const responseChess = new Chess();
-  game.move_history.forEach(m => {
-    try { responseChess.move(m.san); } catch (e) {}
-  });
-
-  // FIX 2 — RETURN FULL GAME STATE ON SUCCESS
-  const nextLegalMovesObj = chess.moves({ verbose: true });
-  const nextLegalMoves = nextLegalMovesObj.map(m => m.from + m.to + (m.promotion || ''));
-
-  res.status(200).json({ 
-    success: true, 
+  // FIX 7 — RETURN FULL STATE ON SUCCESS
+  return res.json({
+    success: true,
     game: {
-      id: updatedGame.id,
-      fen: updatedGame.fen,
-      turn: updatedGame.turn,
-      status: updatedGame.status,
-      move_number: updatedGame.move_number || Math.floor(game.move_history.length / 2) + 1,
-      last_move: updatedGame.last_move || (game.move_history.length > 0 ? game.move_history[game.move_history.length - 1] : null),
+      id: updated.id,
+      fen: updated.fen,
+      turn: updated.turn,
+      status: updated.status,
+      move_number: updated.move_number || Math.floor(game.move_history.length / 2) + 1,
+      last_move: updated.last_move || (game.move_history.length > 0 ? game.move_history[game.move_history.length - 1] : null),
       in_check: chess.isCheck(),
-      legal_moves: nextLegalMoves,
-      move_history: game.move_history
-    },
-    // Keep existing fields for backward compatibility
-    fen: chess.fen(), 
-    ascii_board: chess.ascii(),
-    pgn: responseChess.pgn(),
-    status: updates.status,
-    result: updates.result || null,
-    result_reason: updates.result_reason || null,
-    message: updates.status === 'finished' ? 'Game over.' : 'Move accepted. Waiting for White to play.' 
+      legal_moves: new Chess(updated.fen).moves({verbose:true}).map(m=>m.from+m.to+(m.promotion||'')),
+      move_history: updated.move_history || game.move_history
+    }
   });
 }
