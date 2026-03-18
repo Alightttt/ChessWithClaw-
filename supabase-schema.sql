@@ -1,6 +1,6 @@
 -- Supabase Schema for ChessWithClaw
 
-CREATE TABLE public.games (
+CREATE TABLE IF NOT EXISTS public.games (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at timestamptz DEFAULT now(),
     fen text NOT NULL DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -40,6 +40,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_games_updated_at ON public.games;
 CREATE TRIGGER update_games_updated_at
     BEFORE UPDATE ON public.games
     FOR EACH ROW
@@ -56,6 +57,10 @@ DROP POLICY IF EXISTS "Service role can update games" ON public.games;
 DROP POLICY IF EXISTS "Service role can delete games" ON public.games;
 DROP POLICY IF EXISTS "Service role updates" ON public.games;
 DROP POLICY IF EXISTS "Service role deletes" ON public.games;
+DROP POLICY IF EXISTS "read_games" ON public.games;
+DROP POLICY IF EXISTS "create_games" ON public.games;
+DROP POLICY IF EXISTS "update_games" ON public.games;
+DROP POLICY IF EXISTS "delete_games" ON public.games;
 
 -- SELECT: anyone can read (frontend + agent page both need this)
 CREATE POLICY "read_games"
@@ -90,4 +95,16 @@ CREATE INDEX IF NOT EXISTS games_created_at_idx ON public.games(created_at);
 CREATE INDEX IF NOT EXISTS games_expires_at_idx ON public.games(expires_at);
 
 -- Enable real-time for the games table
-alter publication supabase_realtime add table public.games;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+    AND schemaname = 'public'
+    AND tablename = 'games'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.games;
+  END IF;
+END
+$$;
