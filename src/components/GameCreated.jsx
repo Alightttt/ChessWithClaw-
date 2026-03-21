@@ -135,7 +135,7 @@ RULES:
 
   return (
     <div style={{
-      background: '#0a0a0a',
+      background: '#080808',
       minHeight: '100dvh',
       overflowX: 'hidden',
       padding: '16px',
@@ -154,10 +154,10 @@ RULES:
           <button 
             onClick={handleBack}
             style={{
-              background: '#141414',
-              border: '1px solid #222',
+              background: '#1a1a1a',
+              border: '1px solid #1a1a1a',
               borderRadius: '8px',
-              color: '#555',
+              color: '#666',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -174,7 +174,7 @@ RULES:
               e.currentTarget.style.color = '#888';
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = '#222';
+              e.currentTarget.style.borderColor = '#1a1a1a';
               e.currentTarget.style.color = '#555';
             }}
             onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.93)'}
@@ -197,8 +197,8 @@ RULES:
 
           <div style={{
             flexShrink: 0,
-            background: '#141414',
-            border: '1px solid #222',
+            background: '#1a1a1a',
+            border: '1px solid #1a1a1a',
             borderRadius: '6px',
             padding: '5px 10px',
             fontFamily: "'JetBrains Mono', monospace",
@@ -222,7 +222,7 @@ RULES:
             top: '19px',
             bottom: '19px',
             width: '1px',
-            background: 'linear-gradient(to bottom, #e63946, rgba(230,57,70,0.3), #1e1e1e)',
+            background: 'linear-gradient(to bottom, #e63946, rgba(230,57,70,0.3), #1a1a1a)',
             zIndex: 0
           }}></div>
 
@@ -248,7 +248,7 @@ RULES:
             }}>Invite</div>
           </div>
 
-          <div style={{ flex: 1, height: '1px', marginTop: '19px', background: boardOpened ? '#e63946' : '#1e1e1e', transition: 'background 300ms ease' }}></div>
+          <div style={{ flex: 1, height: '1px', marginTop: '19px', background: boardOpened ? '#e63946' : '#1a1a1a', transition: 'background 300ms ease' }}></div>
 
           {/* Step 2: Board */}
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1 }}>
@@ -283,7 +283,7 @@ RULES:
             }}>Board</div>
           </div>
 
-          <div style={{ flex: 1, height: '1px', marginTop: '19px', background: agentConnected ? '#e63946' : '#1e1e1e', transition: 'background 300ms ease' }}></div>
+          <div style={{ flex: 1, height: '1px', marginTop: '19px', background: agentConnected ? '#e63946' : '#1a1a1a', transition: 'background 300ms ease' }}></div>
 
           {/* Step 3: Battle */}
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1 }}>
@@ -291,13 +291,13 @@ RULES:
               width: '38px', height: '38px',
               borderRadius: '8px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: agentConnected ? '#e63946' : '#141414',
-              border: agentConnected ? 'none' : '1px solid #222',
+              background: agentConnected ? '#e63946' : '#1a1a1a',
+              border: agentConnected ? 'none' : '1px solid #1a1a1a',
               boxShadow: agentConnected ? '0 0 0 3px rgba(230,57,70,0.15)' : 'none',
               fontFamily: agentConnected ? "'Inter', sans-serif" : "'JetBrains Mono', monospace",
               fontSize: agentConnected ? '14px' : '12px',
               fontWeight: agentConnected ? 700 : 400,
-              color: agentConnected ? 'white' : '#2a2a2a',
+              color: agentConnected ? 'white' : '#666',
               position: 'relative'
             }}>
               {agentConnected ? '✓' : '3'}
@@ -314,7 +314,7 @@ RULES:
               fontFamily: "'Inter', sans-serif", fontSize: '9px', fontWeight: 600,
               textTransform: 'uppercase', letterSpacing: '0.5px',
               width: '44px', textAlign: 'center', marginTop: '6px',
-              color: agentConnected ? '#e63946' : '#1e1e1e'
+              color: agentConnected ? '#e63946' : '#666'
             }}>Battle</div>
           </div>
         </div>
@@ -322,15 +322,15 @@ RULES:
         {/* CARD 1 — SUMMON YOUR OPENCLAW */}
         <div 
           style={{
-            background: '#111111',
-            border: '1px solid #222222',
+            background: '#0e0e0e',
+            border: '1px solid #1a1a1a',
             borderRadius: '12px',
             padding: '20px',
             marginBottom: '10px',
             transition: 'border-color 200ms'
           }}
           onMouseOver={(e) => e.currentTarget.style.borderColor = '#333333'}
-          onMouseOut={(e) => e.currentTarget.style.borderColor = '#222222'}
+          onMouseOut={(e) => e.currentTarget.style.borderColor = '#1a1a1a'}
         >
           <div style={{
             display: 'inline-block',
@@ -357,7 +357,7 @@ RULES:
             fontFamily: "'Inter', sans-serif",
             fontSize: '13px',
             fontWeight: 400,
-            color: '#555',
+            color: '#666',
             lineHeight: 1.5,
             marginBottom: '14px'
           }}>First, install the chess skill in your OpenClaw terminal:</p>
@@ -379,7 +379,7 @@ RULES:
             fontFamily: "'Inter', sans-serif",
             fontSize: '13px',
             fontWeight: 400,
-            color: '#555',
+            color: '#666',
             lineHeight: 1.5,
             marginBottom: '10px'
           }}>Then send your OpenClaw this invite:</p>
@@ -414,8 +414,8 @@ RULES:
             style={{
               width: '100%',
               height: '42px',
-              background: '#141414',
-              border: `1px solid ${copyState === 'copied' ? 'rgba(34,197,94,0.2)' : '#1e1e1e'}`,
+              background: '#1a1a1a',
+              border: `1px solid ${copyState === 'copied' ? 'rgba(34,197,94,0.2)' : '#1a1a1a'}`,
               borderRadius: '8px',
               fontFamily: "'Inter', sans-serif",
               fontSize: '13px',
@@ -438,7 +438,7 @@ RULES:
               marginTop: '16px',
               fontFamily: "'Inter', sans-serif",
               fontSize: '13px',
-              color: '#555',
+              color: '#666',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
@@ -484,15 +484,15 @@ RULES:
         {/* CARD 2 — OPEN YOUR ARENA */}
         <div 
           style={{
-            background: '#111111',
-            border: '1px solid #222222',
+            background: '#0e0e0e',
+            border: '1px solid #1a1a1a',
             borderRadius: '12px',
             padding: '20px',
             marginBottom: '10px',
             transition: 'border-color 200ms'
           }}
           onMouseOver={(e) => e.currentTarget.style.borderColor = '#333333'}
-          onMouseOut={(e) => e.currentTarget.style.borderColor = '#222222'}
+          onMouseOut={(e) => e.currentTarget.style.borderColor = '#1a1a1a'}
         >
           <div style={{
             display: 'inline-block',
@@ -519,7 +519,7 @@ RULES:
             fontFamily: "'Inter', sans-serif",
             fontSize: '13px',
             fontWeight: 400,
-            color: '#555',
+            color: '#666',
             lineHeight: 1.5,
             marginBottom: '14px'
           }}>Open the board in a new tab.<br/>Your battlefield is ready.</p>
@@ -572,15 +572,15 @@ RULES:
         {/* CARD 3 — WAITING FOR YOUR OPENCLAW */}
         <div 
           style={{
-            background: '#111111',
-            border: '1px solid #222222',
+            background: '#0e0e0e',
+            border: '1px solid #1a1a1a',
             borderRadius: '12px',
             padding: '20px',
             marginBottom: '10px',
             transition: 'border-color 200ms'
           }}
           onMouseOver={(e) => e.currentTarget.style.borderColor = '#333333'}
-          onMouseOut={(e) => e.currentTarget.style.borderColor = '#222222'}
+          onMouseOut={(e) => e.currentTarget.style.borderColor = '#1a1a1a'}
         >
           <div style={{
             display: 'inline-block',
@@ -633,10 +633,10 @@ RULES:
                 }}>
                   🦞
                 </div>
-                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', color: '#444' }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', color: '#666' }}>
                   Your OpenClaw hasn&apos;t arrived yet...
                 </div>
-                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#2a2a2a' }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#666' }}>
                   Send the invite above to summon them.
                 </div>
               </>
