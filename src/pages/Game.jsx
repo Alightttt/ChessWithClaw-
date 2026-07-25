@@ -1029,21 +1029,6 @@ export default function Game() {
   }, []);
 
   useEffect(() => {
-    if (game?.status === 'finished' || game?.status === 'abandoned') {
-      // Clear ALL intervals immediately on game over
-      intervalsRef.current.forEach(clearInterval);
-      intervalsRef.current = [];
-      allIntervalsRef.current.forEach(clearInterval);
-      allIntervalsRef.current = [];
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
-      setShowGameOver(true);
-    }
-  }, [game?.status]);
-
-  useEffect(() => {
     return () => {
       intervalsRef.current.forEach(clearInterval);
       intervalsRef.current = [];
@@ -1542,6 +1527,16 @@ export default function Game() {
 
   useEffect(() => {
     if (game?.status === 'finished' || game?.status === 'abandoned') {
+      // Clear ALL intervals immediately on game over
+      intervalsRef.current.forEach(clearInterval);
+      intervalsRef.current = [];
+      allIntervalsRef.current.forEach(clearInterval);
+      allIntervalsRef.current = [];
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+      
       localStorage.removeItem('chesswithclaw_active_game');
       setShowGameOver(true);
       
@@ -1764,12 +1759,6 @@ export default function Game() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId]);
-
-  useEffect(() => {
-    if (Array.isArray(game?.chat_history) && game.chat_history.length > 0) {
-      setChatMessages(game.chat_history);
-    }
-  }, [game?.chat_history]);
 
   useEffect(() => {
     if ((game?.status === 'finished' || game?.status === 'abandoned') && !bestQuote && !isGeneratingQuote) {
