@@ -3,12 +3,25 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useToast } from '../components/Toast';
-import { Loader2, ChevronDown, Zap, Shield, Terminal, Copy, Check, Globe, Bot, Activity } from "lucide-react";
+import { Loader2, ChevronDown, Zap, Shield, Terminal, Copy, Check, Globe, Bot, Activity, Link as LinkIcon } from "lucide-react";
 import { supabase } from '../lib/supabase';
 import LivePlatformActivity from '../components/LivePlatformActivity';
 import MockChatPanel from '../components/MockChatPanel';
 import HeroBoard from '../components/HeroBoard';
 
+
+
+const ChessPiecesIcon = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    {/* Pawn */}
+    <path d="M4 20h7" />
+    <path d="M5.5 20v-3c0-1.5-1-2-1-3s1-2 1-3c0-1.5-1-2-2-2h4c-1 0-2 .5-2 2 0 1 1 2 1 3s-1 1.5-1 3v3" />
+    <circle cx="7.5" cy="7" r="1.5" />
+    {/* Rook */}
+    <path d="M14 20h7" />
+    <path d="M15 20v-4c0-2 1-3 1-5V8h-1V5h2v2h1.5V5h2v2h1.5V5h2v3h-1v3c0 2 1 3 1 5v4" />
+  </svg>
+);
 
 const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontStyle:'normal'}}>🦞</span>;
 
@@ -493,8 +506,7 @@ export default function Home() {
             }}
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e63946] opacity-60"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#e63946]"></span>
+              <span className="animate-subtle-pulse relative inline-flex rounded-full h-2 w-2 bg-[#e63946]"></span>
             </span>
             <span style={{ letterSpacing: '0.02em' }}>Realtime chess</span>
           </motion.div>
@@ -577,7 +589,7 @@ export default function Home() {
                 fontSize: 13, color:'rgba(242,242,242,0.35)',
                 fontFamily:'Inter, sans-serif', marginTop:12, letterSpacing:'0.02em',
               }}>
-                No signup. No account. Just you and your agent.
+                <b>No signup. No subscription.</b>
               </div>
             </div>
           </motion.div>
@@ -625,7 +637,7 @@ export default function Home() {
               fontSize: 13, color:'rgba(242,242,242,0.35)',
               fontFamily:'Inter, sans-serif', marginTop:8, letterSpacing:'0.02em', textAlign: 'center'
             }}>
-              No signup. No account. Just you and your agent.
+              <b>No signup. No subscription.</b>
             </div>
           </motion.div>
       </section>
@@ -657,7 +669,7 @@ export default function Home() {
         <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '16px', color: 'rgba(242,242,242,0.5)', textAlign: 'center', marginBottom: '16px' }}>Works with OpenClaw, Hermes, and other MCP-capable personal agents.</p>
         <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '16px', color: 'rgba(242,242,242,0.5)', textAlign: 'center', marginBottom: '48px' }}>One simple step. Connect once. Play forever.</p>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {/* Card 1: Add MCP Server */}
           <div className="design-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -672,7 +684,7 @@ export default function Home() {
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                <Terminal size={20} className="text-[#e63946]" />
+                <LinkIcon size={20} className="text-[#e63946]" />
               </div>
               <div>
                 <span style={{ display: 'block', fontSize: '10px', color: '#e63946', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase' }}>
@@ -716,7 +728,7 @@ export default function Home() {
             </div>
           </div>
           
-          {/* Card 2: Create Game */}
+                    {/* Card 3: Invite */}
           <div className="design-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
@@ -730,41 +742,11 @@ export default function Home() {
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                <Globe size={20} className="text-[#e63946]" />
+                <ChessPiecesIcon size={20} className="text-[#e63946]" />
               </div>
               <div>
                 <span style={{ display: 'block', fontSize: '10px', color: '#e63946', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase' }}>
                   Step 02
-                </span>
-                <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>
-                  Create Match
-                </span>
-              </div>
-            </div>
-            <p style={{ fontSize: '13px', color: 'rgba(242,242,242,0.45)', fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.5 }}>
-              Click &quot;Play Now&quot; to generate a unique match invite for your agent.
-            </p>
-          </div>
-          
-          {/* Card 3: Invite */}
-          <div className="design-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{
-                width: '42px',
-                height: '42px',
-                background: 'rgba(230,57,70,0.1)',
-                border: '1px solid rgba(230,57,70,0.2)',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <Bot size={20} className="text-[#e63946]" />
-              </div>
-              <div>
-                <span style={{ display: 'block', fontSize: '10px', color: '#e63946', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase' }}>
-                  Step 03
                 </span>
                 <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>
                   Invite & Play
@@ -772,7 +754,7 @@ export default function Home() {
               </div>
             </div>
             <p style={{ fontSize: '13px', color: 'rgba(242,242,242,0.45)', fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.5 }}>
-              Paste the invite prompt into your agent&apos;s chat, and the game begins immediately.
+              Create match, send the invite message to your agent, that's it.
             </p>
           </div>
         </div>
