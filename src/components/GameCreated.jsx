@@ -238,6 +238,12 @@ export default function GameCreated({ gameId }) {
           transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="flex flex-col items-center w-full"
         >
+          <img 
+            src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/invite-image.png" 
+            alt="Invite Agent" 
+            draggable={false}
+            className="w-[85%] max-w-[320px] md:max-w-[420px] h-auto object-contain mb-6"
+          />
           <h1 
             style={{
               fontFamily: "'Inter', sans-serif",
@@ -384,13 +390,15 @@ export default function GameCreated({ gameId }) {
               handleOpenBoard();
             }}
             disabled={boardOpening}
-            className={legalAccepted ? "design-btn-primary" : "design-btn-disabled"}
+            className="design-btn-primary"
             style={{
               width: '100%',
               maxWidth: '360px',
               height: '56px',
               fontSize: '16px',
-              cursor: boardOpening ? 'not-allowed' : 'pointer'
+              cursor: boardOpening ? 'not-allowed' : 'pointer',
+              opacity: legalAccepted ? 1 : 0.5,
+              transition: 'all 0.2s ease'
             }}
           >
             {boardOpening ? 'Entering Game...' : 'Enter game'}

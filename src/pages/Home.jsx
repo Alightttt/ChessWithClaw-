@@ -12,112 +12,25 @@ import HeroBoard from '../components/HeroBoard';
 
 
 const ChessPiecesIcon = ({ size = 20, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    {/* Pawn */}
-    <path d="M4 20h7" />
-    <path d="M5.5 20v-3c0-1.5-1-2-1-3s1-2 1-3c0-1.5-1-2-2-2h4c-1 0-2 .5-2 2 0 1 1 2 1 3s-1 1.5-1 3v3" />
-    <circle cx="7.5" cy="7" r="1.5" />
-    {/* Rook */}
-    <path d="M14 20h7" />
-    <path d="M15 20v-4c0-2 1-3 1-5V8h-1V5h2v2h1.5V5h2v2h1.5V5h2v3h-1v3c0 2 1 3 1 5v4" />
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M7 20h10" />
+    <path d="M8 16h8" />
+    <path d="M9 16v-2c0-1.5.5-3 1.5-4l-1-2c-1-1-1-3 0-4s3-1 4.5.5 3.5 4 2.5 6.5L15 16" />
+    <path d="M9.5 8l-2 1 1-2" />
   </svg>
 );
 
 const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontStyle:'normal'}}>🦞</span>;
 
-
-
-
-
-const DEMO_THOUGHTS = [
-  { text: "Bhai... kya kar raha hai tu", lang: "HI" },
-  { text: "I see you.", lang: "EN" },
-  { text: "Interesting choice...", lang: "EN" },
-  { text: "Yaar seriously?", lang: "HI" },
-  { text: "Wait wait wait.", lang: "EN" },
-  { text: "Arre bhai... sochne do thoda", lang: "HI" },
-  { text: "OKAY. Okay okay.", lang: "EN" },
-  { text: "Accha? Yeh plan tha tumhara?", lang: "HI" },
-  { text: "Oh. OH.", lang: "EN" },
-  { text: "Not bad. Not bad at all.", lang: "EN" },
-];
-
-function ThoughtBubble() {
-  const [thoughtIdx, setThoughtIdx] = useState(0);
-  const [displayedThought, setDisplayedThought] = useState('');
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      setThoughtIdx(i => (i + 1) % DEMO_THOUGHTS.length);
-      setDisplayedThought('');
-    }, 3800);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    const target = DEMO_THOUGHTS[thoughtIdx].text;
-    if (displayedThought.length < target.length) {
-      const t = setTimeout(() => {
-        setDisplayedThought(target.slice(0, displayedThought.length + 1));
-      }, 30);
-      return () => clearTimeout(t);
-    }
-  }, [displayedThought, thoughtIdx]);
-
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={thoughtIdx}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flex: 1,
-          justifyContent: 'flex-end',
-          marginLeft: '12px',
-          overflow: 'hidden',
-          maxWidth: '280px'
-        }}
-      >
-        <span style={{
-          color: '#e2e2e2',
-          fontFamily: "'Inter', sans-serif",
-          fontSize: '13px',
-          fontWeight: 400,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          {displayedThought}
-          {displayedThought.length < DEMO_THOUGHTS[thoughtIdx].text.length && (
-            <span className="inline-block w-[3px] h-[12px] bg-[#666] ml-1 align-middle animate-pulse" />
-          )}
-        </span>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
-
-
-
 export default function Home() {
-  const [scrolled, setScrolled] = useState(() => typeof window !== 'undefined' ? window.scrollY > 20 : false);
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
 
-  const handlePlayNow = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+  const handlePlayNow = async () => {
     if (creating) return;
     setCreating(true);
     try {
-      const res = await fetch('/api/new', { method: 'POST' });
+      const res = await fetch('/api/create-game', { method: 'POST' });
       if (!res.ok) throw new Error('Failed to create game');
       const data = await res.json();
       if (data.gameId) {
@@ -506,7 +419,8 @@ export default function Home() {
             }}
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-subtle-pulse relative inline-flex rounded-full h-2 w-2 bg-[#e63946]"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e63946] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#e63946]"></span>
             </span>
             <span style={{ letterSpacing: '0.02em' }}>Realtime chess</span>
           </motion.div>
@@ -586,8 +500,8 @@ export default function Home() {
               </div>
               
               <div style={{
-                fontSize: 13, color:'rgba(242,242,242,0.35)',
-                fontFamily:'Inter, sans-serif', marginTop:12, letterSpacing:'0.02em',
+                fontSize: '16px', color:'#ffffff',
+                fontFamily:'Inter, sans-serif', marginTop:12, letterSpacing:'0.01em',
               }}>
                 <b>No signup. No subscription.</b>
               </div>
@@ -634,8 +548,8 @@ export default function Home() {
             </a>
 
             <div style={{
-              fontSize: 13, color:'rgba(242,242,242,0.35)',
-              fontFamily:'Inter, sans-serif', marginTop:8, letterSpacing:'0.02em', textAlign: 'center'
+              fontSize: '16px', color:'#ffffff',
+              fontFamily:'Inter, sans-serif', marginTop:8, letterSpacing:'0.01em', textAlign: 'center'
             }}>
               <b>No signup. No subscription.</b>
             </div>
