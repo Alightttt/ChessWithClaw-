@@ -22,6 +22,15 @@ const ChessPiecesIcon = ({ size = 20, className = "" }) => (
   </svg>
 );
 
+const MailboxIcon = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5C2 7 4 5 6.5 5H18c2.2 0 4 1.8 4 4v8Z" />
+    <polyline points="15,9 18,9 18,11" />
+    <path d="M6.5 5C9 5 11 7 11 9.5V17a2 2 0 0 1-2 2v0" />
+    <line x1="6" y1="10" x2="6.01" y2="10" />
+  </svg>
+);
+
 const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontStyle:'normal'}}>🦞</span>;
 
 export default function Home() {
@@ -32,7 +41,7 @@ export default function Home() {
     if (creating) return;
     setCreating(true);
     try {
-      const res = await fetch('/api/create-game', { method: 'POST' });
+      const res = await fetch('/api/new', { method: 'POST' });
       if (!res.ok) throw new Error('Failed to create game');
       const data = await res.json();
       if (data.gameId) {
@@ -659,7 +668,7 @@ export default function Home() {
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                <ChessPiecesIcon size={20} className="text-[#e63946]" />
+                <MailboxIcon size={20} className="text-[#e63946]" />
               </div>
               <div>
                 <span style={{ display: 'block', fontSize: '10px', color: '#e63946', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase' }}>
