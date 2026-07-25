@@ -13,10 +13,12 @@ import HeroBoard from '../components/HeroBoard';
 
 const ChessPiecesIcon = ({ size = 20, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M7 20h10" />
-    <path d="M8 16h8" />
-    <path d="M9 16v-2c0-1.5.5-3 1.5-4l-1-2c-1-1-1-3 0-4s3-1 4.5.5 3.5 4 2.5 6.5L15 16" />
-    <path d="M9.5 8l-2 1 1-2" />
+    <path d="M6 20h12" />
+    <path d="M7 16v4" />
+    <path d="M17 16v4" />
+    <path d="M7 16h10" />
+    <path d="M16 16V10c0-2-1-4-3-5-.5-1-1.5-2-3-2-1.5 0-3 1-3.5 2.5C6 7 5.5 8 5.5 9c0 1.5 1.5 2.5 3 2.5 0 1-.5 1.5-1.5 2.5l-1 1c-1 1-1 2 0 3l1 1h9" />
+    <path d="M8.5 8.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z" />
   </svg>
 );
 
@@ -54,6 +56,7 @@ export default function Home() {
   
   const [activeFaqIndex, setActiveFaqIndex] = useState(null);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
 
   
 
