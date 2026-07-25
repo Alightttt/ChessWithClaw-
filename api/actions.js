@@ -17,9 +17,20 @@ module.exports = async function handler(req, res) {
   applyCacheControl(res);
   applyCorsHeaders(req, res);
 
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+  let isCron = false;
+  if (req.method === 'GET' && req.query && req.query.action === 'send_reengagement_push') {
+    if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+      return res.status(401).json({ error: 'Unauthorized cron' });
+    }
+    isCron = true;
+  } else if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+  }
 
   let { gameId, action, message, setting, value } = req.body || {};
+  if (isCron) {
+    action = 'send_reengagement_push';
+  }
 
   const agentToken = req.headers['x-agent-token'];
   const gameToken = req.headers['x-game-token'];

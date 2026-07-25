@@ -926,7 +926,6 @@ export default function Game() {
     }, 300);
   }, [moodEmoji, displayedEmoji, game?.move_history, game?.in_check, game?.status]);
 
-  // STEP 2 — In the section where customSquareStyles is built (where dots and rings for legal moves are added), add this block at the very END, after all other square styles are set:
   const getCustomSquareStylesForCheck = () => {
     const customSquareStyles = {};
     if (game?.in_check) {
