@@ -713,6 +713,18 @@ export default function Game() {
   const [yourTurnFlashKey, setYourTurnFlashKey] = useState(0);
 
   const [thoughtText, setThoughtText] = useState('');
+  const [previousThoughtText, setPreviousThoughtText] = useState('');
+  const [showStatusPopover, setShowStatusPopover] = useState(false);
+  useEffect(() => {
+    if (!showStatusPopover) return;
+    const timer = setTimeout(() => setShowStatusPopover(false), 4000);
+    const handleClick = () => setShowStatusPopover(false);
+    window.addEventListener('click', handleClick);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('click', handleClick);
+    };
+  }, [showStatusPopover]);
   const [thoughtVisible, setThoughtVisible] = useState(false);
   const thoughtTimerRef = useRef(null);
   const prevGameFenRef = useRef('');
@@ -770,7 +782,12 @@ export default function Game() {
     // Fade OUT existing thought first, then fade IN the new one
     setThoughtVisible(false);
     thoughtTimerRef.current = setTimeout(() => {
-      setThoughtText(text.trim());
+      setThoughtText((prev) => {
+        if (prev && prev !== text.trim()) {
+           setPreviousThoughtText(prev);
+        }
+        return text.trim();
+      });
       setThoughtVisible(true);
       thoughtTimerRef.current = setTimeout(() => setThoughtVisible(false), 4000);
     }, 300);
@@ -786,6 +803,7 @@ export default function Game() {
   useEffect(() => {
     setThoughtVisible(false);
     setThoughtText('');
+    setPreviousThoughtText('');
     if (thoughtTimerRef.current) clearTimeout(thoughtTimerRef.current);
   }, [game?.thought_language]);
 
@@ -1298,6 +1316,7 @@ export default function Game() {
     // Step 2: Clear all local component state
     setGame(null)
     setThoughtText('')
+    setPreviousThoughtText('')
     setThoughtVisible(false)
     setLastMoveHighlight(null)
     setArrivedSquare(null)
@@ -3392,91 +3411,118 @@ export default function Game() {
             
         
         {/* A) AGENT CARD */}
-        {(() => {
-          const agentHealth = (() => {
-            if (!game?.agent_connected || !game?.agent_last_seen) return 'red';
-            const secs = (Date.now() - new Date(game.agent_last_seen).getTime()) / 1000;
-            if (secs < 45) return 'green';
-            if (secs <= 180) return 'amber';
-            return 'red';
-          })();
-          const healthColor = agentHealth === 'green' ? '#10b981' : agentHealth === 'amber' ? '#fbbf24' : '#e63946';
-          const agentStatusText = (agentHealth === 'amber' || agentHealth === 'red') ? 'AWAY' : (isOpenClawTurn ? 'FOCUSED' : 'AVAILABLE');
-
-          return (
-            <div 
-              onClick={() => setShowAgentStatusOverlay(prev => !prev)}
-              style={{ 
-              flexShrink: 0, 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              padding: '12px 16px', 
-              background: '#111111', 
-              border: `2px solid ${healthColor}`, 
-              borderRadius: '12px', 
-              boxShadow: isOpenClawTurn ? '0 0 30px rgba(230,57,70,0.06)' : 'none', 
-              animation: agentCooking ? 'coldGlitch 2.5s infinite' : (isOpenClawTurn ? 'agentBreathe 2s ease-in-out infinite' : 'none'),
-              transition: 'box-shadow 0.7s ease, border-color 0.3s ease',
-              margin: '12px',
-              cursor: 'pointer',
-              position: 'relative'
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px', position: 'relative', flexShrink: 0 }}>
+          {/* Left Column: Emoji & Name Pill */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
+            <span style={{ 
+              fontSize: '56px', 
+              lineHeight: 1, 
+              userSelect: 'none', 
+              transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)', 
+              transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}>
-              <span style={{
-                fontSize: 32,
+              {displayedEmoji}
+            </span>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowStatusPopover(prev => !prev);
+              }}
+              style={{
+                background: '#111111',
+                border: `1.5px solid ${dotStyle.background}`,
+                borderRadius: '9999px',
+                padding: '4px 10px',
+                color: '#f2f2f2',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                maxWidth: '90px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                outline: 'none'
+              }}
+            >
+              {agentName}
+            </button>
+            {showStatusPopover && (
+              <div onClick={(e) => e.stopPropagation()} style={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: '#1a1a1a',
+                border: '1px solid #2a2a2a',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                color: '#f2f2f2',
+                zIndex: 100,
+                fontFamily: 'Inter, sans-serif',
+                whiteSpace: 'nowrap',
                 display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
                 alignItems: 'center',
-                justifyContent: 'center',
-                userSelect: 'none',
-                transform: emojiAnimating ? 'scale(1.35)' : 'scale(1)',
-                transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
               }}>
-                {displayedEmoji}
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
-                <span 
-                  title={agentName}
-                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '15px', fontWeight: 700, color: '#f2f2f2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', background: 'none', border: 'none', padding: 0, outline: 'none', textAlign: 'left' }}
-                >
-                  {agentName}
-                </span>
-                <div style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '11px', fontWeight: 600, color: healthColor, textTransform: 'uppercase', position: 'relative' }}>
-                  {agentStatusText}
-                </div>
-                {showAgentStatusOverlay && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, marginTop: '8px',
-                    background: '#222', border: '1px solid #333', borderRadius: '8px',
-                    padding: '8px 12px', zIndex: 100,
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-                    color: '#f2f2f2', fontSize: '12px', fontFamily: 'Inter, sans-serif',
-                    whiteSpace: 'nowrap', fontWeight: 500
-                  }}>
-                    {getAgentLastSeenText()}
-                  </div>
-                )}
+                <span style={{ fontWeight: 600, color: dotStyle.background }}>{statusLabel}</span>
+                <span style={{ color: 'rgba(242,242,242,0.6)', fontSize: '11px' }}>{getAgentLastSeenText()}</span>
               </div>
-              
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}>
+            )}
+          </div>
+          
+          {/* Right Column: Thoughts */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
+            {previousThoughtText && (
+              <div style={{
+                background: '#f2f2f2',
+                color: '#1a1a1a',
+                borderRadius: '16px',
+                padding: '10px 14px',
+                fontSize: '13px',
+                fontFamily: 'Inter, sans-serif',
+                opacity: 0.55,
+                alignSelf: 'flex-start',
+                wordBreak: 'break-word'
+              }}>
+                {previousThoughtText}
+              </div>
+            )}
+            {thoughtText && thoughtVisible && (
+              <div style={{
+                background: '#f2f2f2',
+                color: '#1a1a1a',
+                borderRadius: '16px',
+                padding: '10px 14px',
+                fontSize: '13px',
+                fontFamily: 'Inter, sans-serif',
+                position: 'relative',
+                alignSelf: 'flex-start',
+                wordBreak: 'break-word',
+                zIndex: 0
+              }}>
                 <div style={{
-                  opacity: thoughtVisible ? 1 : 0,
-                  transition: 'opacity 0.4s ease',
-                  fontStyle: 'italic',
-                  fontSize: 13,
-                  color: 'rgba(242,242,242,0.6)',
-                  lineHeight: 1.5,
-                  textAlign: 'right',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
-                }}>
-                  {thoughtText ? `"${thoughtText}"` : ''}
-                </div>
+                  position: 'absolute',
+                  left: '-4px',
+                  top: '14px',
+                  width: '10px',
+                  height: '10px',
+                  background: '#f2f2f2',
+                  transform: 'rotate(45deg)',
+                  borderRadius: '2px',
+                  zIndex: -1
+                }} />
+                {thoughtText}
               </div>
-            </div>
-          );
-        })()}
+            )}
+          </div>
+        </div>
 
         {/* B) CHESS BOARD */}
         <div style={{ width: '100%', flexShrink: 0, position: 'relative', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -4115,6 +4161,7 @@ export default function Game() {
                       onClick={() => {
                         setThoughtVisible(false);
                         setThoughtText('');
+                        setPreviousThoughtText('');
                         if (thoughtTimerRef.current) clearTimeout(thoughtTimerRef.current);
                         setThoughtLanguage(lang.value);
                         setGame(prev => prev ? { ...prev, thought_language: lang.value } : prev);
