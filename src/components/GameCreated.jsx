@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Copy, Check, Mail } from 'lucide-react';
 
+const INVITE_IMAGE_URL = "https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/invite-image.png";
+if (typeof window !== 'undefined') {
+  const img = new Image();
+  img.src = INVITE_IMAGE_URL;
+}
+
 export default function GameCreated({ gameId }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
@@ -231,18 +237,21 @@ export default function GameCreated({ gameId }) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-8 w-full" style={{ paddingTop: 'clamp(40px, 8vh, 80px)', paddingBottom: '64px' }}>
+      <main className="flex-1 flex flex-col items-center max-w-4xl mx-auto px-4 md:px-8 w-full" style={{ paddingTop: 'clamp(12px, 2.5vh, 20px)', paddingBottom: '48px' }}>
         <motion.div
-          initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
           className="flex flex-col items-center w-full"
         >
           <img 
-            src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/invite-image.png" 
+            src={INVITE_IMAGE_URL} 
             alt="Invite Agent" 
             draggable={false}
-            className="w-[85%] max-w-[320px] md:max-w-[420px] h-auto object-contain mb-6"
+            loading="eager"
+            fetchPriority="high"
+            decoding="sync"
+            className="w-[85%] max-w-[320px] md:max-w-[420px] h-auto object-contain mb-2 md:mb-3"
           />
           <h1 
             style={{
