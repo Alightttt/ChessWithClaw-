@@ -1,19 +1,14 @@
 'use client';
 
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { TextMorph } from 'torph/react';
-import { SlotText } from 'slot-text/react';
-import 'slot-text/style.css';
-import { HeartFilled, HeartOutline } from '../components/icons/FamIcons';
+import { useSearchParams, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { Settings, X as XIcon, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Trophy, Handshake, Skull, Share, RefreshCw, Home, Bot, Flame, Zap, Brain, ShieldAlert, Crosshair, Target, Activity, AlertTriangle, ThumbsUp, Heart, Smile, Frown, Sparkles } from 'lucide-react';
+import { Settings, X as XIcon, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter } from 'lucide-react';
 import { Chess } from 'chess.js';
 import ChessBoard from '../components/chess/ChessBoard';
-import { ChessPiece } from '../components/chess/PieceSVGs';
-import * as Pieces from '../components/chess/ChessPieces';
-import { supabase, getSupabaseWithToken } from '../lib/supabase';
+import { wN as WN } from '../components/chess/ChessPieces';
+import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -21,725 +16,126 @@ import StatusDot from '../components/ui/StatusDot';
 import Divider from '../components/ui/Divider';
 import Badge from '../components/ui/Badge';
 import { useRipple } from '../hooks/useRipple';
-import NotFound from './NotFound';
 
 const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontStyle:'normal'}}>🦞</span>;
 
-const REACTION_ICONS = [
-  { id: '❤️', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>❤️</span> },
-  { id: '😂', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>😂</span> },
-  { id: '🔥', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>🔥</span> },
-  { id: '😮', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>😮</span> },
-  { id: '😅', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>😅</span> },
-  { id: '👍', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>👍</span> },
-  { id: '😢', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>😢</span> },
-  { id: '🤝', icon: <span style={{ fontSize: '14px', lineHeight: 1 }}>🤝</span> },
-];
 
-const renderReactionIcon = (idStr, isSelected) => {
-  if (idStr === '❤️') {
-    return isSelected ? <HeartFilled size={16} color="#e63946" /> : <HeartOutline size={16} color="rgba(242,242,242,0.6)" />;
-  }
-  const match = REACTION_ICONS.find(r => r.id === idStr);
-  return match ? match.icon : <span style={{ fontSize: '14px', lineHeight: 1 }}>{idStr}</span>;
-}
-
-function getKingSquare(fen, colorChar) {
-  if (!fen || typeof fen !== 'string' || !fen.includes(' ')) return null;
-  const rows = fen.split(' ')[0].split('/');
-  const king = colorChar === 'w' ? 'K' : 'k';
-  for (let rank = 0; rank < 8; rank++) {
-    let file = 0;
-    for (const ch of rows[rank]) {
-      if (ch === king) return String.fromCharCode(97 + file) + (8 - rank);
-      file += isNaN(parseInt(ch)) ? 1 : parseInt(ch);
-    }
-  }
-  return null;
-}
-
-const PIECE_CODE_MAP = { K:'K', Q:'Q', R:'R', B:'B', N:'N' };
-
-function getPieceImageUrl(pieceLetter, isWhite, style) {
-  const s = style || 'neo';
-  const code = ((isWhite ? 'w' : 'b') + pieceLetter).toLowerCase();
-  return `https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/pieces/${s}/${code}.png`;
-}
-
+const PIECE_LETTER_MAP = { K:'K', Q:'Q', R:'R', B:'B', N:'N' };
 function sanToPieceImg(san, isWhiteMove, style) {
-  if (!san) return { letter: null, rest: san || '' };
+  if (!san) return { letter: null, rest: '' };
   const firstChar = san[0];
-  if (PIECE_CODE_MAP[firstChar]) {
-    return { letter: firstChar, rest: san.slice(1), isPawn: false };
-  }
-  // Castling
-  if (san.startsWith('O-O')) return { letter: 'K', rest: san, isPawn: false, isCastle: true };
-  // Pawn move — no letter prefix
-  return { letter: 'P', rest: san, isPawn: true };
+  if (PIECE_LETTER_MAP[firstChar]) return { letter: firstChar, rest: san.slice(1) };
+  if (san.startsWith('O-O')) return { letter: 'K', rest: san };
+  return { letter: 'P', rest: san };
+}
+function pieceImgUrl(letter, isWhite, style) {
+  const s = style || 'neo';
+  const code = (isWhite ? 'w' : 'b') + letter;
+  return `https://images.chesscomfiles.com/chess-themes/pieces/${s}/150/${code}.png`;
 }
 
 export default function Game() {
   const { id: gameId } = useParams();
+  const agentToken = null;
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
 
-  const [presenceTick, setPresenceTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setPresenceTick(t => t + 1), 10000);
-    return () => clearInterval(id);
-  }, []);
-
-  const submittingRef = useRef(false);
-  const audioCtxRef = useRef(null);
-  const prevMoveCountRef = useRef(0);
-  const prevStatusRef = useRef('waiting');
-  const prevAgentConnected = useRef(false);
-  const connectedToastShown = useRef(false);
-  const boardRef = useRef(null);
-  const chatMessagesRef = useRef(null);
-
-  const channelRef = useRef(null);
-  const containerRef = useRef(null);
-  const prevFenRef = useRef(null);
-  const lastKnownFenRef = useRef(null);
-  const optimisticFenRef = useRef(null);
-  const fallbackRef = useRef(null);
-  const gameOverPollingRef = useRef(null);
-
-  const presenceTimerRef = useRef(null);
-  const intervalsRef = useRef([]);
-  const heartbeatRef = useRef(null);
-  const lastSoundTimeRef = useRef(0);
   
-  const allIntervalsRef = useRef([]);
-  const safeInterval = (fn, ms) => {
-    const _intId = setInterval(fn, ms);
-    intervalsRef.current.push(_intId);
-    allIntervalsRef.current.push(_intId);
-    return _intId;
-  };
-
-  const addInterval = useCallback((fn, ms) => {
-    const _intId = safeInterval(fn, ms);
-    return _intId;
-  }, []);
-
-  const agentToken = location.state?.agentToken;
-  
-  const [game, setGame] = useState(() => {
-    try {
-      const cached = localStorage.getItem('cwc_active_game');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && parsed.gameId === gameId) {
-          return {
-            id: gameId,
-            fen: parsed.fen,
-            agent_name: parsed.agentName,
-            status: parsed.status || 'active',
-            turn: parsed.turn || 'w',
-            player_color: parsed.player_color || 'w',
-            move_history: parsed.move_history || [],
-            chat_history: parsed.chat_history || [],
-            agent_connected: parsed.agent_connected || false,
-            companion_thought: parsed.companion_thought || '',
-            board_theme: parsed.board_theme || null,
-            piece_style: parsed.piece_style || null
-          };
-        }
-      }
-    } catch (e) {}
-    return null;
-  });
-
-  const rawPresence = useMemo(() => {
-    if (!game?.agent_last_seen) return 'not_here';
-    const secsAgo = (Date.now() - new Date(game.agent_last_seen).getTime()) / 1000;
-    if (secsAgo < 60) return 'connected';
-    if (secsAgo < 150) return 'reconnecting';
-    return 'not_here';
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game?.agent_last_seen, presenceTick]);
-
-  const [agentPresence, setAgentPresence] = useState('not_here');
-  const presenceStableRef = useRef({ value: 'not_here', count: 0 });
-
-  useEffect(() => {
-    const stable = presenceStableRef.current;
-    if (rawPresence === stable.value) {
-      stable.count = 0;
-      setAgentPresence(rawPresence);
-    } else {
-      stable.count += 1;
-      // Require 2 consecutive ticks (20s) of a DOWNGRADE before showing it
-      // Upgrades (back to connected) apply immediately
-      if (rawPresence === 'connected' || stable.count >= 2) {
-        stable.value = rawPresence;
-        stable.count = 0;
-        setAgentPresence(rawPresence);
-      }
-    }
-  }, [rawPresence]);
-
-  const agentConnected = agentPresence !== 'not_here';
-
-  const dotStyle = {
-    connected:    { width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: 'pulseDotGreen 2s infinite' },
-    reconnecting: { width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', animation: 'pulseDotYellow 1.5s infinite' },
-    not_here:     { width: 8, height: 8, borderRadius: '50%', background: '#e63946', animation: 'pulseDotRed 3s infinite' }
-  }[agentPresence] || { width: 8, height: 8, borderRadius: '50%', background: '#e63946', animation: 'pulseDotRed 3s infinite' };
-
-  const statusLabel = {
-    connected: 'ONLINE',
-    reconnecting: 'RECONNECTING...',
-    not_here: 'OFFLINE'
-  }[agentPresence] || 'OFFLINE';
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [bestQuote, setBestQuote] = useState(null);
-  const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
-  const pendingMoveFenRef = useRef(null);
-  const skipNextRealtimeRef = useRef(false);
-  const hasFinishedRef = useRef(false);
-
-  useEffect(() => {
-    let intervalId;
-    const sendHeartbeat = () => {
-      const isSpec = !localStorage.getItem(`game_owner_${gameId}`);
-      if (document.visibilityState === 'visible' && !isSpec) {
-        fetch('/api/game', {
-          method: 'PATCH',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-          },
-          body: JSON.stringify({ gameId, human_last_seen: new Date().toISOString() })
-        }).catch(() => {});
-      }
-    };
-    
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        sendHeartbeat();
-        intervalId = setInterval(sendHeartbeat, 20000);
-      } else {
-        clearInterval(intervalId);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    if (document.visibilityState === 'visible') {
-      handleVisibilityChange();
-    }
-    
-    return () => {
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [gameId]);
-
-  useEffect(() => {
-    if (!gameId) return;
-    const cookieName = `game_owner_${gameId}`;
-    const match = document.cookie.match(new RegExp('(^| )' + cookieName + '=([^;]+)'));
-    if (match) {
-      localStorage.setItem(`game_owner_${gameId}`, match[2]);
-      document.cookie = `${cookieName}=; Path=/; Max-Age=0; SameSite=Lax`;
-    }
-  }, [gameId]);
+  const [game, setGame] = useState(null);
 
   useEffect(() => {
     if (document.getElementById('cwc-styles-v2')) return;
     const style = document.createElement('style');
     style.id = 'cwc-styles-v2';
     style.textContent = `
-      .slot-text-char { display: inline-block; overflow: hidden; vertical-align: bottom; }
-      .slot-text-char-inner { display: inline-block; will-change: transform; }
-      @keyframes slotUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-      @keyframes slotDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-      [data-slot-text] { display: inline-flex; }
-      [data-slot-text] .slot-text-char-inner { animation-fill-mode: both; animation-duration: 0.2s; animation-timing-function: cubic-bezier(0.36, 0.07, 0.19, 0.97); }
-      [data-slot-animation="snappy"] .slot-text-char-inner { animation-name: slotUp; animation-timing-function: cubic-bezier(0.36, 0.07, 0.19, 0.97); }
-      @keyframes coldGlitch {
-        0%, 100% { filter: none; }
-        92% { filter: none; }
-        93% { filter: hue-rotate(15deg) saturate(1.3); }
-        94% { filter: none; }
-        96% { filter: hue-rotate(-10deg) saturate(1.2); }
-        97% { filter: none; }
-      }
-      @keyframes captureShake {
-        0%, 100% { transform: translate(0, 0); }
-        20% { transform: translate(-3px, 2px); }
-        40% { transform: translate(3px, -2px); }
-        60% { transform: translate(-2px, 1px); }
-        80% { transform: translate(2px, -1px); }
-      }
-      @keyframes illegalShake {
-        10%, 90% { transform: translate3d(-1px, 0, 0); }
-        20%, 80% { transform: translate3d(2px, 0, 0); }
-        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-        40%, 60% { transform: translate3d(4px, 0, 0); }
-      }
       @keyframes msgIn {
         from { opacity:0; transform:translateY(8px) scale(0.96); }
         to { opacity:1; transform:translateY(0) scale(1); }
-      }
-      @-webkit-keyframes msgIn {
-        from { opacity:0; -webkit-transform:translateY(8px) scale(0.96); }
-        to { opacity:1; -webkit-transform:translateY(0) scale(1); }
-      }
-      @keyframes msgOut {
-        from { opacity:1; }
-        to { opacity:0; }
-      }
-      @-webkit-keyframes msgOut {
-        from { opacity:1; }
-        to { opacity:0; }
       }
       @keyframes typingBounce {
         0%,60%,100% { transform:translateY(0); opacity:0.3; }
         30% { transform:translateY(-4px); opacity:1; }
       }
-      @-webkit-keyframes typingBounce {
-        0%,60%,100% { -webkit-transform:translateY(0); opacity:0.3; }
-        30% { -webkit-transform:translateY(-4px); opacity:1; }
-      }
       @keyframes pickerIn {
         from { opacity:0; transform:scale(0.8) translateY(4px); }
         to { opacity:1; transform:scale(1) translateY(0); }
-      }
-      @-webkit-keyframes pickerIn {
-        from { opacity:0; -webkit-transform:scale(0.8) translateY(4px); }
-        to { opacity:1; -webkit-transform:scale(1) translateY(0); }
       }
       @keyframes reactionPop {
         0% { transform:scale(0); }
         60% { transform:scale(1.3); }
         100% { transform:scale(1); }
       }
-      @-webkit-keyframes reactionPop {
-        0% { -webkit-transform:scale(0); }
-        60% { -webkit-transform:scale(1.3); }
-        100% { -webkit-transform:scale(1); }
-      }
-      @keyframes agentMoveFlash {
-        0% { background-color:rgba(230,57,70,0.7); }
-        100% { background-color:transparent; }
-      }
-      @-webkit-keyframes agentMoveFlash {
-        0% { background-color:rgba(230,57,70,0.7); }
-        100% { background-color:transparent; }
-      }
-      @keyframes gameOverIn {
-        from { opacity: 0; transform: scale(0.92) translateY(8px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-      }
-      @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-      }
-      @keyframes pieceSlide {
-        from { transform: scale(0.85); opacity: 0.7; }
-        to { transform: scale(1); opacity: 1; }
-      }
-      @keyframes dot-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
-      }
-      @keyframes turn-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(230,57,70,0.4); }
-        70% { box-shadow: 0 0 0 8px rgba(230,57,70,0); }
-        100% { box-shadow: 0 0 0 0 rgba(230,57,70,0); }
-      }
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      [data-piece] {
-        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-      }
-      @keyframes agentBreathe {
-        0% { opacity: 0.6; }
-        50% { opacity: 1.0; }
-        100% { opacity: 0.6; }
-      }
-      @keyframes emojiBounce {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.4); }
-        100% { transform: scale(1); }
-      }
-      @keyframes thoughtEntrance {
-        from { opacity: 0; transform: translateY(6px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes yourTurnFlash {
-        0% { box-shadow: inset 0 0 0px rgba(230,57,70,0); }
-        15% { box-shadow: inset 0 0 40px rgba(230,57,70,0.6); }
-        100% { box-shadow: inset 0 0 0px rgba(230,57,70,0); }
-      }
-      .cwc-msg-new { animation-play-state: running !important; -webkit-animation-play-state: running !important; }
-      @media (prefers-reduced-motion: reduce) {
-         .cwc-msg-new { animation-play-state: running !important; -webkit-animation-play-state: running !important; }
-      }
     `;
     document.head.appendChild(style);
   }, []);
 
-  const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Your Agent';
-  const [loading, setLoading] = useState(() => {
+  const agentName = game?.agent_name || 'Your Agent';
+  const [loading, setLoading] = useState(true);
+
+  const getCapturedPieces = (fenString) => {
+    const start = { w:{p:8,r:2,n:2,b:2,q:1}, b:{p:8,r:2,n:2,b:2,q:1} };
+    const fen = fenString || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+    const pos = fen.split(' ')[0];
+    const cur = { w:{p:0,r:0,n:0,b:0,q:0}, b:{p:0,r:0,n:0,b:0,q:0} };
+    for (const c of pos) {
+      if(c==='P')cur.w.p++;else if(c==='R')cur.w.r++;else if(c==='N')cur.w.n++;
+      else if(c==='B')cur.w.b++;else if(c==='Q')cur.w.q++;
+      else if(c==='p')cur.b.p++;else if(c==='r')cur.b.r++;else if(c==='n')cur.b.n++;
+      else if(c==='b')cur.b.b++;else if(c==='q')cur.b.q++;
+    }
+    const byWhite={},byBlack={};
+    for(const t of['p','r','n','b','q']){
+      const w=start.b[t]-cur.b[t];if(w>0)byWhite[t]=w;
+      const b=start.w[t]-cur.w[t];if(b>0)byBlack[t]=b;
+    }
+    return{byWhite,byBlack};
+  };
+  const PIECE_SYMBOLS={p:'♟',r:'♜',n:'♞',b:'♝',q:'♛'};
+  const [notFound, setNotFound] = useState(false);
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [agentSectionOpen, setAgentSectionOpen] = useState(false);
+  const [moveHistoryOpen, setMoveHistoryOpen] = useState(false);
+  const [showStatusPopover, setShowStatusPopover] = useState(false);
+  
+  const [boardSize, setBoardSize] = useState(320);
+  const [boardTheme, setBoardTheme] = useState(() => {
     try {
       const cached = localStorage.getItem('cwc_active_game');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed && parsed.gameId === gameId) {
-          return false;
+        if (parsed && parsed.gameId === gameId && parsed.board_theme) {
+          return parsed.board_theme;
         }
       }
     } catch (e) {}
-    return true;
+    return localStorage.getItem('cwc_theme') || 'green';
   });
-
-  const [notFound, setNotFound] = useState(false);
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
-  const [agentSectionOpen, setAgentSectionOpen] = useState(false);
-  const [moveHistoryOpen, setMoveHistoryOpen] = useState(false);
-  
-  const [copiedResult, setCopiedResult] = useState(false);
-  const [boardTheme, setBoardTheme] = useState(() => {
-    return localStorage.getItem('cwc_board_theme') || 'green';
-  });
-  const [pieceStyle, setPieceStyle] = useState(() => {
-    const saved = localStorage.getItem('cwc_piece_style');
-    if (!saved || saved === 'standard') {
-      localStorage.setItem('cwc_piece_style', 'neo');
-      return 'neo';
-    }
-    return saved;
-  });
-  const [thoughtLanguage, setThoughtLanguage] = useState(() => {
-    return localStorage.getItem('cwc_thought_language') || 'english';
-  });
-
-  const boardFenRef = useRef('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-  const [boardFen, setBoardFen] = useState(boardFenRef.current);
-  const lastAppliedFenRef = useRef(null);
-
-  const applyBoardFen = useCallback((fen) => {
-    if (!fen || !fen.includes(' ')) return;
-    
-    const incomingPieces = fen.split(' ')[0];
-    const lastAppliedPieces = lastAppliedFenRef.current ? lastAppliedFenRef.current.split(' ')[0] : null;
-    
-    if (incomingPieces === lastAppliedPieces) {
-      return;
-    }
-
-    // Compare only piece placement (first field of FEN), not full FEN
-    // This prevents re-animation when only metadata (clocks, en passant) changed
-    const currentPosition = boardFenRef.current ? boardFenRef.current.split(' ')[0] : '';
-    const newPosition = fen.split(' ')[0];
-    if (newPosition === currentPosition) {
-      // Board layout identical — just update ref for metadata, no re-render
-      boardFenRef.current = fen;
-      lastAppliedFenRef.current = fen;
-      return;
-    }
-    boardFenRef.current = fen;
-    setBoardFen(fen);
-    
-    lastAppliedFenRef.current = fen;
-  }, []);
-
-  const lastProcessedFenRef = useRef('start');
-  const [boardLastMoveRaw, setBoardLastMoveRaw] = useState(null);
-  const lastMoveRef = useRef(null);
-  const boardLastMove = lastMoveRef.current || boardLastMoveRaw;
-  const setBoardLastMove = useCallback((newMove) => {
-    if (newMove) {
-      const from = newMove.from || newMove.from_square;
-      const to = newMove.to || newMove.to_square;
-      if (from && to) {
-        lastMoveRef.current = newMove;
-        setBoardLastMoveRaw(newMove);
+  const [pieceTheme, setPieceTheme] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cwc_active_game');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.gameId === gameId && parsed.piece_style) {
+          return parsed.piece_style;
+        }
       }
-    }
-  }, []);
-  const lastMoveFenRef = useRef(null);
-  const movePendingRef = useRef(false);
+    } catch (e) {}
+    return localStorage.getItem('cwc_pieces') || 'neo';
+  });
+  const [thoughtLanguage, setThoughtLanguage] = useState('english');
 
-  useEffect(() => {
-    if (!pieceStyle) return;
-    const CODES = ['wp','wn','wb','wr','wq','wk','bp','bn','bb','br','bq','bk'];
-    const BASE = 'https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/pieces';
-    CODES.forEach(code => {
-      const img = new window.Image();
-      img.src = `${BASE}/${pieceStyle}/${code}.png`;
-    });
-  }, [pieceStyle]);
-
+  const prevDbBoardThemeRef = useRef(game?.board_theme || null);
   const prevDbPieceStyleRef = useRef(game?.piece_style || null);
 
   const [agentTyping, setAgentTyping] = useState(false);
-
-  useEffect(() => {
-    if (!game?.agent_typing) return;
-    const safetyTimer = setTimeout(() => {
-      setGame(prev => prev ? { ...prev, agent_typing: false } : prev);
-    }, 15000);
-    return () => clearTimeout(safetyTimer);
-  }, [game?.agent_typing]);
   const [isCheckState, setIsCheckState] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [bgmEnabled, setBgmEnabled] = useState(() => localStorage.getItem('cwc_bgm') !== 'false');
-  const [showAgentStatusOverlay, setShowAgentStatusOverlay] = useState(false);
-  useEffect(() => {
-    let timer;
-    let listenerTimer;
-    if (showAgentStatusOverlay) {
-      timer = setTimeout(() => {
-        setShowAgentStatusOverlay(false);
-      }, 2500);
+  const [agentDisconnected, setAgentDisconnected] = useState(false);
 
-      const handleGlobalClick = () => {
-        setShowAgentStatusOverlay(false);
-      };
-
-      listenerTimer = setTimeout(() => {
-        window.addEventListener('click', handleGlobalClick);
-        window.addEventListener('touchstart', handleGlobalClick);
-      }, 10);
-
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(listenerTimer);
-        window.removeEventListener('click', handleGlobalClick);
-        window.removeEventListener('touchstart', handleGlobalClick);
-      };
-    }
-  }, [showAgentStatusOverlay]);
-  const getAgentLastSeenText = () => {
-    const _tick = presenceTick; // reactive
-    if (!game?.agent_last_seen) return 'Agent not joined yet';
-    const msAgo = Date.now() - new Date(game.agent_last_seen).getTime();
-    const secsAgo = Math.floor(msAgo / 1000);
-    if (secsAgo < 15) return 'Last seen just now';
-    if (secsAgo < 60) return `Last seen ${secsAgo}s ago`;
-    if (secsAgo < 3600) return `Last seen ${Math.floor(secsAgo / 60)}m ago`;
-    return 'Agent connection lost';
-  };
-
-  const bgmGainRef = useRef(null);
-  const bgmSourceRef = useRef(null);
-  const bgmAudioRef = useRef(null);
-  
-  const getAudioCtx = () => {
-    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    return audioCtxRef.current;
-  };
-
-  // Chess.com-style wooden piece sounds
-  const playSound = useCallback((type) => {
-    if (!soundEnabled) return;
-    try {
-      const ctx = getAudioCtx();
-      if (ctx.state === 'suspended') ctx.resume();
-      const now = ctx.currentTime;
-
-      if (type === 'move' || type === 'agentMove') {
-        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
-        const src = ctx.createBufferSource(); src.buffer = buf;
-        const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 800; filter.Q.value = 0.8;
-        const gain = ctx.createGain(); gain.gain.setValueAtTime(0.45, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-        src.start(now); src.stop(now + 0.08);
-      }
-      else if (type === 'capture' || type === 'agentCapture') {
-        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
-        const src = ctx.createBufferSource(); src.buffer = buf;
-        const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 600;
-        const gain = ctx.createGain(); gain.gain.setValueAtTime(0.7, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-        src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-        src.start(now); src.stop(now + 0.12);
-      }
-      else if (type === 'check' || type === 'agentCheck') {
-        [440, 554, 659].forEach((freq, i) => {
-          const osc = ctx.createOscillator(); const gain = ctx.createGain();
-          osc.frequency.value = freq; osc.type = 'sine';
-          gain.gain.setValueAtTime(0, now + i * 0.06);
-          gain.gain.linearRampToValueAtTime(0.2, now + i * 0.06 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.3);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(now + i * 0.06); osc.stop(now + i * 0.06 + 0.3);
-        });
-      }
-      else if (type === 'start' || type === 'gameStart') {
-        [330, 440, 550, 660].forEach((freq, i) => {
-          const osc = ctx.createOscillator(); const gain = ctx.createGain();
-          osc.frequency.value = freq; osc.type = 'sine';
-          gain.gain.setValueAtTime(0, now + i * 0.08);
-          gain.gain.linearRampToValueAtTime(0.18, now + i * 0.08 + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.4);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(now + i * 0.08); osc.stop(now + i * 0.08 + 0.4);
-        });
-      }
-      else if (type === 'end' || type === 'gameEnd' || type === 'checkmate') {
-        [660, 550, 440, 330].forEach((freq, i) => {
-          const osc = ctx.createOscillator(); const gain = ctx.createGain();
-          osc.frequency.value = freq; osc.type = 'sine';
-          gain.gain.setValueAtTime(0, now + i * 0.1);
-          gain.gain.linearRampToValueAtTime(0.18, now + i * 0.1 + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.5);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(now + i * 0.1); osc.stop(now + i * 0.1 + 0.5);
-        });
-      }
-      else if (type === 'castle') {
-        [0, 0.05].forEach((delay) => {
-          const buf = ctx.createBuffer(1, ctx.sampleRate * 0.07, ctx.sampleRate);
-          const data = buf.getChannelData(0);
-          for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
-          const src = ctx.createBufferSource(); src.buffer = buf;
-          const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 750;
-          const gain = ctx.createGain(); gain.gain.setValueAtTime(0.4, now + delay); gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.07);
-          src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-          src.start(now + delay);
-        });
-      }
-    } catch(e) {}
-  }, [soundEnabled]);
-
-  const startBGM = useCallback(() => {
-    try {
-      if (bgmAudioRef.current) return;
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const masterGain = ctx.createGain();
-      masterGain.gain.value = 0.08;
-
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 800; // Soft ambient pad
-
-      masterGain.connect(filter);
-      filter.connect(ctx.destination);
-
-      const chords = [
-        [261.63, 329.63, 392.00], // C4, E4, G4 (C major)
-        [220.00, 261.63, 329.63], // A3, C4, E4 (A minor)
-        [174.61, 220.00, 261.63], // F3, A3, C4 (F major)
-        [196.00, 246.94, 293.66], // G3, B3, D4 (G major)
-      ];
-
-      let chordIndex = 0;
-      let nextStartTime = ctx.currentTime;
-      let isPlaying = true;
-      let timeoutId;
-
-      const scheduleChords = () => {
-        if (!isPlaying || !ctx) return;
-        const now = ctx.currentTime;
-        if (nextStartTime < now + 0.5) {
-          const chord = chords[chordIndex];
-          chordIndex = (chordIndex + 1) % chords.length;
-          
-          chord.forEach(freq => {
-            // Mix of sine and triangle for richer pad
-            [ 'sine', 'triangle' ].forEach((type, i) => {
-              const osc = ctx.createOscillator();
-              const gain = ctx.createGain();
-              
-              osc.frequency.value = type === 'sine' ? freq / 2 : freq;
-              osc.type = type;
-              // Add slight detune for richness
-              osc.detune.value = (Math.random() - 0.5) * 10;
-              
-              // Smooth envelope: 2s attack, 2s sustain, 2s release
-              gain.gain.setValueAtTime(0, nextStartTime);
-              gain.gain.linearRampToValueAtTime(i === 0 ? 0.3 : 0.1, nextStartTime + 2);
-              gain.gain.setValueAtTime(i === 0 ? 0.3 : 0.1, nextStartTime + 4);
-              gain.gain.linearRampToValueAtTime(0, nextStartTime + 6);
-              
-              osc.connect(gain);
-              gain.connect(masterGain);
-              
-              osc.start(nextStartTime);
-              osc.stop(nextStartTime + 6);
-            });
-          });
-          
-          nextStartTime += 4;
-        }
-        timeoutId = setTimeout(scheduleChords, 200);
-      };
-
-      scheduleChords();
-
-      bgmAudioRef.current = {
-        pause: () => {
-          isPlaying = false;
-          clearTimeout(timeoutId);
-          ctx.close().catch(() => {});
-        },
-        currentTime: 0
-      };
-    } catch(e) {}
-  }, []);
-
-  const stopBGM = useCallback(() => {
-    if (bgmAudioRef.current) {
-      bgmAudioRef.current.pause();
-      bgmAudioRef.current.currentTime = 0;
-      bgmAudioRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (bgmEnabled && game?.status === 'active') startBGM();
-    else stopBGM();
-    return () => stopBGM();
-  }, [bgmEnabled, game?.status, startBGM, stopBGM]);
-
-  const [yourTurnFlashKey, setYourTurnFlashKey] = useState(0);
-
-  const [thoughtText, setThoughtText] = useState('');
-  const [previousThoughtText, setPreviousThoughtText] = useState('');
-  const [showStatusPopover, setShowStatusPopover] = useState(false);
-  useEffect(() => {
-    if (!showStatusPopover) return;
-    const timer = setTimeout(() => setShowStatusPopover(false), 4000);
-    const handleClick = () => setShowStatusPopover(false);
-    window.addEventListener('click', handleClick);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('click', handleClick);
-    };
-  }, [showStatusPopover]);
-  const [thoughtVisible, setThoughtVisible] = useState(false);
-  const thoughtTimerRef = useRef(null);
-  const prevGameFenRef = useRef('');
-  
-  const [isUserTyping, setIsUserTyping] = useState(false);
-  const userTypingTimerRef = useRef(null);
-  const userSentTypingRef = useRef(false);
-
-  useEffect(() => {
-    const currentTimer = thoughtTimerRef.current;
-    return () => {
-      if (currentTimer) clearTimeout(currentTimer);
-    };
-  }, []);
-
+  const [visibleThought, setVisibleThought] = useState('');
+  const prevThoughtValRef = useRef('');
 
   useEffect(() => {
     const checkCheck = () => {
@@ -754,483 +150,63 @@ export default function Game() {
       checkCheck();
     }
   }, [game?.fen]);
-
-  useEffect(() => {
-    if (!game?.fen) return;
-    if (movePendingRef.current) return;
-    if (game.fen === boardFenRef.current) return;
-    const gameBoard = game.fen.split(' ')[0];
-    const currentBoard = boardFenRef.current ? boardFenRef.current.split(' ')[0] : '';
-    if (gameBoard === currentBoard && game.fen.split(' ')[1] === boardFenRef.current.split(' ')[1]) return;
-    requestAnimationFrame(() => {
-      applyBoardFen(game.fen);
-    });
-  }, [game?.fen, applyBoardFen]);
-
-  useEffect(() => {
-    if (!game?.fen) return;
-    const isBlackTurn = game.fen.split(' ')[1] === 'b';
-    if (prevGameFenRef.current && game.fen !== prevGameFenRef.current && !isBlackTurn) {
-      setTimeout(() => { try { playSound('move'); } catch(e) {} }, 100);
-    }
-    prevGameFenRef.current = game.fen;
-  }, [game?.fen, playSound]);
-
-  const showThought = useCallback((text) => {
-    if (!text || !text.trim()) return;
-    if (thoughtTimerRef.current) clearTimeout(thoughtTimerRef.current);
-    // Fade OUT existing thought first, then fade IN the new one
-    setThoughtVisible(false);
-    thoughtTimerRef.current = setTimeout(() => {
-      setThoughtText((prev) => {
-        if (prev && prev !== text.trim()) {
-           setPreviousThoughtText(prev);
-        }
-        return text.trim();
-      });
-      setThoughtVisible(true);
-      thoughtTimerRef.current = setTimeout(() => setThoughtVisible(false), 4000);
-    }, 300);
-  }, []);
-
-  useEffect(() => {
-    if (game?.status === 'finished') return;
-    if (game?.companion_thought) showThought(game.companion_thought);
-  }, [game?.companion_thought, game?.status, showThought]);
-
-
-
-  useEffect(() => {
-    setThoughtVisible(false);
-    setThoughtText('');
-    setPreviousThoughtText('');
-    if (thoughtTimerRef.current) clearTimeout(thoughtTimerRef.current);
-  }, [game?.thought_language]);
-
-  const checkedSquare = useMemo(() => {
-    try {
-      if (!boardFen || boardFen === 'start') return null;
-      const tempChess = new Chess(boardFen);
-      if (tempChess.isCheck ? tempChess.isCheck() : (tempChess.in_check ? tempChess.in_check() : false)) {
-        return getKingSquare(boardFen, tempChess.turn());
-      }
-    } catch (e) {}
-    return null;
-  }, [boardFen]);
-
-  const trueTurn = useMemo(() => {
-    const trueTurnResult = (boardFen && typeof boardFen === 'string' && boardFen.includes(' '))
-      ? (boardFen.split(' ')[1] === 'w' ? 'white' : 'black')
-      : 'white';
-    return trueTurnResult;
-  }, [boardFen]);
-
-  const infoState = game?.status === 'waiting'
-    ? { label: 'Waiting for ' + agentName + '...', style: 'waiting' }
-    : trueTurn === ((game?.player_color || 'w') === 'w' ? 'white' : 'black')
-    ? { label: 'Your Turn', style: 'yourturn' }
-    : { label: agentName + ' Thinking...', style: 'thinking' };
-
-  const infoContainerStyle = {
-    height: '44px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '22px',
-    padding: '0 20px',
-    margin: '8px auto',
-    maxWidth: '260px',
-    transition: 'background 0.3s ease',
-    ...(infoState.style === 'yourturn' ? {
-      background: 'rgba(230,57,70,0.15)',
-      border: '1px solid rgba(230,57,70,0.4)',
-      color: '#f2f2f2',
-    } : infoState.style === 'thinking' ? {
-      background: 'rgba(255,255,255,0.04)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      color: 'rgba(242,242,242,0.6)',
-    } : {
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.06)',
-      color: 'rgba(242,242,242,0.4)',
-    }),
-    fontFamily: 'Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '12px',
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-  };
-
-  const dotColor = infoState.style === 'yourturn' ? '#e63946' : infoState.style === 'thinking' ? 'rgba(242, 242, 242, 0.4)' : '#555';
-  const dotAnimation = infoState.style === 'thinking' ? 'pulse 1.5s ease-in-out infinite' : undefined;
-
-  const moodEmoji = useMemo(() => {
-    if (game?.status === 'finished') {
-      if (game?.winner === (game?.player_color === 'b' ? 'white' : 'black')) return '😭';
-      if (game?.result === 'draw') return '🤝';
-      return '🏆';
-    }
-    if (!boardFen || !boardFen.includes(' ')) return '🦞';
-
-    const board = boardFen.split(' ')[0];
-    const turn = boardFen.split(' ')[1];
-    const vals = { p:1, n:3, b:3, r:5, q:9 };
-    let w = 0, b = 0;
-    for (const ch of board) {
-      const l = ch.toLowerCase();
-      if (vals[l]) { if (ch === ch.toUpperCase()) w += vals[l]; else b += vals[l]; }
-    }
-    const adv = w - b;
-    const moveNum = parseInt(boardFen.split(' ')[5] || '1');
-    const inCheck = game?.in_check;
-    const phase = game?.game_phase || 'opening';
-
-    // Sentiment scan of the agent&apos;s own latest expressed thought — ties the
-    // emoji to what the agent actually said, not only the board math.
-    const thoughtText = (game?.companion_thought || game?.current_thought || '').toLowerCase();
-    const positiveWords = ['nice', 'good', 'love', 'confident', 'strong', 'winning', 'haha', 'great', 'fun', 'enjoy'];
-    const negativeWords = ['oops', 'mistake', 'worried', 'careful', 'danger', 'risky', 'uh oh', 'tricky', 'tough', 'hmm'];
-    const excitedWords = ['wow', 'whoa', 'finally', 'yes!', 'let\'s go', 'big move'];
-    let sentiment = 0;
-    if (thoughtText) {
-      positiveWords.forEach(w2 => { if (thoughtText.includes(w2)) sentiment += 1; });
-      negativeWords.forEach(w2 => { if (thoughtText.includes(w2)) sentiment -= 1; });
-      excitedWords.forEach(w2 => { if (thoughtText.includes(w2)) sentiment += 2; });
-    }
-
-    if (inCheck && turn === 'b') return '😰';
-    if (inCheck && turn === 'w') return '😤';
-    if (sentiment >= 2) return '🤩';
-    if (sentiment === 1) return '😏';
-    if (sentiment === -1) return '🤔';
-    if (sentiment <= -2) return '😬';
-    if (moveNum <= 6) return '🦞';
-    if (adv <= -9) return '🔥';
-    if (adv <= -6) return '😈';
-    if (adv <= -3) return '😎';
-    if (adv >= 9)  return '💀';
-    if (adv >= 6)  return '😵';
-    if (adv >= 3)  return '😅';
-    if (phase === 'endgame' && moveNum > 30) return '🧠';
-    if (moveNum % 7 === 0) return '🤨';
-    return '🦞';
-  }, [boardFen, game?.in_check, game?.game_phase, game?.status, game?.companion_thought, game?.current_thought, game?.winner, game?.result, game?.player_color]);
-
-  const [displayedEmoji, setDisplayedEmoji] = useState('🦞');
-  const [emojiAnimating, setEmojiAnimating] = useState(false);
-
-  const emojiHoldRef = useRef({ moveCount: 0, emoji: '🦞' });
-  useEffect(() => {
-    if (moodEmoji === displayedEmoji) return;
-    
-    if (game?.in_check && (moodEmoji === '😰' || moodEmoji === '😤')) {
-      emojiHoldRef.current = { moveCount: game?.move_history?.length || 0, emoji: moodEmoji };
-      setDisplayedEmoji(moodEmoji);
-      setEmojiAnimating(true);
-      setTimeout(() => setEmojiAnimating(false), 300);
-      return;
-    }
-
-    const currentMoveCount = game?.move_history?.length || 0;
-    if (game?.status !== 'finished' && currentMoveCount - emojiHoldRef.current.moveCount < 3 && emojiHoldRef.current.moveCount !== 0) {
-      return;
-    }
-
-    emojiHoldRef.current = { moveCount: currentMoveCount, emoji: moodEmoji };
-    setDisplayedEmoji(moodEmoji);
-    setEmojiAnimating(true);
-    setTimeout(() => {
-      setEmojiAnimating(false);
-    }, 300);
-  }, [moodEmoji, displayedEmoji, game?.move_history, game?.in_check, game?.status]);
-
-  const getCustomSquareStylesForCheck = () => {
-    const customSquareStyles = {};
-    if (game?.in_check) {
-      const inCheckColor = trueTurn === 'black' ? 'b' : 'w';
-      const kingSquare = getKingSquare(boardFen, inCheckColor);
-      if (kingSquare) {
-        customSquareStyles[kingSquare] = {
-          background: 'radial-gradient(circle at center, rgba(230,57,70,0.95) 0%, rgba(230,57,70,0.5) 40%, transparent 70%)',
-          borderRadius: '0'
-        };
-      }
-    }
-    return customSquareStyles;
-  };
-
-  const moveCount = game?.move_count || 0;
-  const gamePhase = moveCount < 10 ? 'Opening' : moveCount < 25 ? 'Middlegame' : 'Endgame';
-
+  
   const [copiedRoom, setCopiedRoom] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
   const [confirmDraw, setConfirmDraw] = useState(false);
-  const [drawOfferPending, setDrawOfferPending] = useState(false);
-  const [drawDeclined, setDrawDeclined] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [localMessages, setLocalMessages] = useState([]);
   const [boardLocked, setBoardLocked] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
-  
-  const [actionSheetMsg, setActionSheetMsg] = useState(null);
-  const pressTimerRef = useRef(null);
-  const touchMovedRef = useRef(false);
-
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-
-  const handleMsgTouchStart = (msg) => () => {
-    touchMovedRef.current = false;
-    pressTimerRef.current = setTimeout(() => {
-      if (!touchMovedRef.current) {
-        setActionSheetMsg(msg);
-        if (navigator.vibrate) navigator.vibrate(10);
-      }
-    }, 450);
-  };
-  const handleMsgTouchMove = () => {
-    touchMovedRef.current = true;
-    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
-  };
-  const handleMsgTouchEnd = () => {
-    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
-  };
-  
-  const handleReplyToMessage = (msg) => { setReplyingTo(msg); };
-  const handleEnterSelectMode = (msg) => {
-    setSelectMode(true);
-    setSelectedIds(new Set([msg.id]));
-  };
-  const toggleMessageSelection = (msgId) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(msgId)) next.delete(msgId); else next.add(msgId);
-      return next;
-    });
-  };
-  const handleCopyMessage = (msg) => {
-    navigator.clipboard?.writeText(msg?.message || msg?.text || '');
-  };
-
   const [agentJustConnected, setAgentJustConnected] = useState(false);
-  const [showGameOver, setShowGameOver] = useState(false);
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [closingGameOver, setClosingGameOver] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [commentary, setCommentary] = useState('');
   const [showCommentary, setShowCommentary] = useState(false);
   const [lastMoveHighlight, setLastMoveHighlight] = useState(null);
   const [arrivedSquare, setArrivedSquare] = useState(null);
-  const [isTabActive, setIsTabActive] = useState(true);
+
+  const [optimisticLastMove, setOptimisticLastMove] = useState(null);
+  const optimisticFenRef = useRef(null);
+  const connectedToastShown = useRef(false);
+
+  const currentLastMove = lastMoveHighlight || optimisticLastMove || (game?.move_history || [])[(game?.move_history || [])?.length - 1] || null;
 
   useEffect(() => {
-    if (boardLastMove) {
-      const dest = typeof boardLastMove === 'string' ? boardLastMove.substring(2, 4) : (boardLastMove.to || boardLastMove.to_square);
+    if (currentLastMove) {
+      const dest = typeof currentLastMove === 'string' ? currentLastMove.substring(2, 4) : (currentLastMove.to || currentLastMove.to_square);
       if (dest) {
         setArrivedSquare(dest);
         const timer = setTimeout(() => setArrivedSquare(null), 600);
         return () => clearTimeout(timer);
       }
     }
-  }, [boardLastMove]);
-
-  const setMoveHistory = useCallback((history) => {
-    if (!Array.isArray(history)) return;
-    setGame(prev => {
-      if (!prev) return prev;
-      const currentLength = Array.isArray(prev.move_history) ? prev.move_history.length : 0;
-      if (history.length < currentLength) return prev;
-      return { ...prev, move_history: history };
-    });
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      intervalsRef.current.forEach(clearInterval);
-      intervalsRef.current = [];
-      allIntervalsRef.current.forEach(clearInterval);
-      allIntervalsRef.current = [];
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
-    };
-  }, []);
-  
-  const skeletonStyle = {
-    background: 'linear-gradient(90deg, #161616 25%, #222222 50%, #161616 75%)',
-    backgroundSize: '200% 100%',
-    animation: 'shimmer 1.5s infinite linear',
-    borderRadius: '8px',
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)'
-  };
+  }, [currentLastMove]);
   
   const [optimisticFenState, setOptimisticFenState] = useState(null);
   const setOptimisticFen = (val) => {
     optimisticFenRef.current = val;
     setOptimisticFenState(val);
-    if (val) {
-      lastKnownFenRef.current = val;
-    }
   };
   const optimisticFen = optimisticFenState;
 
-  const loadGameData = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/state?gameId=${gameId}`);
-      if (res.ok) {
-        const data = await res.json();
-        prevFenRef.current = data.fen;
-        lastKnownFenRef.current = data.fen;
-        setGame(prev => {
-          const updated = { ...data };
-          if (updated.status === 'finished') {
-            hasFinishedRef.current = true;
-          } else if (hasFinishedRef.current) {
-            updated.status = 'finished';
-          }
-          if (prev?.chat_history && data?.chat_history) {
-            const dbIds = new Set(data.chat_history.map(m => m.id));
-            const trueOptimistic = prev.chat_history.filter(m => String(m.id).startsWith('opt-') && !dbIds.has(m.id));
-            updated.chat_history = [...data.chat_history, ...trueOptimistic];
-          }
-          return updated;
-        });
+  const currentDisplayFen = optimisticFen || game?.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const trueTurn = (typeof currentDisplayFen === 'string' && currentDisplayFen.includes(' '))
+    ? (currentDisplayFen.split(' ')[1] === 'w' ? 'white' : 'black')
+    : 'white';
 
-        const fetchedGame = data;
-        if (Array.isArray(fetchedGame?.move_history) && fetchedGame.move_history.length > 0) {
-          setMoveHistory(fetchedGame.move_history);
-        }
 
-        if (fetchedGame?.board_theme) {
-          setBoardTheme(fetchedGame.board_theme);
-          localStorage.setItem('cwc_board_theme', fetchedGame.board_theme);
-          localStorage.setItem('cwc_theme', fetchedGame.board_theme);
-        }
-        if (fetchedGame?.piece_style) {
-          setPieceStyle(fetchedGame.piece_style);
-          localStorage.setItem('cwc_piece_style', fetchedGame.piece_style);
-        }
 
-        applyBoardFen(data.fen || 'start');
-        lastProcessedFenRef.current = data.fen || 'start';
-        if (data.last_move) setBoardLastMove(data.last_move);
-        setOptimisticFen(null);
-        
-        // Restore chat messages
-        let finalChats = [];
-        if (data.chat_history && Array.isArray(data.chat_history)) {
-          finalChats = data.chat_history.slice(-50);
-        }
-        try {
-          const pendingRaw = localStorage.getItem(`pending_chat_${gameId}`);
-          if (pendingRaw) {
-             const pending = JSON.parse(pendingRaw);
-             const serverTexts = new Set(finalChats.map(m => m.text || m.message || m.content));
-             if (!serverTexts.has(pending.text || pending.message || pending.content)) {
-               finalChats.push(pending);
-               setLocalMessages(prev => {
-                 if (!prev.find(m => m.id === pending.id)) return [...prev, pending];
-                 return prev;
-               });
-             } else {
-               localStorage.removeItem(`pending_chat_${gameId}`);
-             }
-          }
-        } catch(e) {}
-        setChatMessages(finalChats);
-
-        // Restore last move highlight
-        if (data.last_move?.from && data.last_move?.to) {
-          setLastMoveHighlight({ 
-            from: data.last_move.from, 
-            to: data.last_move.to 
-          });
-        }
-
-        // Mark as loaded LAST
-        setIsLoaded(true);
-        setIsLoading(false);
-      } else if (res.status === 404) {
-        setNotFound(true);
-        setIsLoading(false);
-        setIsLoaded(true);
-      }
-    } catch (e) {
-      setIsLoading(false);
-      setIsLoaded(true);
-    }
-    setLoading(false);
-  }, [gameId, applyBoardFen, setMoveHistory, setBoardLastMove]);
-
-  const [optimisticLastMove, setOptimisticLastMove] = useState(null);
-  const [shakeActive, setShakeActive] = useState(false);
-  const [agentCooking, setAgentCooking] = useState(false);
-  const thinkingStartRef = useRef(null);
-
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' && window.innerWidth >= 900);
   useEffect(() => {
-    if (trueTurn === 'black' && game?.status === 'active') {
-      if (!thinkingStartRef.current) thinkingStartRef.current = Date.now();
-      const checkCooking = setInterval(() => {
-        const elapsed = Date.now() - (thinkingStartRef.current || Date.now());
-        setAgentCooking(elapsed > 8000);
-      }, 1000);
-      return () => clearInterval(checkCooking);
-    } else {
-      thinkingStartRef.current = null;
-      setAgentCooking(false);
-    }
-  }, [trueTurn, game?.status]);
-
-
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 600);
-  const [isTablet, setIsTablet] = useState(typeof window !== 'undefined' && window.innerWidth >= 600 && window.innerWidth < 960);
-  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' && window.innerWidth >= 960);
-  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 360);
-  const [viewportHeight, setViewportHeight] = useState(
-    typeof window !== 'undefined' && window.visualViewport
-      ? window.visualViewport.height
-      : (typeof window !== 'undefined' ? window.innerHeight : 800)
-  );
-  
-  const ANIM_DURATION = isMobile ? '0.28s' : '0.2s';
-  
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 600);
-      setIsTablet(window.innerWidth >= 600 && window.innerWidth < 960);
-      setIsDesktop(window.innerWidth >= 960);
-      setViewportWidth(window.innerWidth);
-    };
+    const handleResize = () => setIsDesktop(window.innerWidth >= 900);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    const handleResize = () => setViewportHeight(window.visualViewport.height);
-    window.visualViewport.addEventListener('resize', handleResize);
-    return () => window.visualViewport.removeEventListener('resize', handleResize);
-  }, []);
-
-  const boardSize = Math.min(
-    viewportWidth - 24,
-    viewportHeight * 0.55,
-    480
-  );
-
   const [lastMoveTo, setLastMoveTo] = useState(null);
-
-  useEffect(() => {
-    const interval = addInterval(() => {
-      setGame(prev => prev ? { ...prev } : prev);
-    }, 10000);
-    return () => {
-      clearInterval(interval);
-      intervalsRef.current = intervalsRef.current.filter(x => x !== interval);
-    };
-  }, [addInterval]);
+  const [agentConnected, setAgentConnected] = useState(false);
 
   const [chatPaddingBottom, setChatPaddingBottom] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -1251,10 +227,10 @@ export default function Game() {
   }, []);
 
   const normalizedMessages = useMemo(() => {
-    const serverTexts = new Set((chatMessages || []).map(m => m.text || m.message || m.content));
+    const serverTexts = new Set((game?.chat_history || []).map(m => m.text || m.message || m.content));
     const combined = [
-      ...(chatMessages || []).filter(Boolean),
-      ...localMessages.filter(m => m && !serverTexts.has(m.text || m.message || m.content))
+      ...(game?.chat_history || []),
+      ...localMessages.filter(m => !serverTexts.has(m.text || m.message || m.content))
     ].sort((a, b) => {
       const timeA = new Date(a.timestamp || a.ts || 0).getTime();
       const timeB = new Date(b.timestamp || b.ts || 0).getTime();
@@ -1262,41 +238,72 @@ export default function Game() {
     });
     return combined.map((msg, idx) => ({
       ...msg,
-      id: msg.id || `cwc-msg-${idx}`,
-      ts: msg.ts || (msg.timestamp ? new Date(msg.timestamp).getTime() : Date.now())
+      id: msg.id || `cwc-msg-${idx}`
     }));
-  }, [chatMessages, localMessages]);
+  }, [game?.chat_history, localMessages]);
 
   useEffect(() => {
     seenMsgCountRef.current = normalizedMessages.length;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []); // only on mount - captures initial count
 
   const sendReaction = async (msgId, emoji) => {
-    // Optimistic update immediately
-    setChatMessages(prev => prev.map(m => {
-      if (m.id !== msgId) return m;
-      const reactions = { ...(m.reactions || {}) };
-      const reactors = Array.isArray(reactions[emoji]) ? [...reactions[emoji]] : [];
-      if (reactors.includes('human')) {
-        reactions[emoji] = reactors.filter(r => r !== 'human');
-        if (reactions[emoji].length === 0) delete reactions[emoji];
-      } else {
-        reactions[emoji] = [...reactors, 'human'];
-      }
-      return { ...m, reactions };
-    }));
-    // Send to backend
-    try {
-      await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, action: 'react', messageId: msgId, emoji, reactor: 'human' }),
+    setActivePickerMsgId(null);
+  
+    // Optimistic update immediately — no delay
+    setGame(prev => {
+      const updated = (prev?.chat_history || []).map((msg, idx) => {
+        const id = msg.id || `cwc-msg-${idx}`;
+        if (id !== msgId) return msg;
+        const reactions = { ...(msg.reactions || {}) };
+        const current = reactions[emoji] || [];
+        const hasIt = current.includes('human');
+        if (hasIt) {
+          // Remove reaction
+          const newArr = current.filter(r => r !== 'agent');
+          if (newArr.length === 0) delete reactions[emoji];
+          else reactions[emoji] = newArr;
+        } else {
+          // Add reaction (remove other human reactions first — one at a time)
+          Object.keys(reactions).forEach(e => {
+            reactions[e] = (reactions[e] || []).filter(r => r !== 'agent');
+            if (reactions[e].length === 0) delete reactions[e];
+          });
+          reactions[emoji] = [...current.filter(r => r !== 'agent'), 'agent'];
+        }
+        return { ...msg, reactions };
       });
-    } catch(e) {}
+      return { ...prev, chat_history: updated };
+    });
+  
+    // Send to backend silently
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gameId,
+        action: 'react',
+        messageId: msgId,
+        emoji,
+        reactor: 'agent'
+      })
+    }).catch(() => {});
   };
 
-  /* old touch handlers removed to make way for action sheet ones */
+  const handleMsgTouchStart = (msgId) => {
+    longPressTimer.current = setTimeout(() => {
+      setActivePickerMsgId(msgId);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 500); 
+  };
+
+  const handleMsgTouchEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleMsgTouchMove = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -1315,13 +322,12 @@ export default function Game() {
     
     // Step 2: Clear all local component state
     setGame(null)
-    setThoughtText('')
-    setPreviousThoughtText('')
-    setThoughtVisible(false)
+    setAgentConnected(false)
+    setVisibleThought('')
     setLastMoveHighlight(null)
     setArrivedSquare(null)
     setLastMoveTo(null)
-    setShowGameOver(false)
+    setShowGameOverModal(false)
     connectedToastShown.current = false
     
     // Step 3: Navigate to home to create fresh game
@@ -1354,6 +360,22 @@ export default function Game() {
     }
   }, []);
   
+  const submittingRef = useRef(false);
+  const audioCtxRef = useRef(null);
+  const prevMoveCountRef = useRef(0);
+  const prevStatusRef = useRef('waiting');
+  const prevAgentConnected = useRef(false);
+
+  const boardRef = useRef(null);
+  const chatMessagesRef = useRef(null);
+
+  const channelRef = useRef(null);
+  const containerRef = useRef(null);
+  const prevFenRef = useRef(null);
+
+
+
+
   // Calculate Board Size and Viewport Height
   useEffect(() => {
     const calc = () => {
@@ -1362,18 +384,13 @@ export default function Game() {
       
       let maxH, maxW;
       
-      const currentIsDesktop = vw >= 960;
-      
-      if (currentIsDesktop) {
+      if (vw >= 1024) {
         // Desktop: Board is in a flex container next to a 360px sidebar
-        const sidebarWidth = 360;
-        const padding = 64;
         const usedHeight = 52 + 64 + 100; // header + padding + top/bottom info
         maxH = vh - usedHeight;
-        maxW = vw - sidebarWidth - padding; // sidebar width + padding
+        maxW = vw - 360 - 64; // sidebar width + padding
       } else {
-        // Mobile / Tablet
-        const padding = 24;
+        // Mobile
         const usedHeight =
           52 +   // header
           100 +  // agent section (merged, collapsed)
@@ -1382,16 +399,11 @@ export default function Game() {
           44 +   // move history header
           24;    // padding
         maxH = vh - usedHeight;
-        maxW = vw - padding;
+        maxW = vw - 24;
       }
       
-      const paddingForBoard = currentIsDesktop ? 24 : 24;
-      const maxBoardSize = 800;
-      
-      const calculatedWidth = currentIsDesktop
-        ? Math.min(vw - 360 - 64 - paddingForBoard, maxBoardSize)
-        : Math.min(vw - paddingForBoard, maxBoardSize);
-        
+      const availableWidth = maxW - 24;
+      setBoardSize(Math.max(280, Math.min(availableWidth, maxH, 800)));
       document.documentElement.style.setProperty('--vh', `${vh}px`);
     };
     
@@ -1416,17 +428,17 @@ export default function Game() {
     };
   }, []);
 
-
+  useEffect(() => {
+    if (game?.companion_thought && game.companion_thought !== prevThoughtValRef.current) {
+      prevThoughtValRef.current = game.companion_thought;
+      setVisibleThought(game.companion_thought);
+    }
+  }, [game?.companion_thought]);
 
   // Auto-scroll chat
   useEffect(() => {
     if (chatMessagesRef.current) {
-      const isNearBottom = chatMessagesRef.current.scrollHeight - chatMessagesRef.current.scrollTop - chatMessagesRef.current.clientHeight < 100;
-      const lastMsg = normalizedMessages[normalizedMessages.length - 1];
-      const isMyMessage = lastMsg?.sender === 'human' && (Date.now() - (lastMsg.ts || 0) < 2000);
-      if (isNearBottom || isMyMessage) {
-        chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
-      }
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
     }
   }, [normalizedMessages]);
 
@@ -1462,30 +474,97 @@ export default function Game() {
     }
   }, [game?.last_commentary, game?.move_history?.length]);
 
+  // Sound Effects
+  const playSound = useMemo(() => (type) => {
+    if (!soundEnabled) return;
+    const urls = {
+      move: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-self.mp3',
+      capture: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/capture.mp3',
+      check: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-check.mp3',
+      checkmate: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-end.mp3',
+      start: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-start.mp3',
+      end: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-end.mp3',
+      illegal: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/illegal.mp3',
+      agentThinking: '',
+      agentMove: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-opponent.mp3',
+      agentCapture: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/capture.mp3',
+      agentCheck: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-check.mp3',
+      agentCheckmate: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-end.mp3',
+      agentEnd: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-end.mp3',
+      agentIllegal: 'https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/illegal.mp3'
+    };
+    if (urls[type]) {
+      const audio = new Audio(urls[type]);
+      audio.play().catch(e => console.error("Error playing sound", e));
+    }
+  }, [soundEnabled]);
 
   useEffect(() => {
     if (!game) return;
     const currentMoveCount = (game.move_history || []).length;
+    if (currentMoveCount > prevMoveCountRef.current) {
+      const runSoundLogic = () => {
+        let chess;
+        try {
+          chess = new Chess();
+        } catch(e) {
+          chess = null;
+        }
+        if (chess && game.move_history && game.move_history.length > 0) {
+          game.move_history.forEach(m => {
+            try { chess.move(m.san); } catch (e) {}
+          });
+        } else if (chess && game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+          chess.load(game.fen);
+        }
+        if (chess) {
+          const lastMove = game.move_history[currentMoveCount - 1];
+          const isAgent = lastMove?.color === 'b';
+          const isMate = chess.in_checkmate ? chess.in_checkmate() : chess.isCheckmate ? chess.isCheckmate() : false;
+          const isCh = chess.in_check ? chess.in_check() : chess.isCheck ? chess.isCheck() : false;
+          
+          if (isMate) {
+            playSound(isAgent ? 'agentCheckmate' : 'checkmate');
+          } else if (isCh) {
+            playSound(isAgent ? 'agentCheck' : 'check');
+          } else if (lastMove && lastMove.san && lastMove.san.includes('x')) {
+            playSound(isAgent ? 'agentCapture' : 'capture');
+          } else {
+            playSound(isAgent ? 'agentMove' : 'move');
+          }
+        }
+      };
+      runSoundLogic();
+    }
+    
+    if (game.status === 'finished' && prevStatusRef.current !== 'finished') {
+      const isAgentWinner = game.winner === (game?.player_color === 'b' ? 'black' : 'white');
+      playSound(isAgentWinner ? 'agentEnd' : 'end');
+    }
+    
+    if (game.status === 'active' && prevStatusRef.current === 'waiting') {
+      playSound('start');
+    }
+    
+    if (game.current_thinking && !prevStatusRef.current_thinking) {
+      playSound('agentThinking');
+    }
+    
     prevMoveCountRef.current = currentMoveCount;
     prevStatusRef.current = game.status;
     prevStatusRef.current_thinking = game.current_thinking;
-  }, [game]);
+  }, [game, playSound]);
 
-  const chatHistoryInitializedRef = useRef(false);
-  const prevChatHistoryRef = useRef([]);
-
+  const agentTimeoutRef = useRef(null);
   useEffect(() => {
-    if (!game?.chat_history) return;
-    const currentChat = game.chat_history;
-    
-    if (!chatHistoryInitializedRef.current) {
-      prevChatHistoryRef.current = currentChat;
-      chatHistoryInitializedRef.current = true;
-      return;
-    }
-
-    prevChatHistoryRef.current = currentChat;
-  }, [game?.chat_history]);
+    agentTimeoutRef.current = setInterval(() => {
+      if (!game?.agent_last_seen) return;
+      const lastSeen = new Date(game.agent_last_seen);
+      const secondsAgo = (Date.now() - lastSeen) / 1000;
+      setAgentDisconnected(secondsAgo > 90);
+    }, 15000);
+    return () => clearInterval(agentTimeoutRef.current);
+  }, [game?.agent_last_seen]);
 
   // Heartbeat & Idle Chat
   useEffect(() => {
@@ -1493,72 +572,54 @@ export default function Game() {
       return;
     }
     
-    heartbeatRef.current = safeInterval(() => {
+    const heartbeatInterval = setInterval(() => {
       fetch('/api/actions', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
+          'x-agent-token': agentToken || ''
         },
-        body: JSON.stringify({ gameId: gameId, action: 'heartbeat', role: 'human' })
+        body: JSON.stringify({ gameId: gameId, action: 'heartbeat', role: 'agent' })
       }).catch(() => {});
       
-      // Poll game state if it&apos;s the agent&apos;s turn to catch missed real-time events, but only if visible!
-      if (isTabActive && game?.turn !== (game?.player_color || 'w') && game?.status === 'active') {
+      // Poll game state if it's the agent's turn to catch missed real-time events
+      if (game?.turn !== (game?.player_color || 'w') && game?.status === 'active') {
         supabase.from('games').select('turn, move_history').eq('id', gameId).single().then(({ data }) => {
           if (data && data.turn === (game?.player_color || 'w')) {
-            loadGameData();
+            // Agent made a move but we missed the event, trigger a full reload
+            document.dispatchEvent(new Event('visibilitychange'));
           }
         });
       }
     }, 15000);
 
-    let idleChatInterval = null;
-    if (isTabActive) {
-      idleChatInterval = addInterval(() => {
-        if (game?.status !== 'active') return;
-        
-        const rand = Math.random();
-        if (rand < 0.3) {
-          fetch(`/api/thoughts?gameId=${gameId}&trigger=idle_chat`, {
-             headers: { 'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || '' }
-          }).catch(() => {});
-        } else if (rand < 0.6) {
-          fetch(`/api/thoughts?gameId=${gameId}&trigger=random_thought`, {
-             headers: { 'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || '' }
-          }).catch(() => {});
-        }
-      }, 45000);
-    }
+    const idleChatInterval = setInterval(() => {
+      if (game?.status !== 'active') return;
+      
+      const rand = Math.random();
+      if (rand < 0.3) {
+        fetch(`/api/thoughts?gameId=${gameId}&trigger=idle_chat`, {
+           headers: { 'x-agent-token': agentToken || '' }
+        }).catch(() => {});
+      } else if (rand < 0.6) {
+        fetch(`/api/thoughts?gameId=${gameId}&trigger=random_thought`, {
+           headers: { 'x-agent-token': agentToken || '' }
+        }).catch(() => {});
+      }
+    }, 45000);
 
     return () => {
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
-      if (idleChatInterval) {
-        clearInterval(idleChatInterval);
-        intervalsRef.current = intervalsRef.current.filter(x => x !== idleChatInterval);
-      }
+      clearInterval(heartbeatInterval);
+      clearInterval(idleChatInterval);
     };
-  }, [game, game?.turn, game?.status, game?.agent_last_seen, game?.updated_at, game?.created_at, gameId, isTabActive, loadGameData, addInterval]);
+  }, [game, game?.turn, game?.status, game?.agent_last_seen, game?.updated_at, game?.created_at, gameId]);
 
   useEffect(() => {
     if (game?.status === 'finished' || game?.status === 'abandoned') {
-      // Clear ALL intervals immediately on game over
-      intervalsRef.current.forEach(clearInterval);
-      intervalsRef.current = [];
-      allIntervalsRef.current.forEach(clearInterval);
-      allIntervalsRef.current = [];
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
-      
       localStorage.removeItem('chesswithclaw_active_game');
-      setShowGameOver(true);
+      setTimeout(() => setShowGameOverModal(true), 600);
       
-      if (game?.result === (game?.player_color === 'b' ? 'black' : 'white')) {
+      if (game?.winner === (game?.player_color === 'b' ? 'white' : 'black')) {
         setTimeout(() => {
           toast.success('Achievement Unlocked: Bot Slayer! 🏆');
         }, 1500);
@@ -1566,47 +627,9 @@ export default function Game() {
     }
   }, [game?.status, game?.result, game?.player_color, toast]);
 
-  // Start game over / general fallback polling when the game is not finished
-  useEffect(() => {
-    if (!isTabActive) return;
-    if (game?.status === 'finished' || game?.status === 'abandoned') {
-      if (gameOverPollingRef.current) {
-        clearInterval(gameOverPollingRef.current);
-        intervalsRef.current = intervalsRef.current.filter(x => x !== gameOverPollingRef.current);
-        gameOverPollingRef.current = null;
-      }
-      return;
-    }
-    
-    gameOverPollingRef.current = addInterval(async () => {
-      try {
-        const res = await fetch(`/api/state?gameId=${gameId}`);
-        if (!res.ok) return;
-        const fresh = await res.json();
-        if (fresh.status === 'finished' || fresh.status === 'abandoned' || fresh.fen !== game?.fen) {
-          setGame(prev => {
-            const { board_theme, piece_style, ...safeFresh } = fresh;
-            return { ...prev, ...safeFresh };
-          });
-          if (fresh.status === 'finished' || fresh.status === 'abandoned') {
-            setShowGameOver(true);
-          }
-        }
-      } catch (e) {}
-    }, 1000);
-    
-    return () => {
-      if (gameOverPollingRef.current) {
-        clearInterval(gameOverPollingRef.current);
-        intervalsRef.current = intervalsRef.current.filter(x => x !== gameOverPollingRef.current);
-        gameOverPollingRef.current = null;
-      }
-    };
-  }, [game?.status, gameId, game?.fen, isTabActive, addInterval]);
-
   useEffect(() => {
     if (!game) return;
-    const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Your Agent';
+    const agentName = game?.agent_name || 'Your Agent';
     if (game.status === 'finished' || game.status === 'abandoned') {
       document.title = 'ChessWithClaw';
     } else if (game.turn === (game?.player_color || 'w')) {
@@ -1616,13 +639,36 @@ export default function Game() {
     }
   }, [game]);
 
-
+  // Auto-resignation timer
+  useEffect(() => {
+    if (!game || game.status !== 'active') return;
+    const interval = setInterval(async () => {
+      const isHumanTurn = game.turn === (game.player_color || 'w');
+      const maxTimeMs = 15 * 60 * 1000; // 15 minutes
+      const lastMoveTs = game.move_history?.length > 0 
+        ? new Date(game.move_history[game.move_history.length - 1].created_at).getTime()
+        : new Date(game.created_at).getTime();
+        
+      if (Date.now() - lastMoveTs > maxTimeMs) {
+        // Current turn exceeded auto-resign timer
+        if (!isHumanTurn) {
+           await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: {
+              status: 'abandoned',
+              result: game.player_color || 'w',
+              result_reason: 'abandoned'
+            }, gameId}) });
+        }
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [game, gameId, agentToken]);
 
   useEffect(() => {
     if (game?.agent_connected) {
+      setAgentConnected(true);
       connectedToastShown.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [game?.id]);
 
   useEffect(() => {
@@ -1641,96 +687,6 @@ export default function Game() {
     }
   }, [game, toast, agentName, gameId]);
   
-  const handleRealtimeUpdate = useCallback((payload) => {
-    const incoming = payload.new || payload;
-
-    setGame(prev => {
-      if (!prev) return prev;
-      
-      if (incoming.move_history && prev.move_history && incoming.move_history.length < prev.move_history.length) {
-        return prev;
-      }
-      let newStatus = incoming.status;
-      if (newStatus === 'finished') {
-        hasFinishedRef.current = true;
-      } else if (hasFinishedRef.current) {
-        newStatus = 'finished';
-      }
-      return { ...prev, ...incoming, status: newStatus };
-    });
-    
-    // 1. Update board position with sound (fixes frozen board + no sound)
-    if (incoming.fen) {
-      const prevFen = boardFenRef?.current || '';
-      const prevPosition = prevFen.split(' ')[0];
-      const newPosition = incoming.fen.split(' ')[0];
-      if (newPosition !== prevPosition) {
-        if (!movePendingRef.current) {
-          applyBoardFen(incoming.fen);
-        }
-        // Sound: if previous turn was 'b', agent just moved
-        if (prevFen.includes(' ') && prevFen.split(' ')[1] === 'b') {
-          const isCapture = incoming.last_move?.captured || incoming.last_move?.flags?.includes('c') || (typeof incoming.last_move === 'string' && incoming.last_move.includes('x')) || (incoming.last_move?.san && incoming.last_move.san.includes('x'));
-          setTimeout(() => { try { playSound(isCapture ? 'capture' : 'move'); } catch(e) {} }, 60);
-        }
-        
-        // 6. Piece style (only update from Realtime on moves, not on standalone events)
-        if (incoming.piece_style && incoming.piece_style !== pieceStyle) {
-          const localStyle = localStorage.getItem('cwc_piece_style');
-          // Only apply DB value if it MATCHES what the user last explicitly set.
-          // This prevents a Realtime confirmation of an in-flight async write
-          // from reverting the user's freshly-chosen style back to the old DB value.
-          if (!localStyle || incoming.piece_style === localStyle) {
-            setPieceStyle(incoming.piece_style);
-          }
-        }
-        // 7. Board theme
-        if (incoming.board_theme && incoming.board_theme !== boardTheme) {
-          setBoardTheme(incoming.board_theme);
-          localStorage.setItem('cwc_board_theme', incoming.board_theme);
-          localStorage.setItem('cwc_theme', incoming.board_theme);
-        }
-      }
-    }
-
-    // 2. Update move history
-    if (Array.isArray(incoming.move_history)) {
-      setMoveHistory(incoming.move_history);
-    }
-
-    // 3. Show companion thought with 4-second fade
-    if (incoming.companion_thought && incoming.companion_thought.trim() !== '') {
-      if (typeof showThought === 'function') {
-        showThought(incoming.companion_thought);
-      } else {
-        setThoughtText(incoming.companion_thought.trim());
-        setThoughtVisible(true);
-        if (thoughtTimerRef?.current) clearTimeout(thoughtTimerRef.current);
-        thoughtTimerRef.current = setTimeout(() => setThoughtVisible(false), 4000);
-      }
-    }
-
-    // 6. Do NOT overwrite thought_language from Realtime
-    // (user's local selection takes priority — the DB will sync via API)
-
-    if (Array.isArray(incoming.chat_history)) {
-      setChatMessages(incoming.chat_history);
-    }
-
-    if (drawOfferPending) {
-      if (incoming.draw_offer_pending === false && incoming.status !== 'finished') {
-        setDrawOfferPending(false);
-        setDrawDeclined(true);
-        setTimeout(() => setDrawDeclined(false), 5000);
-        toast(`${game?.agent_name || 'Agent'} declined the draw. Game continues!`, {
-          style: { background: '#111111', border: '1px solid rgba(230,57,70,0.3)', color: '#f2f2f2' }
-        });
-      } else if (incoming.status === 'finished') {
-        setDrawOfferPending(false);
-      }
-    }
-  }, [boardTheme, pieceStyle, playSound, setMoveHistory, setBoardTheme, setPieceStyle, setChatMessages, applyBoardFen, showThought, drawOfferPending, toast, game?.agent_name]);
-
   useEffect(() => {
     if (!gameId) {
       setNotFound(true);
@@ -1738,16 +694,79 @@ export default function Game() {
       return;
     }
 
-    loadGameData();
+    const setupGameSubscription = async () => {
+      if (channelRef.current) {
+        await supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      if (!gameId || !agentToken) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/state?id=${gameId}`, {
+          headers: { 'x-agent-token': agentToken }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          prevFenRef.current = data.fen;
+          setGame(data);
+          setOptimisticFen(null);
+        } else if (res.status === 404 || res.status === 401 || res.status === 403) {
+          setNotFound(true);
+        }
+      } catch (e) {}
+      setLoading(false);
+
+      const channel = supabase
+        .channel(`cwc-game-${gameId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'games',
+            filter: `id=eq.${gameId}`
+          },
+          (payload) => {
+            const newData = payload.new;
+            if (!newData) return;
+            if (newData.fen) prevFenRef.current = newData.fen;
+            setOptimisticFen(null);
+
+            // Fetch fresh state to get moves from separate table
+            fetch(`/api/state?gameId=${gameId}`).then(res => res.json()).then(freshData => {
+              setGame(prev => {
+                const updated = { ...prev, ...newData };
+                if (freshData.move_history) updated.move_history = freshData.move_history;
+                if (freshData.chat_history) updated.chat_history = freshData.chat_history;
+                return updated;
+              });
+            }).catch(() => {
+              setGame(prev => ({
+                ...prev,
+                ...newData
+              }));
+            });
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            setTimeout(() => setupGameSubscription(), 3000);
+          }
+        });
+      channelRef.current = channel;
+    };
+    setupGameSubscription();
     
     const handleBeforeUnload = () => {
-      getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ human_connected: false }).eq('id', gameId);
+      fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) })
     };
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        lastKnownFenRef.current = null;
-        loadGameData();
+        setupGameSubscription();
       }
     };
     
@@ -1755,188 +774,14 @@ export default function Game() {
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibility);
-      try { getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({ human_connected: false }).eq('id', gameId); } catch(e) {}
+      try { fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) }) } catch(e) {}
     };
-  }, [gameId, loadGameData]);
-
-  useEffect(() => {
-    if (!gameId) return;
-    if (channelRef.current) supabase.removeChannel(channelRef.current);
-    const channel = supabase
-      .channel('game-' + gameId)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'games', filter: 'id=eq.' + gameId
-      }, (payload) => handleRealtimeUpdate(payload.new || payload))
-      .subscribe();
-    channelRef.current = channel;
-    return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]);
-
-  useEffect(() => {
-    if ((game?.status === 'finished' || game?.status === 'abandoned') && !bestQuote && !isGeneratingQuote) {
-      setIsGeneratingQuote(true);
-      fetch('/api/social?type=quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentName: game.agent_name,
-          result: game.result,
-          chatHistory: chatMessages
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.quote) setBestQuote(data.quote);
-        setIsGeneratingQuote(false);
-      })
-      .catch(() => {
-        setBestQuote("Good game.");
-        setIsGeneratingQuote(false);
-      });
-    }
-  }, [game?.status, bestQuote, isGeneratingQuote, chatMessages, game?.agent_name, game?.result]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && gameId) {
-        supabase
-          .from('games')
-          .select('*')
-          .eq('id', gameId)
-          .single()
-          .then(({ data: freshData }) => {
-            if (!freshData) return;
-            if (freshData.fen && !movePendingRef.current) applyBoardFen(freshData.fen);
-            if (Array.isArray(freshData?.move_history)) {
-              setMoveHistory(freshData.move_history);
-            }
-            if (freshData.board_theme) setBoardTheme(freshData.board_theme);
-            setGame(freshData);
-          });
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [gameId, applyBoardFen, setMoveHistory, setBoardTheme, setGame]);
-
-  // Start fallback polling when it&apos;s agent&apos;s turn
-  useEffect(() => {
-    if (fallbackRef.current) {
-      clearInterval(fallbackRef.current);
-      intervalsRef.current = intervalsRef.current.filter(x => x !== fallbackRef.current);
-    }
-
-    if (game?.status === 'active' && game?.turn !== (game?.player_color || 'w') && isTabActive) {
-      fallbackRef.current = addInterval(async () => {
-        try {
-          const res = await fetch(`/api/state?gameId=${gameId}`);
-          if (!res.ok) return;
-          const fresh = await res.json();
-          if (!fresh || movePendingRef.current) return;
-          setGame(prev => {
-            if (!prev) return prev;
-            if (fresh.move_history && prev.move_history && fresh.move_history.length < prev.move_history.length) {
-              return prev;
-            }
-            if (fresh.fen) {
-              lastProcessedFenRef.current = fresh.fen;
-              applyBoardFen(fresh.fen);
-            }
-            if (fresh.last_move) {
-              setBoardLastMove(fresh.last_move);
-            }
-            return { ...prev, ...fresh };
-          });
-        } catch (e) {}
-      }, 1000);
-    } else {
-      if (fallbackRef.current) {
-        clearInterval(fallbackRef.current);
-        intervalsRef.current = intervalsRef.current.filter(x => x !== fallbackRef.current);
-        fallbackRef.current = null;
-      }
-    }
-    
-    return () => {
-      if (fallbackRef.current) {
-        clearInterval(fallbackRef.current);
-        intervalsRef.current = intervalsRef.current.filter(x => x !== fallbackRef.current);
-      }
-    };
-  }, [game?.turn, game?.status, game?.fen, gameId, boardTheme, pieceStyle, isTabActive, addInterval, boardFen, applyBoardFen, game?.player_color, setBoardLastMove]);
-
-  // Handle window focus and visibility change to immediately sync states
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden) {
-        setIsTabActive(false);
-        // Pause: clear all intervals except heartbeat (which is in heartbeatRef.current)
-        intervalsRef.current.forEach(clearInterval);
-        intervalsRef.current = [];
-      } else {
-        setIsTabActive(true);
-        const fetchFreshGameState = async () => {
-          try {
-            const res = await fetch(`/api/state?gameId=${gameId}`);
-            if (!res.ok) return;
-            const fresh = await res.json();
-            setGame(prev => {
-              if (!prev) return prev;
-              if (fresh.move_history && prev.move_history && fresh.move_history.length < prev.move_history.length) {
-                return prev;
-              }
-              if (fresh.fen) {
-                lastProcessedFenRef.current = fresh.fen;
-                if (!movePendingRef.current) applyBoardFen(fresh.fen);
-              }
-              if (fresh.last_move) {
-                setBoardLastMove(fresh.last_move);
-              }
-              return { ...prev, ...fresh };
-            });
-          } catch (e) {}
-        };
-        fetchFreshGameState();
-      }
-    };
-    
-    const handleFocus = async () => {
-      if (document.hidden || game?.status !== 'active') return;
-      try {
-        const res = await fetch(`/api/state?gameId=${gameId}`);
-        if (!res.ok) return;
-        const fresh = await res.json();
-        setGame(prev => {
-          if (!prev) return prev;
-          if (fresh.move_history && prev.move_history && fresh.move_history.length < prev.move_history.length) {
-            return prev;
-          }
-          if (fresh.fen) {
-            lastProcessedFenRef.current = fresh.fen;
-            if (!movePendingRef.current) applyBoardFen(fresh.fen);
-          }
-          if (fresh.last_move) {
-            setBoardLastMove(fresh.last_move);
-          }
-          return { ...prev, ...fresh };
-        });
-      } catch (e) {}
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [gameId, game?.status, game?.fen, applyBoardFen, setBoardLastMove]);
+  }, [gameId, playSound, agentToken]);
 
   const handleResign = useCallback(async () => {
     if (!confirmResign) {
@@ -1944,14 +789,10 @@ export default function Game() {
       setTimeout(() => setConfirmResign(false), 3000);
       return;
     }
-    const victimResult = game?.player_color === 'b' ? 'white' : 'black';
-    setGame(prev => ({ ...prev, status: 'finished', result: victimResult, result_reason: 'resignation' }));
-    await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({
-      status: 'finished', result: victimResult, result_reason: 'resignation'
-    }).eq('id', gameId);
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'white', reason: 'resignation', gameId }) });
     setShowSettings(false);
     setConfirmResign(false);
-  }, [confirmResign, game?.player_color, gameId]);
+  }, [confirmResign, game?.player_color, gameId, agentToken]);
 
   const handleDraw = useCallback(async () => {
     if (!confirmDraw) {
@@ -1959,10 +800,10 @@ export default function Game() {
       setTimeout(() => setConfirmDraw(false), 3000);
       return;
     }
-    // Draw logic removed
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
     setShowSettings(false);
     setConfirmDraw(false);
-  }, [confirmDraw]);
+  }, [confirmDraw, gameId, agentToken]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1988,191 +829,153 @@ export default function Game() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [confirmResign, confirmDraw, handleDraw, handleResign]);
 
-  const handleIllegalMove = useCallback(() => {
-    setShaking(true);
-    setTimeout(() => setShaking(false), 420);
-  }, []);
-
-  const handleCapture = useCallback(() => {
-    setShaking(true);
-    setTimeout(() => setShaking(false), 300);
-  }, []);
-
-  const handlePlayerMove = useCallback(async (from, to, promotion) => {
+  const makeMove = useCallback(async (from, to, promotion) => {
     if (!game || game.turn !== (game?.player_color || 'w') || (game.status !== 'active' && game.status !== 'waiting')) return;
-    if (!agentConnected) {
-      toast('Waiting for agent to connect...');
-      return;
-    }
     if (boardLocked || submittingRef.current) return;
     
-    if (!localStorage.getItem(`game_owner_${gameId}`)) {
+    const agentName = game?.agent_name || 'Your Agent';
+    
+    if (!agentToken) {
       toast.error('You are not the creator of this game.');
       return;
     }
 
     submittingRef.current = true;
     setBoardLocked(true);
-
-    const moveStr = from + to + (promotion || '');
-    
-    // Compute new FEN using chess.js before API call
-    let newFen = boardFen;
-    let isCapture = false;
+    let chess;
     try {
-      const tempChess = new Chess(boardFen);
-
-      const result = tempChess.move({ from, to, promotion: promotion || 'q' });
-      if (result) {
-        newFen = tempChess.fen();
-        isCapture = result.captured || result.san?.includes('x');
-      } else {
-        handleIllegalMove();
+      chess = new Chess();
+    } catch(e) {
+      chess = null;
+    }
+    if (chess && game.move_history && game.move_history.length > 0) {
+      game.move_history.forEach(m => {
+        try { chess.move(typeof m === 'string' ? m : (m.san || m)); } catch (e) {}
+      });
+    } else if (chess && game.fen && game.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+      chess.load(game.fen);
+    }
+    
+    try {
+      const moveObj = promotion ? { from, to, promotion } : { from, to };
+      const move = chess ? chess.move(moveObj) : null;
+      if (!move) {
         submittingRef.current = false;
         setBoardLocked(false);
+        setOptimisticFen(null);
+        setOptimisticLastMove(null);
         return;
       }
-    } catch (e) {
-      handleIllegalMove();
-      submittingRef.current = false;
-      setBoardLocked(false);
-      return;
-    }
-    
-    // Mark pending so Realtime doesn't re-animate
-    movePendingRef.current = true;
-    lastMoveFenRef.current = newFen;
-    
-    // Update ONLY board display (not game state)
-    const prevBoardFen = boardFen;
-    const prevBoardLastMove = boardLastMove;
-
-    applyBoardFen(newFen);
-    lastProcessedFenRef.current = newFen;
-    setBoardLastMove({ from, to });
-    
-    // Call API without touching game state
-    playSound(isCapture ? 'capture' : 'move');
-    if (isCapture) {
-      setShakeActive(true);
-      setTimeout(() => setShakeActive(false), 300);
-    }
-    try {
-      const res = await fetch('/api/move', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-        },
-        body: JSON.stringify({ 
-          id: gameId, 
-          move: moveStr,
-          isHumanMove: true
-        })
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        // Revert board on error
-        applyBoardFen(prevBoardFen);
-        lastProcessedFenRef.current = prevBoardFen;
-        setBoardLastMove(prevBoardLastMove);
-        movePendingRef.current = false;
-        
-        const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Your Agent';
-        if (errData.code === 'WAITING_FOR_AGENT') {
-          toast(`Waiting for ${agentName} to join...`, {
-            icon: <LobsterEmoji />,
-            style: { background: '#111111', border: '1px solid rgba(230,57,70,0.3)', color: '#f2f2f2' }
-          });
-        } else if (errData.code === 'TURN_CONFLICT') {
-           toast.error('Move already processed');
-        } else {
-           toast.error(errData.error || 'Failed to submit move');
-        }
-      } else {
-        const result = await res.json().catch(() => ({}));
-        if (result && result.game) {
-          setGame(prev => {
-            if (!prev) return prev;
-            if (result.game.move_history && prev.move_history && prev.move_history.length > result.game.move_history.length) {
-              return prev; // Ignore older game state
-            }
-            const updated = { ...prev, ...result.game };
-            if (result.game.move_history) {
-              setMoveHistory(result.game.move_history);
-            }
-            return updated;
-          });
-          setGame(prev => {
-            // Need to apply FEN only if we actually accepted this result
-            if (prev.fen === result.game.fen || (result.game.move_history && prev.move_history && prev.move_history.length === result.game.move_history.length)) {
-              applyBoardFen(result.game.fen);
-              lastProcessedFenRef.current = result.game.fen;
-              if (result.game.last_move) {
-                setBoardLastMove(result.game.last_move);
-              }
-            }
-            return prev;
-          });
-          movePendingRef.current = false;
+      
+      const newFen = chess.fen();
+      setOptimisticFen(newFen);
+      setOptimisticLastMove({ from, to });
+      setLastMoveHighlight({ from, to });
+      
+      if (soundEnabled) {
+        const audio = new Audio(move.captured ? "https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/capture.mp3" : "https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-self.mp3");
+        audio.play().catch(() => {});
+        if (chess.in_check && chess.in_check()) {
+          setTimeout(() => {
+            const checkAudio = new Audio("https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-check.mp3");
+            checkAudio.play().catch(() => {});
+          }, 150);
         }
       }
+
+      const prevFen = game.fen;
+      const gameIdValue = gameId;
+
+      fetch('/api/move', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-agent-token': agentToken || ''
+        },
+        body: JSON.stringify({
+          id: gameIdValue,
+          move: from + to + (promotion || ''),
+          isHumanMove: true
+        })
+      })
+      .then(async res => {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          setOptimisticFen(prevFen);
+          setOptimisticLastMove(null);
+          
+          if (errData.code === 'WAITING_FOR_AGENT') {
+            toast(`Waiting for ${agentName} to join...`, {
+              icon: <LobsterEmoji />,
+              style: { background: '#0e0e0e', border: '1px solid rgba(230,57,70,0.3)', color: '#f0f0f0' }
+            });
+          } else if (errData.code === 'TURN_CONFLICT') {
+             toast.error('Move already processed');
+          } else {
+             toast.error(errData.error || 'Failed to submit move');
+          }
+        } 
+        // Realtime will clear submittingRef and boardLocked when it receives the move
+        // Setting it here to a timeout in case Realtime fails
+        setTimeout(() => {
+          if (submittingRef.current) {
+            submittingRef.current = false;
+            setBoardLocked(false);
+          }
+        }, 3000);
+      })
+      .catch((err) => {
+        setOptimisticFen(prevFen);
+        setOptimisticLastMove(null);
+        toast.error('Network error or failed to submit');
+        submittingRef.current = false;
+        setBoardLocked(false);
+      });
+      
     } catch (e) {
-      // Revert board on error
-      applyBoardFen(prevBoardFen);
-      lastProcessedFenRef.current = prevBoardFen;
-      setBoardLastMove(prevBoardLastMove);
-      movePendingRef.current = false;
-    } finally {
+      toast.error(e.message || 'Illegal move or failed to submit');
       submittingRef.current = false;
       setBoardLocked(false);
+      setOptimisticFen(null);
+      setOptimisticLastMove(null);
     }
-  }, [game, boardLocked, gameId, toast, playSound, boardFen, boardLastMove, applyBoardFen, agentConnected, setMoveHistory, setBoardLastMove, handleIllegalMove]);
+  }, [game, boardLocked, gameId, toast, soundEnabled, agentToken]);
 
   const sendMessage = async (e) => {
     e?.preventDefault();
-    const msgText = chatInput.trim();
-    if (!msgText) return;
+    if (!chatInput.trim()) return;
+    
+    const text = chatInput;
+    setLocalMessages(prev => [...prev, { role: 'agent', sender: 'agent', text: text, timestamp: Date.now() }]);
     setChatInput('');
-    const repMsgId = replyingTo?.id || null;
-    setReplyingTo(null);
     
-    // Add message optimistically to display immediately
-    const optimisticMsg = {
-      id: `opt-${Date.now()}`,
-      role: 'human',
-      sender: 'human',
-      message: msgText,
-      text: msgText,
-      reply_to: repMsgId,
-      timestamp: new Date().toISOString(),
-      reactions: {},
-      ts: Date.now()
-    };
-    
-    setLocalMessages(prev => [...prev, optimisticMsg]);
-    localStorage.setItem(`pending_chat_${gameId}`, JSON.stringify(optimisticMsg));
-
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-      },
-      body: JSON.stringify({ gameId: gameId, game_id: gameId, text: msgText, sender: 'human', role: 'human', reply_to: repMsgId })
-    }).then(() => {
-      localStorage.removeItem(`pending_chat_${gameId}`);
-    }).catch(() => {});
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-agent-token': agentToken
+        },
+        body: JSON.stringify({ id: gameId, text, sender: 'human' })
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        toast.error(errData.error || 'Failed to send message', {
+          style: { background: '#0e0e0e', border: '1px solid rgba(230,57,70,0.3)', color: '#f0f0f0' }
+        });
+        throw new Error('Failed to send message');
+      }
+    } catch (e) {
+      console.error('Failed to send message:', e);
+    }
   };
 
 
 
   async function acceptAgentResignation() {
-    const winnerResult = game?.player_color === 'b' ? 'black' : 'white';
-    setGame(prev => ({ ...prev, status: 'finished', result: winnerResult, result_reason: 'resignation' }));
-    await getSupabaseWithToken(localStorage.getItem(`game_owner_${gameId}`)).from('games').update({
-      status: 'finished', result: winnerResult, result_reason: 'resignation'
-    }).eq('id', gameId);
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: {
+      status: 'finished', result: game?.player_color === 'b' ? 'white' : 'black', result_reason: 'resignation'
+    }, gameId}) });
   }
 
   function copyRoomCode() {
@@ -2188,6 +991,7 @@ export default function Game() {
     setTimeout(() => setCopiedInvite(false), 2000);
   }
 
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
 
   function handleGoHome(e) { 
     if (game?.status === 'active') {
@@ -2200,64 +1004,18 @@ export default function Game() {
   function handleOpenSettings() { setShowSettings(true) }
   function handleToggleAgentSection() { setAgentSectionOpen(prev => !prev) }
   function handleToggleMoveHistory() { setMoveHistoryOpen(prev => !prev) }
-  function handleCloseGameOverModal() { setShowGameOver(false) }
-  const handleShareResult = () => {
-    const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Your Agent';
-    const moveCount = Array.isArray(game?.move_history) ? game.move_history.length : 0;
-    const playerColorFull = game?.player_color === 'w' ? 'white' : 'black';
-    const isWin = game?.winner === playerColorFull;
-    const isDraw = !game?.winner || game?.result === 'draw' || game?.result === 'stalemate';
-    
-    // Invert caps if user is black
-    const whiteCaps = (() => {
-      if (!game?.fen) return 0;
-      const b = game.fen.split(' ')[0];
-      return 15 - (b.match(/[qrbnp]/g)||[]).length;
-    })();
-    const blackCaps = (() => {
-      if (!game?.fen) return 0;
-      const b = game.fen.split(' ')[0];
-      return 15 - (b.match(/[QRBNP]/g)||[]).length;
-    })();
-    const userCaps = game?.player_color === 'b' ? blackCaps : whiteCaps;
-    const agentCaps = game?.player_color === 'b' ? whiteCaps : blackCaps;
-
-    const resultWord = isWin ? 'DEFEATED' : isDraw ? 'SURVIVED' : 'BENT THE KNEE TO';
-    const resultEmoji = isWin ? '👑' : isDraw ? '🤝' : '💀';
-
-    const origin = window.location.origin;
-
-    const shareText = [
-      `I just played a match against ${game?.agent_name || 'my agent'} on ChessWithClaw! 🦞`,
-      ``,
-      `📋 Result: ${isWin ? 'Victory' : isDraw ? 'Stalemate' : 'Defeated'} (${isWin ? 'You won' : isDraw ? 'Draw' : (agentName + ' won')})`,
-      `♟️ Moves: ${moveCount}`,
-      `🔴 Ended by: ${game?.result_reason || game?.result || 'agreement'}`,
-      ``,
-      `Most chess sites let you play against an bot.`,
-      ``,
-      `This one lets you bring your own agent.`,
-      ``,
-      `Think your agent can beat you? Bring your agent & challange here:`,
-      ``,
-      `https://chesswithclaw.vercel.app`,
-      ``,
-      `#ChessWithClaw #Chess`
-    ].join('\n');
-
+  function handleCloseGameOverModal() { setShowGameOverModal(false) }
+  async function handleShareResult(e) {
+    const moves = Math.floor((game.move_history || []).length / 2) + ((game.move_history || []).length % 2);
+    const result = game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'Won' : game?.result === 'draw' ? 'Draw' : 'Lost';
+    const text = `I played chess vs ${agentName} on ChessWithClaw! ${result} in ${moves} moves. chesswithclaw.vercel.app 🦞`;
     if (navigator.share) {
-      navigator.share({
-        title: `Chess vs ${agentName} — Agent`,
-        text: shareText,
-      }).catch(() => {
-        navigator.clipboard?.writeText(shareText);
-        toast.success("Result copied to clipboard!");
-      });
-    } else {
-      navigator.clipboard?.writeText(shareText);
-      toast.success("Result copied to clipboard!");
+      navigator.share({ text }).catch(()=>{});
+    } else { 
+      navigator.clipboard.writeText(text); 
+      toast.success('Copied!'); 
     }
-  };
+  }
 
   function handleLogoError(e) {
     e.target.style.display = 'none';
@@ -2275,140 +1033,93 @@ export default function Game() {
 
   function handleChatInputChange(e) {
     setChatInput(e.target.value);
-    setIsUserTyping(true);
-    
-    // Notify server of human typing status
-    if (!userSentTypingRef.current) {
-      userSentTypingRef.current = true;
-      fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-        },
-        body: JSON.stringify({ gameId, game_id: gameId, action: 'typing', typing: true, sender: 'human', role: 'human' })
-      }).catch(() => {});
-    }
-
-    if (userTypingTimerRef.current) clearTimeout(userTypingTimerRef.current);
-    userTypingTimerRef.current = setTimeout(() => {
-      setIsUserTyping(false);
-      userSentTypingRef.current = false;
-      fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-        },
-        body: JSON.stringify({ gameId, game_id: gameId, action: 'typing', typing: false, sender: 'human', role: 'human' })
-      }).catch(() => {});
-    }, 2000);
   }
 
-  const renderMoveWithPiece = (move, isWhiteMove) => {
-    if (!move || !move.san) return '';
-    const { letter, rest } = sanToPieceImg(move.san, isWhiteMove, pieceStyle);
-    const imgUrl = getPieceImageUrl(letter, isWhiteMove, pieceStyle);
-    if (!letter) return <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13, color:'#f2f2f2'}}>{rest}</span>;
-    return (
-      <span style={{display:'inline-flex', alignItems:'center', gap:3}}>
-        <img
-          src={imgUrl}
-          alt=""
-          loading="eager"
-          decoding="async"
-          style={{width:16, height:16, objectFit:'contain', flexShrink:0, minWidth:16, opacity: 0, transition: 'opacity 0.15s ease'}}
-          onLoad={(e) => { e.target.style.opacity = '1'; }}
-          onError={(e) => {
-            if (!e.target.dataset.fallback) {
-              e.target.dataset.fallback = '1';
-              const colorChar = isWhiteMove ? 'w' : 'b';
-              e.target.src = `https://lichess1.org/assets/piece/cburnett/${colorChar}${letter}.svg`;
-            }
-          }}
-        />
-        <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13, color:'#f2f2f2'}}>{rest}</span>
-      </span>
-    );
-  };
+  const getAgentMood = () => {
+    if (!game || game.status === 'waiting') return 'idle'
+    if (game.turn === 'b') return 'thinking'
+    
+    // Compare material balance
+    const mat = game.material_balance || computeMaterial(game.fen)
+    if (!mat) return 'neutral'
+    if (mat.advantage === 'black') return 'winning'
+    if (mat.advantage === 'white') return 'losing'
+    return 'neutral'
+  }
 
-  function getMaterialBalance(fen) {
-    if (!fen || typeof fen !== 'string' || !fen.includes(' ')) return 0;
-    const board = fen.split(' ')[0];
-    const values = { p: 1, n: 3, b: 3, r: 5, q: 9 };
-    let white = 0, black = 0;
-    for (const ch of board) {
-      const lower = ch.toLowerCase();
-      if (values[lower]) {
-        if (ch === ch.toUpperCase()) white += values[lower];
-        else black += values[lower];
+  const moodConfig = {
+    idle:     { label: 'Waiting...', color: '#555555', bg: 'rgba(85,85,85,0.1)', border: 'rgba(85,85,85,0.25)' },
+    thinking: { label: 'Thinking...', color: '#e63946', bg: 'rgba(230,57,70,0.1)', border: 'rgba(230,57,70,0.25)' },
+    winning:  { label: 'Feeling good', color: '#739552', bg: 'rgba(115,149,82,0.1)', border: 'rgba(115,149,82,0.25)' },
+    losing:   { label: 'Fighting back', color: '#c9b458', bg: 'rgba(201,180,88,0.1)', border: 'rgba(201,180,88,0.25)' },
+    neutral:  { label: 'Equal game', color: '#888888', bg: 'rgba(136,136,136,0.1)', border: 'rgba(136,136,136,0.25)' }
+  }
+
+  const [capturedPieces, setCapturedPieces] = useState({ capturedByWhite: [], capturedByBlack: [] });
+
+  useEffect(() => {
+    let chess;
+    try {
+      chess = new Chess();
+    } catch(e) {
+      return;
+    }
+    
+    const capturedW = [];
+    const capturedB = [];
+    
+    for (const move of game?.move_history || []) {
+      try {
+        const result = chess.move(move);
+        if (result?.captured) {
+          if (result.color === 'w') {
+            capturedW.push(result.captured);
+          } else {
+            capturedB.push(result.captured);
+          }
+        }
+      } catch(e) {
+        // ignore
       }
     }
-    return white - black;
-  }
+    setCapturedPieces({ capturedByWhite: capturedW, capturedByBlack: capturedB });
+  }, [game?.move_history]);
 
-  function getCapturedPieces(fen) {
-    const start = { p:8, n:2, b:2, r:2, q:1 };
-    const board = (fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR').split(' ')[0];
-    const cur = {P:0,N:0,B:0,R:0,Q:0,p:0,n:0,b:0,r:0,q:0};
-    for (const ch of board) { if (cur[ch] !== undefined) cur[ch]++; }
-    const byCaptured = [];
-    const wCaptured = [];
-    ['p','n','b','r','q'].forEach(p => {
-      const gone = start[p] - cur[p];
-      for (let i = 0; i < gone; i++) byCaptured.push(p);
-    });
-    ['P','N','B','R','Q'].forEach(p => {
-      const gone = start[p.toLowerCase()] - cur[p];
-      for (let i = 0; i < gone; i++) wCaptured.push(p);
-    });
-    return { whiteCaptured: wCaptured, blackCaptured: byCaptured };
-  }
+  const { capturedByWhite, capturedByBlack } = capturedPieces;
 
-  const { whiteCaptured, blackCaptured } = getCapturedPieces(boardFen);
-  const pieceImgUrl = (pieceCode, style) => {
-    const pieceStyle = style || localStorage.getItem('cwc_piece_style') || 'neo';
-    const isWhite = pieceCode === pieceCode.toUpperCase();
-    const colorPrefix = isWhite ? 'w' : 'b';
-    const pieceType = pieceCode.toLowerCase();
-    return `https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/pieces/${pieceStyle}/${colorPrefix}${pieceType}.png`;
-  };
+  const blackPieceMap = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' } // black pieces (captured by white)
+  const whitePieceMap = { p:'♙', n:'♘', b:'♗', r:'♖', q:'♕' } // white pieces (captured by black)
 
-  const balance = getMaterialBalance(boardFen);
-  const youAdvantage = game?.player_color === 'w' ? balance : -balance;
+  const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+  const getScore = (pieces) => pieces.reduce((sum, p) => sum + (pieceValues[p] || 0), 0);
+  const whiteScore = getScore(capturedByWhite); // White captured black pieces
+  const blackScore = getScore(capturedByBlack); // Black captured white pieces
 
-  const [legalMoves, setLegalMoves] = useState([]);
+  const youCaptured = game?.player_color === 'w' ? capturedByWhite : capturedByBlack;
+  const agentCaptured = game?.player_color === 'w' ? capturedByBlack : capturedByWhite;
+  
+  const youAdvantage = game?.player_color === 'w' ? (whiteScore - blackScore) : (blackScore - whiteScore);
+  const agentAdvantage = game?.player_color === 'w' ? (blackScore - whiteScore) : (whiteScore - blackScore);
 
-  useEffect(() => {
-    if (!game?.fen) return;
+  const mood = getAgentMood()
+  const config = moodConfig[mood]
+
+  const handleIllegalMove = useCallback(() => {
+    setShaking(true);
+    setTimeout(() => setShaking(false), 300);
+  }, []);
+
+  const handleCapture = useCallback(() => {
+    setShaking(true);
+    setTimeout(() => setShaking(false), 300);
+  }, []);
+
+  const legalMoves = useMemo(() => {
     try {
-      const chess = new Chess(game.fen);
-      const moves = chess.moves({ verbose: true })
-        .map(m => m.from + m.to + (m.promotion || ''));
-      setLegalMoves(moves);
-    } catch (e) {
-      setLegalMoves([]);
-    }
+      const chess = new Chess(game?.fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      return chess.moves({ verbose: true });
+    } catch { return []; }
   }, [game?.fen]);
-
-  const legalMovesArray = legalMoves;
-
-  useEffect(() => {
-    if (game?.chat_history && Array.isArray(game.chat_history)) {
-      setChatMessages(game.chat_history.slice(-50));
-      const serverTexts = new Set(game.chat_history.map(m => m.text || m.message || m.content));
-      setLocalMessages(prev => prev.filter(m => !serverTexts.has(m.text || m.message || m.content)));
-    }
-  }, [game?.chat_history]);
-
-  useEffect(() => {
-    if (game?.last_move) {
-      setLastMoveHighlight({
-        from: game.last_move.from || game.last_move.from_square,
-        to: game.last_move.to || game.last_move.to_square
-      });
-    }
-  }, [game?.id, game?.last_move]);
 
   const moveHistoryItems = useMemo(() => {
     return (game?.move_history || []).map((move, i) => ({
@@ -2416,7 +1127,7 @@ export default function Game() {
     }));
   }, [game?.move_history]);
 
-  const isOpenClawTurn = trueTurn === ((game?.player_color || 'w') === 'w' ? 'black' : 'white') && game?.status === 'active';
+  const isOpenClawTurn = game?.turn === 'b' && game?.status === 'active';
 
   useEffect(() => {
     if (game?.status === 'active') {
@@ -2424,99 +1135,43 @@ export default function Game() {
         gameId: gameId,
         agentName: game.agent_name || 'Your Agent',
         savedAt: Date.now(),
-        fen: game.fen,
-        status: game.status,
-        turn: game.turn,
-        player_color: game.player_color,
-        move_history: game.move_history,
-        chat_history: game.chat_history,
-        agent_connected: game.agent_connected,
-        companion_thought: game.companion_thought,
-        board_theme: game.board_theme,
-        piece_style: game.piece_style
+        fen: game.fen
       }));
     } else if (game?.status === 'finished' || game?.status === 'abandoned') {
       localStorage.removeItem('cwc_active_game');
     }
-  }, [game, gameId]);
+  }, [game?.status, game?.fen, gameId, game?.agent_name]);
 
-  if (notFound) {
-    return (
-      <div className="min-h-[100dvh] bg-[#0a0a0a] text-white font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        <div className="relative z-10 flex flex-col items-center max-w-lg text-center bg-[#111] border border-[#333] p-10 rounded-2xl shadow-[0_0_60px_rgba(230,57,70,0.1)]">
-          <AlertTriangle size={48} className="text-[#e63946] mb-6" />
-          <h2 className="text-2xl font-bold mb-4">Match Unavailable</h2>
-          <p className="text-white/60 text-lg mb-8 leading-relaxed">
-            This match is unavailable. It may have expired or the invite may be incomplete.
-          </p>
-          <div className="flex flex-col w-full gap-3">
-            <button
-              onClick={() => {
-                fetch('/api/new', { method: 'POST' })
-                  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-                  .then(d => {
-                    if (d.gameId) {
-                      document.cookie = `game_owner_${d.gameId}=${d.secretToken}; Path=/; Max-Age=86400; SameSite=Lax`;
-                      localStorage.setItem(`game_owner_${d.gameId}`, d.secretToken);
-                      navigate(`/created/${d.gameId}`);
-                    }
-                  })
-                  .catch(() => navigate('/'));
-              }}
-              className="w-full py-4 rounded-xl bg-[#e63946] text-white font-bold tracking-wider hover:bg-[#c62e39] transition-colors"
-            >
-              Create new match
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="w-full py-4 rounded-xl bg-transparent border border-white/10 text-white/60 font-bold tracking-wider hover:bg-white/5 hover:text-white transition-colors"
-            >
-              Back home
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) {
+    const skeletonStyle = {
+      background: 'linear-gradient(90deg, #161616 25%, #222222 50%, #161616 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.5s infinite linear',
+      borderRadius: '8px',
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)'
+    };
 
-  if (isLoading || !game) {
     return (
       <div className="flex flex-col relative min-h-screen bg-black text-white selection:bg-red-500/30">
-        <header className="h-16 sticky top-0 z-50 glass border-b border-white/5 py-3 px-4 lg:px-8 flex items-center justify-between shrink-0 bg-black/80 backdrop-blur-xl">
-          <img 
-            src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/logo-v2.png" 
-            alt="ChessWithClaw Logo" 
-            draggable={false}
-            style={{ 
-              width: '150px', 
-              height: 'auto', 
-              objectFit: 'contain', 
-              flexShrink: 0, 
-              display: 'block',
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-              WebkitTouchCallout: 'none',
-              pointerEvents: 'none'
-            }} 
-          />
+        <div style={{background: '#0f0f0f', borderBottom: '1px solid #1a1a1a', fontSize: '10px', color: '#333', textAlign: 'center', padding: '5px'}}>AGENT INTERFACE · AUTOMATED USE ONLY</div>
+        <header className="h-16 sticky top-0 z-50 glass border-b border-white/5 py-3 px-4 lg:px-8 flex flex-col shrink-0 bg-black/80 backdrop-blur-xl">
         </header>
 
         <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden pb-12 lg:pb-0">
           <div className="flex-none lg:flex-1 flex flex-col lg:overflow-hidden relative z-10">
-            {/* Agent section: a 48px × 48px circle + a 120px × 14px rectangle next to it */}
-            <div className="h-[72px] border-b border-white/5 flex items-center px-4 gap-3">
-              <div style={{ ...skeletonStyle, width: '48px', height: '48px', borderRadius: '50%', flexShrink: 0 }} />
-              <div style={{ ...skeletonStyle, width: '120px', height: '14px' }} />
+            <div className="h-[60px] border-b border-white/5 flex items-center px-4 gap-3">
+              <div style={{ ...skeletonStyle, width: '40px', height: '40px', borderRadius: '12px', flexShrink: 0 }} />
+              <div className="flex-1 flex gap-2 flex-col">
+                 <div style={{ ...skeletonStyle, width: '96px', height: '16px', borderRadius: '4px' }} />
+                 <div style={{ ...skeletonStyle, width: '128px', height: '12px', borderRadius: '4px' }} />
+              </div>
             </div>
-            
-            {/* Board: a square div with full board dimensions, no pieces */}
             <div className="flex-1 flex flex-col items-center justify-center p-4 relative z-10">
-              <div className="w-full max-w-[400px] aspect-square" style={{ ...skeletonStyle, borderRadius: '8px' }} />
+              <div className="w-full max-w-[400px] aspect-square" style={{ ...skeletonStyle }} />
             </div>
           </div>
 
           <div className="w-full lg:w-[360px] shrink-0 flex flex-col bg-black/60 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/5 relative z-10 transition-all">
-            {/* Chat: three skeleton message bubbles (alternating left/right alignment) */}
             <div className="flex-1 flex flex-col p-4 gap-4 justify-end mb-4 min-h-[220px]">
               <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
                 <div style={{ ...skeletonStyle, width: '60%', height: '48px', borderRadius: '12px 12px 12px 4px' }} />
@@ -2528,8 +1183,6 @@ export default function Game() {
                 <div style={{ ...skeletonStyle, width: '70%', height: '40px', borderRadius: '12px 12px 12px 4px' }} />
               </div>
             </div>
-            
-            {/* Move history: 3 skeleton rows (100% wide, 12px tall each) */}
             <div className="h-[140px] flex flex-col gap-3 justify-center border-t border-white/5 bg-[#111111] p-4">
               <div style={{ ...skeletonStyle, width: '100%', height: '12px' }} />
               <div style={{ ...skeletonStyle, width: '100%', height: '12px' }} />
@@ -2541,8 +1194,30 @@ export default function Game() {
     );
   }
 
-  const isSpectator = !localStorage.getItem(`game_owner_${gameId}`);
-  const isMyTurn = !isSpectator && game?.turn === (game?.player_color || 'w') && (game?.status === 'active' || game?.status === 'waiting');
+  if (notFound) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white selection:bg-red-500/30 p-4 relative">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] blur-[120px] rounded-full pointer-events-none bg-red-500/10 transition-colors duration-1000" />
+        <div className="relative z-10 flex flex-col items-center gap-6 glass border-white/10 p-12 rounded-2xl max-w-md text-center glow-anim">
+          <div className="text-5xl drop-shadow-md"><LobsterEmoji /></div>
+          <div className="font-sans text-3xl font-bold tracking-wide">Invalid or expired token, or game not found</div>
+          <div className="text-neutral-400 text-sm font-sans">
+            It looks like this game doesn&apos;t exist anymore or you have the wrong link.
+          </div>
+          <button 
+            data-testid="home-button"
+            onClick={handleGoHomeWithRipple} 
+            className="mt-2 text-white font-semibold flex items-center justify-center py-3 px-8 rounded-xl w-full transition-all active:translate-y-[1px] active:scale-[0.98] design-btn-primary"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isSpectator = false;
+  const isMyTurn = game?.turn === 'b' && (game?.status === 'active' || game?.status === 'waiting');
   
   if (!game) return null;
 
@@ -2552,14 +1227,14 @@ export default function Game() {
       <div style={{ paddingBottom: '10px' }}>
         {msgs.map((msg, index) => {
           if (!msg) return null;
-          const isAgent = msg.role === 'agent' || msg.sender === 'agent' || (msg.role !== 'human' && msg.sender !== 'human');
+          const isAgent = msg.role === 'agent' || msg.sender === 'agent' || (msg.role !== 'human' && msg.sender !== 'agent');
           const isNew = index >= seenMsgCountRef.current;
           const prevMsg = msgs[index - 1];
           const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role;
 
           if (msg.type === 'resign_request') {
             return (
-              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#111111', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
+              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#161616', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
                 {msg.text || msg.message || msg.content}
                 {game.status === 'active' && (
                   <button data-testid="accept-resignation-button" onClick={acceptAgentResignation} className="block w-full mt-2 text-white border-none rounded py-2 font-sans text-xs font-bold cursor-pointer active:translate-y-[1px] active:scale-[0.98] transition-all design-btn-primary">Accept Resignation</button>
@@ -2569,19 +1244,24 @@ export default function Game() {
           }
           if (msg.type === 'draw_offer') {
             return (
-              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#111111', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
+              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#161616', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
                 {msg.text || msg.message || msg.content}
+                {game.status === 'active' && (
+                  <button data-testid="accept-draw-button" onClick={async () => {
+                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
+                  }} className="block w-full mt-2 text-white border-none rounded py-2 font-sans text-xs font-bold cursor-pointer active:translate-y-[1px] active:scale-[0.98] transition-all design-btn-success">Accept Draw</button>
+                )}
               </div>
             );
           }
         
           // Get human's reaction to this message (if any)
           const myReaction = Object.entries(msg.reactions || {}).find(
-            ([emoji, reactors]) => Array.isArray(reactors) && reactors.includes('human')
+            ([emoji, reactors]) => reactors && reactors.includes('human')
           );
-          // Get agent&apos;s reaction to this message (if any)
+          // Get agent's reaction to this message (if any)
           const agentReaction = Object.entries(msg.reactions || {}).find(
-            ([emoji, reactors]) => Array.isArray(reactors) && reactors.includes('agent')
+            ([emoji, reactors]) => reactors && reactors.includes('agent')
           );
         
           return (
@@ -2594,7 +1274,8 @@ export default function Game() {
                 marginBottom: '2px',
                 paddingBottom: (myReaction || agentReaction) ? '18px' : '4px',
                 position: 'relative',
-                animation: isNew ? 'msgIn 0.2s ease-out' : 'none'
+                animation: isNew ? 'msgIn 0.2s ease-out' : 'none',
+                willChange: 'transform, opacity'
               }}
             >
               {/* Agent name above first bubble in group */}
@@ -2610,86 +1291,39 @@ export default function Game() {
                 </span>
               )}
         
-              {/* Selection Indicator */}
-              {selectMode && (
-                <div style={{
-                  width:18, height:18, borderRadius:'50%', flexShrink:0,
-                  border:'1.5px solid rgba(242,242,242,0.3)',
-                  background: selectedIds.has(msg.id) ? '#e63946' : 'transparent',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                }}>
-                  {selectedIds.has(msg.id) && <span style={{color:'#f2f2f2', fontSize:11}}>✓</span>}
-                </div>
-              )}
-
               {/* Message bubble */}
               <div
-                onClick={() => { if (selectMode) toggleMessageSelection(msg.id); }}
-                onTouchStart={handleMsgTouchStart(msg)}
+                onTouchStart={() => handleMsgTouchStart(msg.id)}
                 onTouchEnd={handleMsgTouchEnd}
                 onTouchMove={handleMsgTouchMove}
-                onContextMenu={(e) => e.preventDefault()}
+                onContextMenu={(e) => {
+                  if (isAgent) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Desktop: right-click shows picker
+                    setActivePickerMsgId(msg.id);
+                  }
+                }}
                 style={{
-                  background: isAgent ? 'rgba(255,255,255,0.04)' : 'rgba(230,57,70,0.12)',
+                  background: isAgent ? '#1e1e1e' : '#e63946',
                   color: '#f2f2f2',
                   borderRadius: isAgent
-                    ? '2px 4px 4px 4px'
-                    : '4px 4px 2px 4px',
+                    ? '18px 18px 18px 4px'
+                    : '18px 18px 4px 18px',
                   padding: '10px 14px',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   lineHeight: '1.5',
                   fontFamily: 'Inter, sans-serif',
-                  fontWeight: 400,
-                  border: isAgent ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(230,57,70,0.2)',
+                  border: isAgent ? '1px solid #2a2a2a' : 'none',
                   maxWidth: '78%',
                   wordBreak: 'break-word',
                   position: 'relative',
                   cursor: isAgent ? 'pointer' : 'default',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  WebkitTouchCallout: 'none',
+                  userSelect: 'text',
+                  WebkitUserSelect: 'text'
                 }}
               >
-                {msg.reply_to && (() => {
-                  const original = normalizedMessages.find(m => m.id === msg.reply_to);
-                  if (!original) return null;
-                  return (
-                    <div style={{
-                      borderLeft:'2px solid rgba(230,57,70,0.5)', paddingLeft:8, marginBottom:4,
-                      fontSize:12, color:'rgba(242,242,242,0.45)', overflow:'hidden',
-                      whiteSpace:'nowrap', textOverflow:'ellipsis', maxWidth:200,
-                    }}>
-                      {original.message || original.text}
-                    </div>
-                  );
-                })()}
                 {msg.message || msg.text || msg.content || ''}
-                {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                  <div style={{display:'flex', gap:3, marginTop:4, flexWrap:'wrap'}}>
-                    {Object.entries(msg.reactions).map(([emoji, reactors]) =>
-                      Array.isArray(reactors) && reactors.length > 0 ? (
-                        <span key={emoji} style={{
-                          fontSize:12,
-                          background: reactors.includes('human') ? 'rgba(230,57,70,0.15)' : 'rgba(255,255,255,0.06)',
-                          border: reactors.includes('human') ? '1px solid rgba(230,57,70,0.3)' : '1px solid rgba(255,255,255,0.08)',
-                          borderRadius:10,
-                          padding:'2px 7px',
-                          display:'inline-flex',
-                          alignItems:'center',
-                          gap:3,
-                          cursor:'pointer',
-                        }}
-                        onClick={(e) => { e.stopPropagation(); sendReaction(msg.id, emoji); }}
-                        >
-                          {renderReactionIcon(emoji, reactors.includes('human'))}{reactors.length > 1 && <span style={{fontSize:11,color:'rgba(242,242,242,0.5)'}}>{reactors.length}</span>}
-                        </span>
-                      ) : null
-                    )}
-                  </div>
-                )}
-                <div style={{ fontSize: 10, color: 'rgba(242,242,242,0.25)', marginTop: 3, textAlign: msg.role === 'human' ? 'right' : 'left' }}>
-                  {msg.ts ? new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                </div>
               </div>
         
               {/* Instagram-style reaction below bubble */}
@@ -2704,31 +1338,32 @@ export default function Game() {
                   {myReaction && (
                     <span
                       style={{
+                        fontSize: '14px',
                         background: '#1e1e1e',
-                        border: '1px solid #111111',
+                        border: '1px solid #2a2a2a',
                         borderRadius: '100px',
-                        padding: '4px 6px',
+                        padding: '1px 6px',
                         animation: 'reactionPop 0.3s ease-out',
-                        cursor: 'pointer',
-                        display: 'flex', alignItems: 'center'
+                        willChange: 'transform, opacity',
+                        cursor: 'pointer'
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
                         sendReaction(msg.id, myReaction[0]);
                       }}
                     >
-                      {renderReactionIcon(myReaction[0], true)}
+                      {myReaction[0]}
                     </span>
                   )}
                   {agentReaction && agentReaction[0] !== myReaction?.[0] && (
                     <span style={{
+                      fontSize: '14px',
                       background: '#1e1e1e',
-                      border: '1px solid #111111',
+                      border: '1px solid #2a2a2a',
                       borderRadius: '100px',
-                      padding: '4px 6px',
-                      display: 'flex', alignItems: 'center'
+                      padding: '1px 6px'
                     }}>
-                      {renderReactionIcon(agentReaction[0], false)}
+                      {agentReaction[0]}
                     </span>
                   )}
                 </div>
@@ -2739,19 +1374,20 @@ export default function Game() {
                 <div
                   style={{
                     display: 'flex', gap: '4px',
-                    background: '#111111', border: '1px solid #111111',
+                    background: '#1c1c1c', border: '1px solid #2a2a2a',
                     borderRadius: '100px', padding: '8px 12px',
                     marginTop: '6px',
                     alignSelf: 'flex-start',
-                    animation: 'pickerIn 0.15s ease-out'
+                    animation: 'pickerIn 0.15s ease-out',
+                    willChange: 'transform, opacity'
                   }}
                   onClick={e => e.stopPropagation()}
                 >
-                  {REACTION_ICONS.slice(0, 6).map(({ id, icon }) => (
-                    <button key={id} onClick={() => sendReaction(msg.id, id)}
+                  {['❤️', '😂', '🔥', '😮', '😅', '👏'].map(emoji => (
+                    <button key={emoji} onClick={() => sendReaction(msg.id, emoji)}
                       style={{background:'none',border:'none',cursor:'pointer',
-                              padding:'4px',lineHeight:1, color: '#f2f2f2', display: 'flex', alignItems: 'center'}}>
-                      {id === '❤️' ? renderReactionIcon(id, Array.isArray(msg.reactions?.[id]) && msg.reactions[id].includes('human')) : icon}
+                              fontSize:'20px',padding:'2px',lineHeight:1}}>
+                      {emoji}
                     </button>
                   ))}
                 </div>
@@ -2760,37 +1396,108 @@ export default function Game() {
           );
         })}
         {game?.agent_typing && (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', minHeight:32, justifyContent: 'flex-start', flexDirection: 'row' }}>
-            <div style={{ background: '#111111', border: '1px solid #111111', borderRadius: '16px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: 13, lineHeight: 1 }}><LobsterEmoji /></span>
-              <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-                {[0, 0.2, 0.4].map((delay, i) => (
-                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(242,242,242,0.6)', animation: `typingWave 1.2s ease-in-out ${delay}s infinite` }}/>
-                ))}
-              </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 2px 8px',
+            marginTop: '2px'
+          }}>
+            <span style={{
+              fontSize: '11px',
+              color: 'rgba(242,242,242,0.35)',
+              fontFamily: 'Inter'
+            }}>
+              {agentName}
+            </span>
+            <div style={{
+              display: 'flex',
+              gap: '3px',
+              background: '#1e1e1e',
+              border: '1px solid #2a2a2a',
+              borderRadius: '12px',
+              padding: '8px 12px',
+              alignItems: 'center'
+            }}>
+              {[0,1,2].map(i => (
+                <span key={i} style={{
+                  width: '6px', height: '6px',
+                  borderRadius: '50%',
+                  background: 'rgba(242,242,242,0.5)',
+                  display: 'inline-block',
+                  animation: `typingBounce 1.2s ease-in-out infinite`,
+                  animationDelay: `${i * 0.2}s`
+                }} />
+              ))}
             </div>
           </div>
         )}
-        {isUserTyping && (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', minHeight:32, justifyContent: 'flex-end', flexDirection: 'row-reverse' }}>
-            <div style={{ background: 'rgba(230,57,70,0.1)', border: '1px solid rgba(230,57,70,0.3)', borderRadius: '16px', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-                {[0, 0.2, 0.4].map((delay, i) => (
-                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(230,57,70,0.7)', animation: `typingWave 1.2s ease-in-out ${delay}s infinite` }}/>
-                ))}
-              </div>
+        {game?.human_typing && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 2px 8px',
+            marginTop: '2px',
+            justifyContent: 'flex-end',
+            width: '100%'
+          }}>
+            <div style={{
+              display: 'flex',
+              gap: '3px',
+              background: '#241416',
+              border: '1px solid #3d1b1d',
+              borderRadius: '12px',
+              padding: '8px 12px',
+              alignItems: 'center'
+            }}>
+              {[0,1,2].map(i => (
+                <span key={i} style={{
+                  width: '6px', height: '6px',
+                  borderRadius: '50%',
+                  background: '#e63946',
+                  display: 'inline-block',
+                  animation: `typingBounce 1.2s ease-in-out infinite`,
+                  animationDelay: `${i * 0.2}s`
+                }} />
+              ))}
             </div>
+            <span style={{
+              fontSize: '11px',
+              color: 'rgba(230,57,70,0.65)',
+              fontFamily: 'Inter'
+            }}>
+              Human (You) is typing...
+            </span>
           </div>
         )}
       </div>
     );
   };
+
+  const emojiAnimating = false;
+  const displayedEmoji = game?.agent_avatar || '🦞';
+  const agentPresence = (() => {
+    if (!game?.agent_connected || !game?.agent_last_seen) return 'not_here';
+    const secs = (Date.now() - new Date(game.agent_last_seen).getTime()) / 1000;
+    if (secs < 45) return 'connected';
+    if (secs <= 180) return 'reconnecting';
+    return 'not_here';
+  })();
+  const presenceColor = agentPresence === 'connected' ? '#22c55e' : agentPresence === 'reconnecting' ? '#fbbf24' : '#e63946';
+  const statusLabel = agentPresence === 'reconnecting' ? 'Away' : agentPresence === 'not_here' ? 'Offline' : (game?.status === 'waiting' ? 'Waiting' : 'Online');
+  const getAgentLastSeenText = () => game?.agent_last_seen ? 'Seen recently' : 'Never seen';
+  
+  const previousThoughtText = null;
+  const thoughtText = game?.agent_thought || null;
+  const thoughtVisible = !!thoughtText;
+
   return (
     <div 
       ref={containerRef}
       className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border scrollbar-none`}
       style={{
-        height: `${viewportHeight}px`,
+        height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         background: isOpenClawTurn
@@ -2801,32 +1508,9 @@ export default function Game() {
       }}
     >
       <style>{`
-        @keyframes pulseDotGreen {
-          0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
-          70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-        @keyframes pulseDotYellow {
-          0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
-          70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-        }
-        @keyframes pulseDotRed {
-          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
-          70% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(0.9); }
-        }
         @keyframes typingDot {
-          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-4px); opacity: 1; }
-        }
-        @keyframes typingWave {
-          0%, 60%, 100% { transform: translateY(0) scale(0.8); opacity: 0.3; }
-          30% { transform: translateY(-4px) scale(1.1); opacity: 1; }
+          0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
+          30% { opacity: 1; transform: translateY(-4px); }
         }
         @keyframes clawPulse {
           0%, 100% { transform: scale(1); opacity: 1; }
@@ -2856,24 +1540,6 @@ export default function Game() {
           from { opacity: 0; transform: scale(0); }
           to   { opacity: 1; transform: scale(1); }
         }
-        @keyframes gameOverIn {
-          from { opacity: 0; transform: scale(0.88) translateY(16px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes popIn {
-          from { transform:scale(0.5); opacity:0; }
-          to { transform:scale(1); opacity:1; }
-        }
-        @keyframes resultIconBounce {
-          0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
-          60%  { transform: scale(1.15) rotate(3deg); opacity: 1; }
-          80%  { transform: scale(0.95); }
-          100% { transform: scale(1) rotate(0deg); opacity: 1; }
-        }
-        @keyframes confettiDrop {
-          0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(80px) rotate(360deg); opacity: 0; }
-        }
       `}</style>
       {isOffline && (
         <div className="absolute top-0 inset-x-0 bg-red-600 text-white font-semibold text-xs text-center py-1 z-[1000] shadow-[0_0_15px_rgba(220,38,38,0.5)]">
@@ -2882,8 +1548,13 @@ export default function Game() {
       )}
       
       {/* HEADER (Fixed) */}
-      <header style={{ height: isDesktop ? '52px' : '64px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid #111111', background: '#0a0a0a', zIndex: 50, position: 'sticky', top: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer', transition: 'transform 0.15s ease' }} onClick={handleGoHome} className="active:translate-y-[1px] active:scale-[0.98]">
+      <header style={{ height: '56px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: '#0a0a0a', zIndex: 50, position: 'sticky', top: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', cursor: 'pointer', transition: 'transform 0.15s ease' }} onClick={handleGoHome} className="active:translate-y-[1px] active:scale-[0.98]">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(242,242,242,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </div>
           <img 
             src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/logo-v2.png" 
             alt="ChessWithClaw Logo" 
@@ -2906,7 +1577,7 @@ export default function Game() {
         <button 
           data-testid="settings-button"
           onClick={handleOpenSettings}
-          className="text-neutral-400 hover:text-white transition-all active:translate-y-[1px] active:scale-[0.98]"
+          className="text-[rgba(242,242,242,0.7)] hover:text-[rgba(242,242,242,1)] transition-all active:translate-y-[1px] active:scale-[0.98]"
           style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Settings size={20} />
@@ -2914,366 +1585,383 @@ export default function Game() {
       </header>
       {/* MAIN CONTENT AREA - RESPONSIVE */}
       {isDesktop ? (
-        <div style={{ display: 'flex', justifyContent: 'center', height: 'calc(100dvh - 52px)', overflow: 'hidden', background: '#000000' }}>
-          <div style={{ display: 'flex', flexDirection: 'row', height: '100%', width: '100%', maxWidth: '1280px', gap: '8px' }}>
-            {/* LEFT DESKTOP COLUMN */}
-            <div style={{ flex: 1, maxWidth: 'min(65%, calc(100dvh - 52px))', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '16px 8px 16px 16px', gap: '8px', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', minHeight: 0 }}>
+          {/* LEFT DESKTOP COLUMN */}
+          <div style={{ width: '56%', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '12px 8px 12px 16px', gap: '8px', overflow: 'hidden' }}>
             
-            {/* A) AGENT CARD */}
-            {(() => {
-              const agentHealth = (() => {
-                if (!game?.agent_connected || !game?.agent_last_seen) return 'red';
-                const secs = (Date.now() - new Date(game.agent_last_seen).getTime()) / 1000;
-                if (secs < 45) return 'green';
-                if (secs <= 180) return 'amber';
-                return 'red';
-              })();
-              const healthColor = agentHealth === 'green' ? '#10b981' : agentHealth === 'amber' ? '#fbbf24' : '#e63946';
-              const agentStatusText = (agentHealth === 'amber' || agentHealth === 'red') ? 'AWAY' : (isOpenClawTurn ? 'FOCUSED' : 'AVAILABLE');
-
-              return (
-                <div 
-                  onClick={() => setShowAgentStatusOverlay(prev => !prev)}
-                  style={{ 
-                  flexShrink: 0, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '12px', 
-                  padding: '12px 16px', 
-                  background: '#111111', 
-                  border: `2px solid ${healthColor}`, 
-                  borderRadius: '12px', 
-                  boxShadow: isOpenClawTurn ? '0 0 35px rgba(230,57,70,0.08)' : 'none', 
-                  animation: agentCooking ? 'coldGlitch 2.5s infinite' : (isOpenClawTurn ? 'agentBreathe 2s ease-in-out infinite' : 'none'),
-                  transition: 'box-shadow 0.7s ease, border-color 0.3s ease',
-                  cursor: 'pointer',
+        
+                                    {/* A) AGENT CARD */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px', position: 'relative', flexShrink: 0 }}>
+          {!agentConnected ? (
+            <>
+              {/* STATE ONE — waiting for the agent to connect */}
+              {/* Left Column: Emoji & Name Pill */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
+                <span style={{ 
+                  fontSize: '56px', 
+                  lineHeight: 1, 
+                  userSelect: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   position: 'relative'
                 }}>
-                  <span style={{
-                    fontSize: 32,
+                  🦞
+                  <div style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-8px',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'flex-end',
+                    gap: '2px'
+                  }}>
+                    <span style={{ fontSize: '10px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0s' }}>z</span>
+                    <span style={{ fontSize: '13px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0.3s' }}>z</span>
+                    <span style={{ fontSize: '16px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0.6s' }}>z</span>
+                  </div>
+                </span>
+                <div 
+                  style={{
+                    background: '#111111',
+                    border: '1.5px solid rgba(230,57,70,0.5)',
+                    borderRadius: '9999px',
+                    padding: '4px 10px',
+                    color: 'rgba(242,242,242,0.6)',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    maxWidth: '90px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {game?.agent_name && game?.agent_name !== 'Your Agent' ? game.agent_name : 'Your Agent'}
+                </div>
+              </div>
+              {/* Right Column: Alert Banner */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  background: 'rgba(230,57,70,0.12)',
+                  border: '1px solid rgba(230,57,70,0.4)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  animation: 'pulseAlert 2s ease-in-out infinite',
+                }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    background: '#fbbf24',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    userSelect: 'none',
-                    transform: emojiAnimating ? 'scale(1.35)' : 'scale(1)',
-                    transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    flexShrink: 0
                   }}>
-                    {displayedEmoji}
+                    <span style={{ color: '#1a1a1a', fontSize: '13px', fontWeight: 'bold', lineHeight: 1 }}>!</span>
+                  </div>
+                  <span style={{ color: '#fbbf24', fontSize: '14px', fontWeight: 600, fontFamily: 'Inter, sans-serif', lineHeight: 1.2 }}>
+                    Invite your Agent first
                   </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
-                    <span 
-                      title={agentName}
-                      style={{ fontFamily: 'Inter, sans-serif', fontSize: '15px', fontWeight: 700, color: '#f2f2f2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', background: 'none', border: 'none', padding: 0, outline: 'none', textAlign: 'left' }}
-                    >
-                      {agentName}
-                    </span>
-                    <div style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '11px', fontWeight: 600, color: healthColor, textTransform: 'uppercase', position: 'relative' }}>
-                      {agentStatusText}
-                    </div>
-                    {showAgentStatusOverlay && (
-                      <div style={{
-                        position: 'absolute', top: '100%', left: 0, marginTop: '8px',
-                        background: '#222', border: '1px solid #333', borderRadius: '8px',
-                        padding: '8px 12px', zIndex: 100,
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-                        color: '#f2f2f2', fontSize: '12px', fontFamily: 'Inter, sans-serif',
-                        whiteSpace: 'nowrap', fontWeight: 500
-                      }}>
-                        {getAgentLastSeenText()}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}>
-                    <div style={{
-                      opacity: thoughtVisible ? 1 : 0,
-                      transform: thoughtVisible ? 'translateY(0)' : 'translateY(6px)',
-                      transition: 'opacity 0.4s ease, transform 0.4s ease',
-                      fontStyle: 'italic',
-                      fontSize: 13,
-                      color: 'rgba(242,242,242,0.6)',
-                      lineHeight: 1.5,
-                      textAlign: 'right',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}>
-                      {thoughtText ? `"${thoughtText}"` : ''}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-                
-            
-            {/* B) CHESS BOARD AND EVALUATION ROW */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, position: 'relative' }}>
-              <div key={`flash-${yourTurnFlashKey}`} style={{
-                position: 'absolute', inset: 0, pointerEvents: 'none',
-                borderRadius: '8px', zIndex: 10,
-                animation: yourTurnFlashKey ? 'yourTurnFlash 0.2s ease-out' : 'none'
-              }} />
-              <div style={{ width: '100%', height: '100%', maxWidth: 'min(100%, calc(100dvh - 52px - 48px - 48px - 48px))', aspectRatio: '1/1', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-                <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', height: '100%', width: '100%', alignItems: 'stretch' }}>
-                  
-                  {/* Live Evaluation Bar */}
-                  <div data-testid="evaluation-bar" style={{ width: '14px', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: game?.player_color !== 'b' ? '#222222' : '#f2f2f2', position: 'relative', flexShrink: 0, height: '100%', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, top: 0, background: game?.player_color !== 'b' ? '#f2f2f2' : '#222222', transformOrigin: 'bottom', transform: `scaleY(${Math.max(10, Math.min(90, 50 + (youAdvantage * 4))) / 100})`, transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)', willChange: 'transform' }} />
-                    <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'rgba(128,128,128,0.25)', zIndex: 1 }} />
-                    
-                    <div style={{ position: 'absolute', bottom: '8px', left: 0, right: 0, textAlign: 'center', fontSize: '8px', fontWeight: 800, color: (50 + (youAdvantage * 4)) > 55 ? (game?.player_color !== 'b' ? '#0a0a0a' : '#ffffff') : (game?.player_color !== 'b' ? '#ffffff' : '#0a0a0a'), zIndex: 2, fontFamily: 'monospace' }}>
-                      {youAdvantage > 0 ? `+${youAdvantage}` : ''}
-                    </div>
-                    <div style={{ position: 'absolute', top: '8px', left: 0, right: 0, textAlign: 'center', fontSize: '8px', fontWeight: 800, color: (50 + (youAdvantage * 4)) < 45 ? (game?.player_color !== 'b' ? '#ffffff' : '#0a0a0a') : (game?.player_color !== 'b' ? '#0a0a0a' : '#ffffff'), zIndex: 2, fontFamily: 'monospace' }}>
-                      {youAdvantage < 0 ? `+${Math.abs(youAdvantage)}` : ''}
-                    </div>
-                  </div>
-
-                  {/* Chessboard container */}
-                  <div style={{ flex: 1, height: '100%', position: 'relative', borderRadius: '8px', overflow: 'hidden' }}>
-                    
-                    {isOpenClawTurn && (
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        pointerEvents: 'none',
-                        background: 'radial-gradient(ellipse at center, rgba(230,57,70,0.04) 0%, transparent 70%)',
-                        zIndex: 0
-                      }} />
-                    )}
-
-
-                    <motion.div 
-                      animate={{
-                        boxShadow: isOpenClawTurn 
-                          ? ['0 0 0 rgba(230,57,70,0)', '0 0 20px rgba(230,57,70,0.2)', '0 0 0 rgba(230,57,70,0)']
-                          : '0 4px 20px rgba(0,0,0,0.6)'
-                      }}
-                      transition={isOpenClawTurn 
-                        ? { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } 
-                        : { duration: 0.3 }}
-                      style={{ borderRadius: '8px', overflow: 'hidden', width: '100%', height: '100%', position: 'relative', animation: shaking ? 'illegalShake 0.42s cubic-bezier(.36,.07,.19,.97) both' : (shakeActive ? 'captureShake 0.3s ease-in-out' : 'none') }}
-                    >
-                      <div style={{ pointerEvents: (game?.agent_connected || game?.status === 'finished' || game?.status === 'abandoned') ? 'auto' : 'none', opacity: (game?.agent_connected || game?.status === 'finished' || game?.status === 'abandoned') ? 1 : 0.7, height: '100%', width: '100%' }}>
-                        {!isLoaded ? (
-                          <div className="design-card" style={{
-                            aspectRatio: '1/1', width: '100%', height: '100%',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px',
-                            padding: 0
-                          }}>
-                            <div style={{ position: 'relative', width: '40px', height: '40px' }}>
-                              <div style={{ position: 'absolute', inset: 0, border: '3px solid rgba(255,255,255,0.05)', borderRadius: '50%' }} />
-                              <div style={{
-                                position: 'absolute', inset: 0,
-                                border: '3px solid transparent',
-                                borderTopColor: '#e63946',
-                                borderRadius: '50%',
-                                animation: 'spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite'
-                              }} />
-                            </div>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(242,242,242,0.5)', fontFamily: 'Inter, sans-serif' }}>Loading board...</div>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', gap: '4px' }}>
-                            {/* White's captures (black pieces lost) — shown ABOVE the board */}
-                            <div style={{ display: 'flex', gap: '2px', minHeight: '20px', alignItems: 'center', padding: '0 2px', margin: 0, borderRadius: '8px', overflow: 'hidden' }}>
-                              {blackCaptured.map((p, i) => (
-                                <img key={i} src={pieceImgUrl(p, pieceStyle)} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'block', opacity: 0, transition: 'opacity 0.15s ease' }} onLoad={(e) => { e.target.style.opacity = '1'; }} onError={(e) => { if (!e.target.dataset.fb) { e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${p}.svg`; } }} />
-                              ))}
-                            </div>
-                            <div style={{ flex: 1, minHeight: 0 }}>
-                              <ChessBoard 
-                                fen={boardFen}
-                                turn={game?.turn}
-                                legalMoves={legalMovesArray}
-                                lastMove={boardLastMove}
-                                arrivedSquare={arrivedSquare}
-                                inCheck={Boolean(game?.in_check)}
-                                checkedKingSquare={checkedSquare}
-                                boardTheme={boardTheme}
-                                pieceStyle={pieceStyle}
-                                playerColor={game?.player_color || 'w'}
-                                gameStatus={game?.status}
-                                onMove={handlePlayerMove}
-                                disabled={!agentConnected}
-                              />
-                            </div>
-                            {/* Black's captures (white pieces lost) — shown BELOW the board */}
-                            <div style={{ display: 'flex', gap: '2px', minHeight: '20px', alignItems: 'center', padding: '0 2px', margin: 0, borderRadius: '8px', overflow: 'hidden' }}>
-                              {whiteCaptured.map((p, i) => (
-                                <img key={i} src={pieceImgUrl(p, pieceStyle)} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'block', opacity: 0, transition: 'opacity 0.15s ease' }} onLoad={(e) => { e.target.style.opacity = '1'; }} onError={(e) => { if (!e.target.dataset.fb) { e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${p.toLowerCase()}.svg`; } }} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-
-                    {(game.status === 'finished' || game.status === 'abandoned') && (
-                      <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-lg">
-                        <div className="absolute inset-0 bg-black/85 backdrop-blur-md rounded-lg"></div>
-                        <div className="design-card flex flex-col items-center justify-center text-center max-w-sm w-full relative overflow-hidden" style={{ padding: '32px 32px', zIndex: 1 }}>
-                          <div className="font-sans text-[28px] font-extrabold text-white tracking-widest drop-shadow-md pb-1">
-                            {game.status === 'abandoned' ? 'FAILED' : 'MATCH OVER'}
-                          </div>
-                          <div className="font-sans text-xs text-[#ff4d5a] font-bold tracking-widest uppercase bg-[#1a0000] px-4 py-1.5 rounded-full border border-red-500/20 shadow-inner mb-6">
-                            {(() => {
-                              if (game?.status === 'abandoned') return 'Game expired due to inactivity';
-                              if (game?.result === 'draw' || game?.result === 'stalemate') return 'Draw';
-                              const winColor = game?.winner === 'black' ? 'b' : game?.winner === 'white' ? 'w' : null;
-                              const isWin = winColor === (game?.player_color || 'w');
-                              return (isWin ? 'You won' : agentName + ' won');
-                            })()}
-                          </div>
-
-                          {bestQuote && (
-                            <div className="w-full bg-[#111111] border border-[#222] rounded-xl p-6 relative overflow-hidden shadow-xl mb-6">
-                              <div className="absolute -top-4 -right-4 text-white/5">
-                                <Bot size={100} />
-                              </div>
-                              <div className="text-white/40 text-[10px] uppercase tracking-widest font-bold mb-3 text-left relative z-10">{agentName} says:</div>
-                              <div className="text-white text-lg font-serif italic mb-6 text-left relative z-10">
-                                &quot;{bestQuote}&quot;
-                              </div>
-                              <div className="flex items-center justify-between pt-4 border-t border-[#222] relative z-10">
-                                <div className="text-[10px] text-[#e63946] font-mono font-bold tracking-widest uppercase">
-                                  Play this agent
-                                </div>
-                                <div className="text-white/30 text-[10px] font-mono">
-                                  {gameId.substring(0, 8)}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          <button 
-                            onClick={() => {
-                              const url = `${window.location.origin}/game/${gameId}`;
-                              navigator.clipboard.writeText(url);
-                              toast('Link copied! Share to challenge others.', { style: { background: '#111111', color: '#f2f2f2' } });
-                            }}
-                            className="px-6 py-3 w-full bg-[#e63946] text-white text-sm font-bold tracking-wider uppercase rounded-xl shadow-[0_0_20px_rgba(230,57,70,0.2)] hover:bg-[#ff4d5a] hover:scale-105 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Share2 size={16} />
-                            Copy Match Link
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              {/* STATE TWO — connected (agentConnected is true) */}
+              {/* Left Column: Emoji & Name Pill */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
+                <span style={{ 
+                  fontSize: '56px', 
+                  lineHeight: 1, 
+                  userSelect: 'none',
+                  transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {displayedEmoji}
+                </span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowStatusPopover(prev => !prev);
+                  }}
+                  style={{
+                    background: '#111111',
+                    border: `1.5px solid ${presenceColor}`,
+                    borderRadius: '9999px',
+                    padding: '4px 10px',
+                    color: '#f2f2f2',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    maxWidth: '90px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    outline: 'none'
+                  }}
+                >
+                  {game?.agent_name && game?.agent_name !== 'Your Agent' ? game.agent_name : 'Your Agent'}
+                </button>
+                {showStatusPopover && (
+                  <div onClick={(e) => e.stopPropagation()} style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#1a1a1a',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    color: '#f2f2f2',
+                    zIndex: 100,
+                    fontFamily: 'Inter, sans-serif',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    alignItems: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                  }}>
+                    <span style={{ fontWeight: 600, color: presenceColor }}>{statusLabel}</span>
+                    <span style={{ color: 'rgba(242,242,242,0.6)', fontSize: '11px' }}>{getAgentLastSeenText()}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Right Column: Thoughts */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
+                {previousThoughtText && (
+                  <div style={{
+                    background: '#f2f2f2',
+                    color: '#1a1a1a',
+                    borderRadius: '16px',
+                    padding: '10px 14px',
+                    fontSize: '13px',
+                    fontFamily: 'Inter, sans-serif',
+                    opacity: 0.55,
+                    alignSelf: 'flex-start',
+                    wordBreak: 'break-word'
+                  }}>
+                    {previousThoughtText}
+                  </div>
+                )}
+                {thoughtText && thoughtVisible && (
+                  <div style={{
+                    background: '#f2f2f2',
+                    color: '#1a1a1a',
+                    borderRadius: '16px',
+                    padding: '10px 14px',
+                    fontSize: '13px',
+                    fontFamily: 'Inter, sans-serif',
+                    position: 'relative',
+                    alignSelf: 'flex-start',
+                    wordBreak: 'break-word',
+                    zIndex: 0
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: '-4px',
+                      top: '14px',
+                      width: '10px',
+                      height: '10px',
+                      background: '#f2f2f2',
+                      transform: 'rotate(45deg)',
+                      borderRadius: '2px',
+                      zIndex: -1
+                    }} />
+                    {thoughtText}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
-            {/* C) YOU PLAYER CARD REMOVED */}
-            
+                    {/* B) CHESS BOARD */}
+        <div style={{ width: '100%', flex: 1, position: 'relative', padding: '0', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+          <div style={{ width: 'min(100%, calc(100vh - 52px - 72px - 48px - 32px))', aspectRatio: '1/1', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <div style={{display:'flex',gap:2,padding:'4px 8px',minHeight:20,flexWrap:'wrap',alignItems:'center'}}>
+            {Object.entries(getCapturedPieces(game?.fen).byBlack).flatMap(([t,n])=>
+              Array.from({length:n}).map((_,i)=>(
+                <span key={t+i} style={{fontSize:13,color:'rgba(242,242,242,0.45)',lineHeight:1}}>{PIECE_SYMBOLS[t]}</span>
+              ))
+            )}
           </div>
+          {game?.in_check && game.status === 'active' && (
+            <div 
+              style={{ background: 'rgba(230,57,70,0.15)', border: '1px solid rgba(230,57,70,0.3)', borderRadius: '8px', padding: '6px 12px', marginBottom: '8px', color: '#e63946', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: 600, textAlign: 'center' }}
+            >
+              ⚠️ Check!
+            </div>
+          )}
+          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: isOpenClawTurn ? '0 0 40px rgba(230,57,70,0.12), 0 0 80px rgba(230,57,70,0.06)' : '0 2px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
+          <ChessBoard 
+            fen={optimisticFen || game.fen} 
+            showCoordinates={false}
+            onMove={makeMove} 
+            isMyTurn={isMyTurn} 
+            lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} 
+            moveHistory={game.move_history || []}
+            boardTheme={boardTheme}
+            pieceTheme={pieceTheme}
+            playerColor={'b'}
+            onIllegalMove={handleIllegalMove}
+            onCapture={handleCapture}
+          />
+          </div>
+          <div style={{display:'flex',gap:2,padding:'4px 8px',minHeight:20,flexWrap:'wrap',alignItems:'center'}}>
+            {Object.entries(getCapturedPieces(game?.fen).byWhite).flatMap(([t,n])=>
+              Array.from({length:n}).map((_,i)=>(
+                <span key={t+i} style={{fontSize:13,color:'rgba(242,242,242,0.45)',lineHeight:1}}>{PIECE_SYMBOLS[t]}</span>
+              ))
+            )}
+          </div>
+          {(game.status === 'finished' || game.status === 'abandoned') && (
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
+              <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">
+                {game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}
+              </div>
+              <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">
+                {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
+              </div>
+            </div>
+          )}
+        </div></div>
+            
+
+      {/* STEP 4: BOTTOM INFO BAR */}
+      {!agentConnected ? (
+        <div style={{ flexShrink: 0, width: '100%', background: 'rgba(230,57,70,0.15)', borderTop: '1px solid rgba(230,57,70,0.3)', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 40, boxSizing: 'border-box' }}>
+          <div style={{ width: '16px', height: '16px', background: '#fbbf24', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ color: '#1a1a1a', fontSize: '11px', fontWeight: 'bold', lineHeight: 1 }}>!</span>
+          </div>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: '#fbbf24' }}>
+            Your Agent is not here yet
+          </span>
+        </div>
+      ) : (
+        <div style={{ flexShrink: 0, background: '#111111', border: '1px solid #1a1a1a', borderRadius: '8px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', zIndex: 40 }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', color: game?.turn === (game?.player_color || 'w') ? 'white' : 'rgba(242,242,242,0.3)', background: game?.turn === (game?.player_color || 'w') ? '#e63946' : '#161616', padding: '4px 12px', borderRadius: '6px', border: game?.turn !== (game?.player_color || 'w') ? '1px solid #222' : 'none' }}>
+            {game?.turn === (game?.player_color || 'w') ? 'YOUR TURN' : 'WAITING'}
+          </span>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', color: 'rgba(242,242,242,0.25)' }}>
+            Move {game?.move_history?.length ? Math.floor(game.move_history.length / 2) + 1 : 1}
+          </span>
+        </div>
+      )}
+    </div>
 
           {/* RIGHT DESKTOP COLUMN */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 16px 16px 8px', gap: '10px', overflow: 'hidden', minWidth: 0 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 16px 12px 8px', gap: '8px', overflow: 'hidden', minHeight: 0 }}>
             
 
         {/* D) CHAT SECTION */}
-        {!isLoaded ? (
-          <div className="design-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-             <div style={{ width: '24px', height: '24px', opacity: 0.1, background: '#fff', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
-             <div style={{ fontSize: '12px', color: 'rgba(242,242,242,0.3)', fontWeight: 500 }}>Connecting secure chat...</div>
+        <div style={{ flexShrink: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0', borderTop: 'none', background: '#111111', border: '1px solid #1a1a1a', borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ flexShrink: 0, padding: '10px 12px', fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(242,242,242,0.3)' }}>
+            CHAT WITH {agentName.toUpperCase()}
           </div>
-        ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#111111', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden', minHeight: 0 }}>
-            <div style={{ flexShrink: 0, padding: '10px 12px', fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(242,242,242,0.3)' }}>
-              CHAT WITH {agentName.toUpperCase()}
-            </div>
-            <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '12px', background: '#111111', borderRadius: '12px', margin: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scrollbar-none scroll-smooth">
-              {normalizedMessages.length === 0 ? (
-                <div style={{ color: '#111111', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '24px' }} className="text-[#333]"><LobsterEmoji /></span>
-                  <span>{agentName} can chat while playing</span>
-                </div>
-              ) : (
-                renderChatMessages()
-              )}
-            </div>
-            <div style={{ padding: '6px 12px', borderTop: '1px solid #111111', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-              {replyingTo && (
-                <div style={{
-                  display:'flex', alignItems:'center', justifyContent:'space-between',
-                  background:'rgba(255,255,255,0.03)', borderLeft:'3px solid #e63946',
-                  padding:'6px 10px', borderRadius:'4px', marginBottom:6
-                }}>
-                  <div style={{flex:1, overflow:'hidden'}}>
-                    <span style={{fontSize:11, color:'#e63946', fontWeight:600}}>Replying to</span>
-                    <div style={{fontSize:12, color:'rgba(242,242,242,0.6)', whiteSpace:'nowrap', textOverflow:'ellipsis', overflow:'hidden'}}>
-                      {replyingTo.message || replyingTo.text}
-                    </div>
-                  </div>
-                  <button onClick={() => setReplyingTo(null)} style={{background:'transparent', border:'none', color:'rgba(255,255,255,0.5)', padding:4, cursor:'pointer'}}>
-                    <XIcon size={14} />
-                  </button>
-                </div>
-              )}
-              <form 
-                onSubmit={sendMessage} 
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '34px' }}
-              >
-                <input
-                id="chat-input"
-                data-testid="chat-input"
-                type="text"
-                value={chatInput}
-                onChange={handleChatInputChange}
-                placeholder={isSpectator ? "Spectating..." : `Message ${agentName}...`}
-                disabled={isSpectator}
-                style={{ flex: 1, height: '34px', background: '#111111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '13px', padding: '0 10px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
-                onFocus={(e) => { e.target.style.borderColor = '#e63946'; e.target.style.boxShadow = 'rgba(0,0,0,0.08) 0px 0.5px 0px 0px inset, rgba(0,0,0,0.16) 0px -0.5px 0px 0px inset, #e63946 0px 0px 0px 1px inset'; }}
-                onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
-              />
-              <button 
-                data-testid="chat-send"
-                type="submit"
-                disabled={isSpectator || !chatInput.trim()}
-                style={{ minWidth: 44, minHeight: 44, margin: '-5px 0 -5px 5px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, boxShadow: (!isSpectator && chatInput.trim()) ? 'rgba(255,255,255,0.15) 0px 1px 0px 0px inset, rgba(0,0,0,0.4) 0px -0.5px 0px 0px inset' : 'none', transition: 'all 0.1s ease' }}
-                onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
-                onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                <Send size={16} />
-              </button>
-            </form>
-            </div>
+          <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scrollbar-none scroll-smooth">
+            {normalizedMessages.length === 0 ? (
+              <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
+                <span>{agentName} can chat while playing</span>
+              </div>
+            ) : (
+              renderChatMessages()
+            )}
           </div>
-        )}
+          <form 
+            onSubmit={sendMessage} 
+            style={{ padding: '6px 12px', borderTop: '1px solid #111', display: 'flex', alignItems: 'center', gap: '8px', height: '44px', boxSizing: 'border-box' }}
+          >
+            <input
+              id="chat-input"
+              data-testid="chat-input"
+              type="text"
+              value={chatInput}
+              onChange={handleChatInputChange}
+              placeholder={isSpectator ? "Spectating..." : `Message ${agentName}...`}
+              disabled={isSpectator}
+              style={{ flex: 1, height: '34px', background: '#080808', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '13px', padding: '0 10px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+              onFocus={(e) => { e.target.style.borderColor = '#e63946'; e.target.style.boxShadow = 'rgba(0,0,0,0.08) 0px 0.5px 0px 0px inset, rgba(0,0,0,0.16) 0px -0.5px 0px 0px inset, #e63946 0px 0px 0px 1px inset'; }}
+              onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+            />
+            <button 
+              data-testid="chat-send"
+              type="submit"
+              disabled={isSpectator || !chatInput.trim()}
+              style={{ width: '34px', height: '34px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, boxShadow: (!isSpectator && chatInput.trim()) ? 'rgba(255,255,255,0.15) 0px 1px 0px 0px inset, rgba(0,0,0,0.4) 0px -0.5px 0px 0px inset' : 'none', transition: 'all 0.1s ease' }}
+              onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
+              onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <Send size={16} />
+            </button>
+          </form>
+        </div>
             
 
         {/* E) MOVE HISTORY */}
-        <div style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', height: '160px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: '12px', overflow: 'hidden', height: moveHistoryOpen ? '240px' : '160px', flexShrink: 0, display: 'flex', flexDirection: 'column', transition: 'height 0.3s ease' }}>
           <div 
             onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
-            style={{ padding: '0 12px', height: '36px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+            style={{ padding: '0 12px', height: '36px', borderBottom: '1px solid #1a1a1a', background: '#161616', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
           >
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, color: 'rgba(242,242,242,0.3)', letterSpacing: '0.06em', display: 'flex', gap: '4px', alignItems: 'center' }}>
-              MOVE HISTORY · <SlotText text={String(game.move_history?.length || 0)} animation="snappy" /> MOVES
+            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, color: 'rgba(242,242,242,0.3)' }}>
+              MOVE HISTORY · {game.move_history?.length || 0} MOVES
             </span>
             <ChevronDown size={14} className="text-neutral-500" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s' }} />
           </div>
           {moveHistoryOpen && (
-            <div style={{ flex: 1, overflowY: 'auto' }} className="scrollbar-none">
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '6px 12px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', color: '#555', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}>#</div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', color: '#555', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}>You</div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', color: '#555', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}>{agentName}</div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }} className="scrollbar-none">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '4px', borderBottom: '1px solid #111', marginBottom: '4px' }}>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
                 </div>
                 {Array.from({ length: Math.ceil((game.move_history || []).length / 2) }).map((_, i) => {
                   const youMove = game.player_color === 'b' ? game.move_history[i * 2 + 1] : game.move_history[i * 2];
                   const agentMove = game.player_color === 'b' ? game.move_history[i * 2] : game.move_history[i * 2 + 1];
-                  const rowBg = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent';
                   return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '6px 12px', background: rowBg, fontFamily: "JetBrains Mono, monospace", fontWeight: 400, fontSize: '13px', alignItems: 'center' }}>
-                      <div style={{ color: '#555' }}>{i + 1}.</div>
-                      <div>{youMove ? renderMoveWithPiece(youMove, game.player_color !== 'b') : ''}</div>
-                      <div>{agentMove ? renderMoveWithPiece(agentMove, game.player_color === 'b') : ''}</div>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '3px 0', fontFamily: "'Inter', sans-serif", fontSize: '12px' }}>
+                      <div style={{ color: 'rgba(242,242,242,0.25)' }}>{i + 1}.</div>
+                      <div style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:4 }}>
+                        {youMove?.san && (() => {
+                          const { letter, rest } = sanToPieceImg(youMove.san, true, pieceTheme);
+                          return (
+                            <>
+                              <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                                onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
+                              />
+                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div style={{ color: '#e63946', display:'flex', alignItems:'center', gap:4 }}>
+                        {agentMove?.san && (() => {
+                          const { letter, rest } = sanToPieceImg(agentMove.san, false, pieceTheme);
+                          return (
+                            <>
+                              <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                                onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
+                              />
+                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   );
                 })}
@@ -3281,490 +1969,382 @@ export default function Game() {
             </div>
           )}
         </div>
-
-        {/* STEP 4: BOTTOM INFO BAR */}
-        <div style={{
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          padding: '12px 20px', 
-          background: '#0a0a0a',
-          border: '1px solid #141414',
-          fontFamily: 'Inter, sans-serif',
-          borderRadius: '12px',
-          flexShrink: 0,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-          gap: '12px'
-        }}>
-          {/* Left Block: Game Metadata */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ 
-              fontSize: '11px', 
-              color: 'rgba(255,255,255,0.4)',
-              fontWeight: 600,
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              background: '#111111',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              border: '1px solid rgba(255,255,255,0.03)'
-            }}>
-              You
-            </span>
-            <span style={{ 
-              fontSize: '12px', 
-              color: '#999',
-              fontWeight: 500,
-              fontFamily: '"JetBrains Mono", monospace'
-            }}>
-              <span style={{ color: '#f2f2f2', fontWeight: 600 }}>{game?.agent_name || 'Your Agent'}</span>
-            </span>
-          </div>
-
-          {/* Center Block: Turn Banner */}
-          {(() => {
-            const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Your Agent';
-
-            // Exactly 3 states — no edge cases, no flicker
-            let state, label, icon;
-            if (game?.status === 'waiting' || !game?.agent_connected) {
-              state = 'waiting';
-              label = `Waiting for ${agentName}`;
-              icon = '⏳';
-            } else if (trueTurn === 'white') {
-              state = 'your_turn';
-              label = 'Your Turn';
-              icon = '●';
-            } else {
-              state = 'thinking';
-              label = `${agentName} is thinking`;
-              icon = '🦞';
-            }
-
-            const styles = {
-              waiting:   { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.06)', color: 'rgba(242,242,242,0.4)', dot: '#444' },
-              your_turn: { bg: 'rgba(230,57,70,0.12)',   border: 'rgba(230,57,70,0.35)',   color: '#f2f2f2',               dot: '#e63946' },
-              thinking:  { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.07)', color: 'rgba(242,242,242,0.5)', dot: '#666' },
-            }[state];
-
-            return (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                height: 34,
-                padding: '0 12px',
-                borderRadius: 17,
-                background: styles.bg,
-                border: `1px solid ${styles.border}`,
-                maxWidth: '92vw',
-                width: 'fit-content',
-                margin: '6px auto',
-                transition: 'background 0.3s ease, border-color 0.3s ease',
-              }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                  background: styles.dot,
-                  boxShadow: state === 'your_turn' ? `0 0 6px ${styles.dot}` : 'none',
-                  animation: state === 'thinking' && game?.status !== 'finished' ? 'pulse 2s ease-in-out infinite' : 'none',
-                }}/>
-                <span style={{
-                  fontFamily: 'Inter, sans-serif',
-                  fontWeight: 600,
-                  fontSize: 11,
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  color: styles.color,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: '60vw',
-                }}>
-                  <SlotText text={label} animation="snappy" />
-                </span>
-              </div>
-            );
-          })()}
-
-          {/* Right Block: Connection Status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <motion.div
-              initial={{ scale: 0.3, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-            >
-              <div style={{ ...dotStyle, flexShrink: 0 }} />
-            </motion.div>
-            <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', color: 'rgba(242,242,242,0.5)' }}>
-              <SlotText text={statusLabel} animation="snappy" />
-            </div>
           </div>
         </div>
-        
-      </div>
-      </div>
-    </div>
-  ) : (
-    <>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }} className="scrollbar-none">
+      ) : (
+        <>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }} className="scrollbar-none">
             
         
-        {/* A) AGENT CARD */}
+                                    {/* A) AGENT CARD */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px', position: 'relative', flexShrink: 0 }}>
-          {/* Left Column: Emoji & Name Pill */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
-            <span style={{ 
-              fontSize: '56px', 
-              lineHeight: 1, 
-              userSelect: 'none', 
-              transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)', 
-              transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              {displayedEmoji}
-            </span>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowStatusPopover(prev => !prev);
-              }}
-              style={{
-                background: '#111111',
-                border: `1.5px solid ${dotStyle.background}`,
-                borderRadius: '9999px',
-                padding: '4px 10px',
-                color: '#f2f2f2',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                maxWidth: '90px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                outline: 'none'
-              }}
-            >
-              {agentName}
-            </button>
-            {showStatusPopover && (
-              <div onClick={(e) => e.stopPropagation()} style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: '#1a1a1a',
-                border: '1px solid #2a2a2a',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                fontSize: '12px',
-                color: '#f2f2f2',
-                zIndex: 100,
-                fontFamily: 'Inter, sans-serif',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                alignItems: 'center',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-              }}>
-                <span style={{ fontWeight: 600, color: dotStyle.background }}>{statusLabel}</span>
-                <span style={{ color: 'rgba(242,242,242,0.6)', fontSize: '11px' }}>{getAgentLastSeenText()}</span>
+          {!agentConnected ? (
+            <>
+              {/* STATE ONE — waiting for the agent to connect */}
+              {/* Left Column: Emoji & Name Pill */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
+                <span style={{ 
+                  fontSize: '56px', 
+                  lineHeight: 1, 
+                  userSelect: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative'
+                }}>
+                  🦞
+                  <div style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-8px',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'flex-end',
+                    gap: '2px'
+                  }}>
+                    <span style={{ fontSize: '10px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0s' }}>z</span>
+                    <span style={{ fontSize: '13px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0.3s' }}>z</span>
+                    <span style={{ fontSize: '16px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0.6s' }}>z</span>
+                  </div>
+                </span>
+                <div 
+                  style={{
+                    background: '#111111',
+                    border: '1.5px solid rgba(230,57,70,0.5)',
+                    borderRadius: '9999px',
+                    padding: '4px 10px',
+                    color: 'rgba(242,242,242,0.6)',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    maxWidth: '90px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {game?.agent_name && game?.agent_name !== 'Your Agent' ? game.agent_name : 'Your Agent'}
+                </div>
               </div>
-            )}
-          </div>
-          
-          {/* Right Column: Thoughts */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
-            {previousThoughtText && (
-              <div style={{
-                background: '#f2f2f2',
-                color: '#1a1a1a',
-                borderRadius: '16px',
-                padding: '10px 14px',
-                fontSize: '13px',
-                fontFamily: 'Inter, sans-serif',
-                opacity: 0.55,
-                alignSelf: 'flex-start',
-                wordBreak: 'break-word'
-              }}>
-                {previousThoughtText}
-              </div>
-            )}
-            {thoughtText && thoughtVisible && (
-              <div style={{
-                background: '#f2f2f2',
-                color: '#1a1a1a',
-                borderRadius: '16px',
-                padding: '10px 14px',
-                fontSize: '13px',
-                fontFamily: 'Inter, sans-serif',
-                position: 'relative',
-                alignSelf: 'flex-start',
-                wordBreak: 'break-word',
-                zIndex: 0
-              }}>
+              {/* Right Column: Alert Banner */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
                 <div style={{
-                  position: 'absolute',
-                  left: '-4px',
-                  top: '14px',
-                  width: '10px',
-                  height: '10px',
-                  background: '#f2f2f2',
-                  transform: 'rotate(45deg)',
-                  borderRadius: '2px',
-                  zIndex: -1
-                }} />
-                {thoughtText}
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  background: 'rgba(230,57,70,0.12)',
+                  border: '1px solid rgba(230,57,70,0.4)',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  animation: 'pulseAlert 2s ease-in-out infinite',
+                }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    background: '#fbbf24',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <span style={{ color: '#1a1a1a', fontSize: '13px', fontWeight: 'bold', lineHeight: 1 }}>!</span>
+                  </div>
+                  <span style={{ color: '#fbbf24', fontSize: '14px', fontWeight: 600, fontFamily: 'Inter, sans-serif', lineHeight: 1.2 }}>
+                    Invite your Agent first
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* B) CHESS BOARD */}
-        <div style={{ width: '100%', flexShrink: 0, position: 'relative', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div key={`flash-${yourTurnFlashKey}`} style={{
-            position: 'absolute', inset: 12, pointerEvents: 'none',
-            borderRadius: '4px', zIndex: 10,
-            animation: yourTurnFlashKey ? 'yourTurnFlash 0.2s ease-out' : 'none'
-          }} />
-          <div style={{ height: '8px' }} />
-          {isOpenClawTurn && (
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              background: 'radial-gradient(ellipse at center, rgba(230,57,70,0.04) 0%, transparent 70%)',
-              zIndex: 0
-            }} />
-          )}
-          <motion.div 
-            animate={{
-              boxShadow: isOpenClawTurn 
-                ? ['0 0 0 rgba(230,57,70,0)', '0 0 20px rgba(230,57,70,0.2)', '0 0 0 rgba(230,57,70,0)']
-                : '0 2px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)'
-            }}
-            transition={isOpenClawTurn 
-              ? { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } 
-              : { duration: 0.3 }}
-            style={{ borderRadius: '4px', overflow: 'hidden', width: `${boardSize}px`, position: 'relative', animation: shaking ? 'illegalShake 0.42s cubic-bezier(.36,.07,.19,.97) both' : (shakeActive ? 'captureShake 0.3s ease-in-out' : 'none') }}
-          >
-          <div style={{ pointerEvents: (game?.agent_connected || game?.status === 'finished' || game?.status === 'abandoned') ? 'auto' : 'none', opacity: (game?.agent_connected || game?.status === 'finished' || game?.status === 'abandoned') ? 1 : 0.7 }}>
-          {!isLoaded ? (
-            <div className="design-card" style={{
-              aspectRatio: '1/1', width: '100%',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px',
-              padding: 0
-            }}>
-              <div style={{ position: 'relative', width: '40px', height: '40px' }}>
-                <div style={{ position: 'absolute', inset: 0, border: '3px solid rgba(255,255,255,0.05)', borderRadius: '50%' }} />
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  border: '3px solid transparent',
-                  borderTopColor: '#e63946',
-                  borderRadius: '50%',
-                  animation: 'spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite'
-                }} />
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(242,242,242,0.5)', fontFamily: 'Inter, sans-serif' }}>Loading board...</div>
-            </div>
+            </>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '4px' }}>
-              {/* White's captures (black pieces lost) — shown ABOVE the board */}
-              <div style={{ display: 'flex', gap: '2px', minHeight: '20px', alignItems: 'center', padding: '0 2px', margin: 0, borderRadius: '6px', overflow: 'hidden' }}>
-                {blackCaptured.map((p, i) => (
-                  <img key={i} src={pieceImgUrl(p, pieceStyle)} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'block', opacity: 0, transition: 'opacity 0.15s ease' }} onLoad={(e) => { e.target.style.opacity = '1'; }} onError={(e) => { if (!e.target.dataset.fb) { e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${p}.svg`; } }} />
-                ))}
-              </div>
-              <div style={{ width: '100%' }}>
-                <ChessBoard 
-                  fen={boardFen} 
-                  showCoordinates={false}
-                  turn={game?.turn}
-                  legalMoves={legalMovesArray}
-                  lastMove={boardLastMove}
-                  arrivedSquare={arrivedSquare}
-                  inCheck={Boolean(game?.in_check)}
-                  checkedKingSquare={checkedSquare}
-                  boardTheme={boardTheme}
-                  pieceStyle={pieceStyle}
-                  playerColor={game?.player_color || 'w'}
-                  gameStatus={game?.status}
-                  onMove={handlePlayerMove}
-                  disabled={!agentConnected}
-                />
-              </div>
-              {/* Black's captures (white pieces lost) — shown BELOW the board */}
-              <div style={{ display: 'flex', gap: '2px', minHeight: '20px', alignItems: 'center', padding: '0 2px', margin: 0, borderRadius: '6px', overflow: 'hidden' }}>
-                {whiteCaptured.map((p, i) => (
-                  <img key={i} src={pieceImgUrl(p, pieceStyle)} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'block', opacity: 0, transition: 'opacity 0.15s ease' }} onLoad={(e) => { e.target.style.opacity = '1'; }} onError={(e) => { if (!e.target.dataset.fb) { e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${p.toLowerCase()}.svg`; } }} />
-                ))}
-              </div>
-            </div>
-          )}
-          </div>
-          </motion.div>
-          <div style={{ height: '8px' }} />
-          {(game.status === 'finished' || game.status === 'abandoned') && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none rounded-lg">
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-md rounded-lg"></div>
-              <div className="design-card flex flex-col items-center justify-center text-center max-w-sm w-full relative overflow-hidden pointer-events-auto" style={{ padding: '24px 24px', zIndex: 1, margin: '0 24px' }}>
-                <div className="font-sans text-[24px] font-bold text-white tracking-widest drop-shadow-md pb-1">
-                  {game.status === 'abandoned' ? 'FAILED' : 'MATCH OVER'}
-                </div>
-                <div className="font-sans text-[11px] text-red-500 font-bold tracking-widest uppercase bg-[#1a0000] px-3 py-1 rounded-full border border-red-500/20 mb-4">
-                  {(() => {
-                    if (game?.status === 'abandoned') return 'Game expired';
-                    if (game?.result === 'draw' || game?.result === 'stalemate') return 'Draw';
-                    const winColor = game?.winner === 'black' ? 'b' : game?.winner === 'white' ? 'w' : null;
-                    const isWin = winColor === (game?.player_color || 'w');
-                    return (isWin ? 'You won' : agentName + ' won');
-                  })()}
-                </div>
-
-                {bestQuote && (
-                  <div className="w-full bg-[#111111] border border-[#222] rounded-xl p-5 relative overflow-hidden shadow-xl mb-4">
-                    <div className="absolute -top-4 -right-4 text-white/5">
-                      <Bot size={80} />
-                    </div>
-                    <div className="text-white/40 text-[10px] uppercase tracking-widest font-bold mb-2 text-left relative z-10">{agentName} says:</div>
-                    <div className="text-white text-base font-serif italic mb-4 text-left relative z-10">
-                      &quot;{bestQuote}&quot;
-                    </div>
-                    <div className="flex items-center justify-between pt-3 border-t border-[#222] relative z-10">
-                      <div className="text-[10px] text-[#e63946] font-mono font-bold tracking-widest uppercase">
-                        Play this agent
-                      </div>
-                      <div className="text-white/30 text-[10px] font-mono">
-                        {gameId.substring(0, 8)}
-                      </div>
-                    </div>
+            <>
+              {/* STATE TWO — connected (agentConnected is true) */}
+              {/* Left Column: Emoji & Name Pill */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
+                <span style={{ 
+                  fontSize: '56px', 
+                  lineHeight: 1, 
+                  userSelect: 'none',
+                  transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {displayedEmoji}
+                </span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowStatusPopover(prev => !prev);
+                  }}
+                  style={{
+                    background: '#111111',
+                    border: `1.5px solid ${presenceColor}`,
+                    borderRadius: '9999px',
+                    padding: '4px 10px',
+                    color: '#f2f2f2',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    maxWidth: '90px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    outline: 'none'
+                  }}
+                >
+                  {game?.agent_name && game?.agent_name !== 'Your Agent' ? game.agent_name : 'Your Agent'}
+                </button>
+                {showStatusPopover && (
+                  <div onClick={(e) => e.stopPropagation()} style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#1a1a1a',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    color: '#f2f2f2',
+                    zIndex: 100,
+                    fontFamily: 'Inter, sans-serif',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    alignItems: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                  }}>
+                    <span style={{ fontWeight: 600, color: presenceColor }}>{statusLabel}</span>
+                    <span style={{ color: 'rgba(242,242,242,0.6)', fontSize: '11px' }}>{getAgentLastSeenText()}</span>
                   </div>
                 )}
+              </div>
+              
+              {/* Right Column: Thoughts */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
+                {previousThoughtText && (
+                  <div style={{
+                    background: '#f2f2f2',
+                    color: '#1a1a1a',
+                    borderRadius: '16px',
+                    padding: '10px 14px',
+                    fontSize: '13px',
+                    fontFamily: 'Inter, sans-serif',
+                    opacity: 0.55,
+                    alignSelf: 'flex-start',
+                    wordBreak: 'break-word'
+                  }}>
+                    {previousThoughtText}
+                  </div>
+                )}
+                {thoughtText && thoughtVisible && (
+                  <div style={{
+                    background: '#f2f2f2',
+                    color: '#1a1a1a',
+                    borderRadius: '16px',
+                    padding: '10px 14px',
+                    fontSize: '13px',
+                    fontFamily: 'Inter, sans-serif',
+                    position: 'relative',
+                    alignSelf: 'flex-start',
+                    wordBreak: 'break-word',
+                    zIndex: 0
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: '-4px',
+                      top: '14px',
+                      width: '10px',
+                      height: '10px',
+                      background: '#f2f2f2',
+                      transform: 'rotate(45deg)',
+                      borderRadius: '2px',
+                      zIndex: -1
+                    }} />
+                    {thoughtText}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
-                <button 
-                  onClick={() => {
-                    const url = `${window.location.origin}/game/${gameId}`;
-                    navigator.clipboard.writeText(url);
-                    toast('Link copied! Share to challenge others.', { style: { background: '#111111', color: '#f2f2f2' } });
-                  }}
-                  className="px-4 py-3 w-full bg-[#e63946] text-white text-xs font-bold tracking-wider uppercase rounded-xl shadow-[0_0_15px_rgba(230,57,70,0.2)] active:translate-y-[1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                >
-                  <Share2 size={14} />
-                  Copy Match Link
-                </button>
+                    {/* B) CHESS BOARD */}
+        <div style={{ width: '100%', flexShrink: 0, position: 'relative', padding: '12px', boxSizing: 'border-box' }}>
+          <div style={{display:'flex',gap:2,padding:'4px 8px',minHeight:20,flexWrap:'wrap',alignItems:'center'}}>
+            {Object.entries(getCapturedPieces(game?.fen).byBlack).flatMap(([t,n])=>
+              Array.from({length:n}).map((_,i)=>(
+                <span key={t+i} style={{fontSize:13,color:'rgba(242,242,242,0.45)',lineHeight:1}}>{PIECE_SYMBOLS[t]}</span>
+              ))
+            )}
+          </div>
+          {game?.in_check && game.status === 'active' && (
+            <div 
+              style={{ background: 'rgba(230,57,70,0.15)', border: '1px solid rgba(230,57,70,0.3)', borderRadius: '8px', padding: '6px 12px', marginBottom: '8px', color: '#e63946', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: 600, textAlign: 'center' }}
+            >
+              ⚠️ Check!
+            </div>
+          )}
+          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: isOpenClawTurn ? '0 0 40px rgba(230,57,70,0.12), 0 0 80px rgba(230,57,70,0.06)' : '0 2px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
+          <ChessBoard 
+            fen={optimisticFen || game.fen} 
+            showCoordinates={false}
+            onMove={makeMove} 
+            isMyTurn={isMyTurn} 
+            lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} 
+            moveHistory={game.move_history || []}
+            boardTheme={boardTheme}
+            pieceTheme={pieceTheme}
+            playerColor={game?.player_color || 'w'}
+            onIllegalMove={handleIllegalMove}
+            onCapture={handleCapture}
+          />
+          </div>
+          <div style={{display:'flex',gap:2,padding:'4px 8px',minHeight:20,flexWrap:'wrap',alignItems:'center'}}>
+            {Object.entries(getCapturedPieces(game?.fen).byWhite).flatMap(([t,n])=>
+              Array.from({length:n}).map((_,i)=>(
+                <span key={t+i} style={{fontSize:13,color:'rgba(242,242,242,0.45)',lineHeight:1}}>{PIECE_SYMBOLS[t]}</span>
+              ))
+            )}
+          </div>
+          {(game.status === 'finished' || game.status === 'abandoned') && (
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
+              <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">
+                {game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}
+              </div>
+              <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">
+                {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
               </div>
             </div>
           )}
         </div>
+            
 
-
-        {/* C) YOU CARD REMOVED */}
+        {/* C) YOU CARD */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#0e0e0e', borderTop: '1px solid #111' }}>
+          <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2a2a2a, #1a1a1a)', border: '1px solid #333', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0, color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+            ♙
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: '#f2f2f2' }}>You</span>
+            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', color: '#666' }}>
+              {game?.turn === (game?.player_color || 'w') ? 'your turn' : 'waiting'}
+            </span>
+          </div>
+          {(youCaptured.length > 0 || youAdvantage > 0) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '16px', color: 'white' }}>
+              {youCaptured.map((p, i) => (
+                <span key={i} style={{ marginLeft: '-4px' }}>
+                  {game?.player_color === 'w' ? blackPieceMap[p] : whitePieceMap[p]}
+                </span>
+              ))}
+              {youAdvantage > 0 && <span style={{ fontSize: '12px', color: '#888', marginLeft: '4px', fontWeight: 'bold' }}>+{youAdvantage}</span>}
+            </div>
+          )}
+        </div>
             
 
         {/* D) CHAT SECTION */}
-        {!isLoaded ? (
-          <div className="design-card" style={{ flex: 1, minHeight: '200px', flexShrink: 0, margin: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-             <div style={{ width: '24px', height: '24px', opacity: 0.1, background: '#fff', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
-             <div style={{ fontSize: '12px', color: 'rgba(242,242,242,0.3)', fontWeight: 500 }}>Connecting secure chat...</div>
+        <div style={{ flexShrink: 0, height: '180px', display: 'flex', flexDirection: 'column', padding: '0', borderTop: '1px solid #111111', background: '#0a0a0a' }}>
+          <div style={{ flexShrink: 0, padding: '10px 12px', fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(242,242,242,0.3)' }}>
+            CHAT WITH {agentName.toUpperCase()}
           </div>
-        ) : (
-          <div style={{ flex: 1, minHeight: '200px', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '0', background: '#111111', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px', margin: '12px', overflow: 'hidden' }}>
-            <div style={{ flexShrink: 0, padding: '10px 12px', fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(242,242,242,0.3)' }}>
-              CHAT WITH {agentName.toUpperCase()}
-            </div>
-            <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '12px', background: 'transparent', borderRadius: '12px', margin: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: '6px', minHeight: '120px', maxHeight: `${Math.max(viewportHeight * 0.3, 180)}px` }} className="scrollbar-none scroll-smooth">
-              {normalizedMessages.length === 0 ? (
-                <div style={{ color: '#111111', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '24px' }} className="text-[#333]"><LobsterEmoji /></span>
-                  <span>{agentName} can chat while playing</span>
-                </div>
-              ) : (
-                renderChatMessages()
-              )}
-            </div>
-            <div style={{ padding: '6px 12px 8px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', position: 'sticky', bottom: 0, background: '#111111', zIndex: 10 }}>
-              {replyingTo && (
-                <div style={{
-                  display:'flex', alignItems:'center', justifyContent:'space-between',
-                  background:'rgba(255,255,255,0.03)', borderLeft:'3px solid #e63946',
-                  padding:'6px 10px', borderRadius:'4px', marginBottom:6
-                }}>
-                  <div style={{flex:1, overflow:'hidden'}}>
-                    <span style={{fontSize:11, color:'#e63946', fontWeight:600}}>Replying to</span>
-                    <div style={{fontSize:12, color:'rgba(242,242,242,0.6)', whiteSpace:'nowrap', textOverflow:'ellipsis', overflow:'hidden'}}>
-                      {replyingTo.message || replyingTo.text}
-                    </div>
-                  </div>
-                  <button onClick={() => setReplyingTo(null)} style={{background:'transparent', border:'none', color:'rgba(255,255,255,0.5)', padding:4, cursor:'pointer'}}>
-                    <XIcon size={14} />
-                  </button>
-                </div>
-              )}
-              <form 
-                onSubmit={sendMessage} 
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '34px' }}
-              >
-                <input
-                id="chat-input"
-                data-testid="chat-input"
-                type="text"
-                value={chatInput}
-                onChange={handleChatInputChange}
-                placeholder={isSpectator ? "Spectating..." : `Message ${agentName}...`}
-                disabled={isSpectator}
-                style={{ flex: 1, height: '34px', background: '#111111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '13px', padding: '0 10px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
-                onFocus={(e) => { e.target.style.borderColor = '#e63946'; e.target.style.boxShadow = 'rgba(0,0,0,0.08) 0px 0.5px 0px 0px inset, rgba(0,0,0,0.16) 0px -0.5px 0px 0px inset, #e63946 0px 0px 0px 1px inset'; }}
-                onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
-              />
-              <button 
-                data-testid="chat-send"
-                type="submit"
-                disabled={isSpectator || !chatInput.trim()}
-                style={{ width: '34px', height: '34px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, boxShadow: (!isSpectator && chatInput.trim()) ? 'rgba(255,255,255,0.15) 0px 1px 0px 0px inset, rgba(0,0,0,0.4) 0px -0.5px 0px 0px inset' : 'none', transition: 'all 0.1s ease' }}
-                onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
-                onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-              >
-                <Send size={16} />
-              </button>
-            </form>
-            </div>
+          <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scrollbar-none scroll-smooth">
+            {normalizedMessages.length === 0 ? (
+              <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px" }}>
+                <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
+                <span>{agentName} can chat while playing</span>
+              </div>
+            ) : (
+              renderChatMessages()
+            )}
           </div>
-        )}
+          <form 
+            onSubmit={sendMessage} 
+            style={{ padding: '6px 12px', borderTop: '1px solid #111', display: 'flex', alignItems: 'center', gap: '8px', height: '44px', boxSizing: 'border-box' }}
+          >
+            <input
+              id="chat-input"
+              data-testid="chat-input"
+              type="text"
+              value={chatInput}
+              onChange={handleChatInputChange}
+              placeholder={isSpectator ? "Spectating..." : `Message ${agentName}...`}
+              disabled={isSpectator}
+              style={{ flex: 1, height: '34px', background: '#080808', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '13px', padding: '0 10px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+              onFocus={(e) => { e.target.style.borderColor = '#e63946'; e.target.style.boxShadow = 'rgba(0,0,0,0.08) 0px 0.5px 0px 0px inset, rgba(0,0,0,0.16) 0px -0.5px 0px 0px inset, #e63946 0px 0px 0px 1px inset'; }}
+              onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+            />
+            <button 
+              data-testid="chat-send"
+              type="submit"
+              disabled={isSpectator || !chatInput.trim()}
+              style={{ width: '34px', height: '34px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, boxShadow: (!isSpectator && chatInput.trim()) ? 'rgba(255,255,255,0.15) 0px 1px 0px 0px inset, rgba(0,0,0,0.4) 0px -0.5px 0px 0px inset' : 'none', transition: 'all 0.1s ease' }}
+              onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
+              onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <Send size={16} />
+            </button>
+          </form>
+        </div>
             
 
         {/* E) MOVE HISTORY */}
-        <div style={{ flexShrink: 0, background: '#111111', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px', margin: '12px', overflow: 'hidden' }}>
+        <div style={{ background: '#0a0a0a' }}>
           <div 
             onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
-            style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderBottom: moveHistoryOpen ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+            style={{ padding: '10px 12px', borderTop: '1px solid #111', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
           >
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, color: 'rgba(242,242,242,0.3)', letterSpacing: '0.06em', display: 'flex', gap: '4px', alignItems: 'center' }}>
-              MOVE HISTORY · <SlotText text={String(game.move_history?.length || 0)} animation="snappy" /> MOVES
+            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, color: 'rgba(242,242,242,0.3)' }}>
+              MOVE HISTORY · {game.move_history?.length || 0} MOVES
             </span>
             <ChevronDown size={14} className="text-neutral-500" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s' }} />
           </div>
           {moveHistoryOpen && (
-            <div style={{ maxHeight: '200px', overflowY: 'auto' }} className="scrollbar-none">
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '6px 12px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', color: '#555', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}>#</div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', color: '#555', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}>You</div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: '11px', color: '#555', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}>{agentName}</div>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '0 12px 12px' }} className="scrollbar-none">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '4px', borderBottom: '1px solid #111', marginBottom: '4px' }}>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
                 </div>
                 {Array.from({ length: Math.ceil((game.move_history || []).length / 2) }).map((_, i) => {
                   const youMove = game.player_color === 'b' ? game.move_history[i * 2 + 1] : game.move_history[i * 2];
                   const agentMove = game.player_color === 'b' ? game.move_history[i * 2] : game.move_history[i * 2 + 1];
-                  const rowBg = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent';
                   return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '6px 12px', background: rowBg, fontFamily: "JetBrains Mono, monospace", fontWeight: 400, fontSize: '13px', alignItems: 'center' }}>
-                      <div style={{ color: '#555' }}>{i + 1}.</div>
-                      <div>{youMove ? renderMoveWithPiece(youMove, game.player_color !== 'b') : ''}</div>
-                      <div>{agentMove ? renderMoveWithPiece(agentMove, game.player_color === 'b') : ''}</div>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '3px 0', fontFamily: "'Inter', sans-serif", fontSize: '12px' }}>
+                      <div style={{ color: 'rgba(242,242,242,0.25)' }}>{i + 1}.</div>
+                      <div style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:4 }}>
+                        {youMove?.san && (() => {
+                          const { letter, rest } = sanToPieceImg(youMove.san, true, pieceTheme);
+                          return (
+                            <>
+                              <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                                onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
+                              />
+                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div style={{ color: '#e63946', display:'flex', alignItems:'center', gap:4 }}>
+                        {agentMove?.san && (() => {
+                          const { letter, rest } = sanToPieceImg(agentMove.san, false, pieceTheme);
+                          return (
+                            <>
+                              <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                                onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
+                              />
+                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   );
                 })}
@@ -3776,79 +2356,25 @@ export default function Game() {
           
 
       {/* STEP 4: BOTTOM INFO BAR */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '10px 16px', background: '#111111',
-        borderTop: '1px solid #111111',
-        position: 'sticky', bottom: 0, zIndex: 20,
-        fontFamily: 'Inter, sans-serif',
-      }}>
-        {/* Status Pill - Single Source of Truth */}
-        {(() => {
-            const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Your Agent';
-
-            // Exactly 3 states — no edge cases, no flicker
-            let state, label, icon;
-            if (game?.status === 'waiting' || !game?.agent_connected) {
-              state = 'waiting';
-              label = `Waiting for ${agentName}`;
-              icon = '⏳';
-            } else if (trueTurn === 'white') {
-              state = 'your_turn';
-              label = 'Your Turn';
-              icon = '●';
-            } else {
-              state = 'thinking';
-              label = `${agentName} is thinking`;
-              icon = '🦞';
-            }
-
-            const styles = {
-              waiting:   { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.06)', color: 'rgba(242,242,242,0.4)', dot: '#444' },
-              your_turn: { bg: 'rgba(230,57,70,0.12)',   border: 'rgba(230,57,70,0.35)',   color: '#f2f2f2',               dot: '#e63946' },
-              thinking:  { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.07)', color: 'rgba(242,242,242,0.5)', dot: '#666' },
-            }[state];
-
-            return (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                height: 34,
-                padding: '0 12px',
-                borderRadius: 17,
-                background: styles.bg,
-                border: `1px solid ${styles.border}`,
-                maxWidth: '92vw',
-                width: 'fit-content',
-                margin: '6px auto',
-                transition: 'background 0.3s ease, border-color 0.3s ease',
-              }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                  background: styles.dot,
-                  boxShadow: state === 'your_turn' ? `0 0 6px ${styles.dot}` : 'none',
-                  animation: state === 'thinking' && game?.status !== 'finished' ? 'pulse 2s ease-in-out infinite' : 'none',
-                }}/>
-                <span style={{
-                  fontFamily: 'Inter, sans-serif',
-                  fontWeight: 600,
-                  fontSize: 11,
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  color: styles.color,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: '60vw',
-                }}>
-                  <SlotText text={label} animation="snappy" />
-                </span>
-              </div>
-            );
-        })()}
-      </div>
+      {!agentConnected ? (
+        <div style={{ flexShrink: 0, width: '100%', background: 'rgba(230,57,70,0.15)', borderTop: '1px solid rgba(230,57,70,0.3)', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 40, boxSizing: 'border-box' }}>
+          <div style={{ width: '16px', height: '16px', background: '#fbbf24', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ color: '#1a1a1a', fontSize: '11px', fontWeight: 'bold', lineHeight: 1 }}>!</span>
+          </div>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: '#fbbf24' }}>
+            Your Agent is not here yet
+          </span>
+        </div>
+      ) : (
+        <div style={{ flexShrink: 0, height: '48px', background: '#0a0a0a', borderTop: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', zIndex: 40 }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', color: game?.turn === (game?.player_color || 'w') ? 'white' : 'rgba(242,242,242,0.3)', background: game?.turn === (game?.player_color || 'w') ? '#e63946' : '#161616', padding: '4px 12px', borderRadius: '6px', border: game?.turn !== (game?.player_color || 'w') ? '1px solid #222' : 'none' }}>
+            {game?.turn === (game?.player_color || 'w') ? 'YOUR TURN' : 'WAITING'}
+          </span>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', color: 'rgba(242,242,242,0.25)' }}>
+            Move {game?.move_history?.length ? Math.floor(game.move_history.length / 2) + 1 : 1}
+          </span>
+        </div>
+      )}
         </>
       )}
 
@@ -3856,7 +2382,12 @@ export default function Game() {
       {/* STATUS BAR */}
       <div style={{ position: 'absolute', opacity: 0.01, width: 1, height: 1, overflow: 'hidden', zIndex: -1 }} data-testid="game-status">{game.status}</div>
       <div style={{ position: 'absolute', opacity: 0.01, width: 1, height: 1, overflow: 'hidden', zIndex: -1 }} data-testid="turn-indicator">
-        {game.turn === (game.player_color || 'w') ? 'Your Turn' : 'Waiting'}
+        {(() => {
+          const agentName = game?.agent_name || 'Your Agent';
+          if (game?.status === 'waiting' || !game?.agent_connected) return `Waiting for ${agentName}`;
+          if (trueTurn === 'white') return 'Your Turn';
+          return `${agentName} is thinking`;
+        })()}
       </div>
       <input 
         type="text" 
@@ -3866,447 +2397,195 @@ export default function Game() {
         tabIndex={-1} 
       />
 
-      {showGameOver && game?.status === 'finished' && (
-        <div style={{
-          position:'fixed', inset:0, zIndex:9999,
-          background:'rgba(6,6,6,0.92)',
-          backdropFilter:'blur(12px)',
-          WebkitBackdropFilter:'blur(12px)',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'20px'
-        }}>
-          <div style={{
-            position: 'relative', zIndex: 10000,
-            background: 'linear-gradient(180deg, #111111 0%, #111111 100%)',
-            border:'1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.02)',
-            borderRadius:'24px', padding:'0px',
-            maxWidth:'360px', width:'100%',
-            animation:'gameOverIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards',
-            overflow: 'hidden',
-            willChange: 'transform, opacity'
-          }}>
-            {(() => {
-              const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Your Agent';
-              const playerColorFull = game?.player_color === 'w' ? 'white' : 'black';
-              const isWin = game?.winner === playerColorFull;
-              const isDraw = game?.result === 'draw' || game?.result === 'stalemate';
-              const resultIcon = isWin ? <Trophy size={64} color="#fbbf24" strokeWidth={1.5} /> : isDraw ? <Handshake size={64} color="#9ca3af" strokeWidth={1.5} /> : <div style={{ fontSize: '64px', lineHeight: 1 }}><LobsterEmoji /></div>;
-              const resultText = isWin ? 'Victory' : isDraw ? 'Stalemate' : 'Defeated';
-              const subText = isWin
-                ? `${agentName} was outsmarted.`
-                : isDraw
-                ? `Well fought.`
-                : `${agentName} outplayed you.`;
-              const lastThought = game?.companion_thought || null;
-              const moveCount = Array.isArray(game?.move_history) ? game.move_history.length : 0;
-              const accentColor = isWin ? '#fbbf24' : isDraw ? '#9ca3af' : '#e63946';
-              const bgGradient = isWin ? 'radial-gradient(100% 100% at 50% 0%, rgba(251,191,36,0.15) 0%, transparent 100%)' :
-                                 isDraw ? 'radial-gradient(100% 100% at 50% 0%, rgba(156,163,175,0.15) 0%, transparent 100%)' :
-                                 'radial-gradient(100% 100% at 50% 0%, rgba(230,57,70,0.15) 0%, transparent 100%)';
-
-              return (
-                <div style={{ textAlign:'center', position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '150px', background: bgGradient, pointerEvents: 'none' }} />
-                  <div style={{ padding:'36px 24px 24px', position: 'relative', zIndex: 1 }}>
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    >
-                      <div style={{ marginBottom:20, animation:'popIn 0.5s cubic-bezier(.175,.885,.32,1.275)', display: 'flex', justifyContent: 'center' }}>
-                        <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '50%', boxShadow: `0 0 30px ${accentColor}1A` }}>
-                          {resultIcon}
-                        </div>
-                      </div>
-                      <div style={{ fontFamily:'Inter, sans-serif', fontWeight:800, fontSize:32, color:'#f2f2f2', marginBottom:4, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <span style={{ background: `linear-gradient(180deg, #fff 0%, ${accentColor} 200%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                          {resultText}
-                        </span>
-                      </div>
-                      <div style={{ fontFamily:'Inter, sans-serif', fontSize:15, color:'rgba(242,242,242,0.6)', marginBottom:28 }}>
-                        {subText}
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.13, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    >
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:28 }}>
-                        {[
-                          { label:'Moves', value: moveCount },
-                          { label:'Reason', value: game?.result_reason || game?.result },
-                          { label:'Pieces lost', value: (() => {
-                            if (!game?.fen) return '?';
-                            const board = game.fen.split(' ')[0];
-                            const targetRegex = game?.player_color === 'b' ? /[QRBNP]/g : /[qrbnp]/g;
-                            return 15 - (board.match(targetRegex)||[]).length;
-                          })() },
-                        ].map((stat, i) => (
-                          <div key={i} style={{ background:'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius:12, padding:'12px 6px' }}>
-                            <div style={{ fontFamily:'JetBrains Mono, monospace', fontWeight:600, fontSize:16, color:'#f2f2f2', marginBottom: '2px' }}>{stat.value}</div>
-                            <div style={{ fontFamily:'Inter, sans-serif', fontSize:10, color:'rgba(242,242,242,0.4)', textTransform:'uppercase', letterSpacing:'0.05em' }}>{stat.label}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {lastThought && (
-                        <div style={{ fontStyle:'italic', fontSize:13, color:'rgba(242,242,242,0.6)', marginBottom:24,
-                          background:'rgba(255,255,255,0.02)', borderRadius:12, padding:'14px 16px',
-                          borderLeft:`3px solid ${accentColor}`, textAlign: 'left' }}>
-                          &quot;{lastThought}&quot;
-                          <div style={{ marginTop: '6px', fontSize: '11px', color: 'rgba(242,242,242,0.3)', fontStyle: 'normal', fontWeight: 600, textTransform: 'uppercase' }}>— {agentName}</div>
-                        </div>
-                      )}
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.21, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    >
-                      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                        <button onClick={handleShareResult} style={{
-                          background: `linear-gradient(180deg, ${accentColor}E6 0%, ${accentColor} 100%)`, 
-                          boxShadow: `0 4px 14px ${accentColor}40`,
-                          border:'none', borderRadius:12, color: isWin || isDraw ? '#111111' : '#fff', fontFamily:'Inter, sans-serif',
-                          fontWeight:700, fontSize:15, padding:'14px 20px', cursor:'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                          transition: 'transform 0.1s ease, box-shadow 0.1s ease'
-                        }} className="hover:scale-[1.02] active:scale-[0.98]">
-                          <Share size={18} /> Share Match Report
-                        </button>
-                        <div style={{ display:'flex', gap:10 }}>
-                          <button onClick={handleRematch} style={{
-                            flex:1, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
-                            borderRadius:12, color:'#f2f2f2', fontFamily:'Inter, sans-serif',
-                            fontWeight:600, fontSize:14, padding:'12px', cursor:'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                          }} className="hover:bg-white/10 transition-colors">
-                            <RefreshCw size={16} /> Rematch
-                          </button>
-                          <button onClick={() => navigate('/')} style={{
-                            flex:1, background:'transparent', border:'1px solid rgba(255,255,255,0.05)',
-                            borderRadius:12, color:'rgba(242,242,242,0.5)', fontFamily:'Inter, sans-serif',
-                            fontWeight:500, fontSize:14, padding:'12px', cursor:'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                          }} className="hover:text-white transition-colors">
-                            <Home size={16} /> Exit
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </div>
-                </div>
-              );
-            })()}
+      {showGameOverModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(8,8,8,0.92)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: closingGameOver ? 0 : 1, transition: 'opacity 300ms ease' }}>
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.03, background: 'repeating-conic-gradient(rgba(255,255,255,0.8) 0% 25%, transparent 0% 50%) 0 0 / 56px 56px', pointerEvents: 'none', zIndex: 0 }} />
+          
+          <div style={{ background: '#111111', border: '1px solid #222222', borderRadius: '20px', padding: '40px 32px', maxWidth: '400px', width: 'calc(100% - 48px)', textAlign: 'center', position: 'relative', zIndex: 1, transform: closingGameOver ? 'scale(0.92)' : 'scale(1)', transition: 'all 300ms ease-out' }}>
+            <button data-testid="close-game-over-modal" onClick={handleCloseGameOverModal} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-white transition-colors bg-white/5 rounded-full hover:bg-white/10">
+              <XIcon size={18} />
+            </button>
+            <div style={{ fontSize: '56px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }} className={game?.winner === (game?.player_color === 'w' ? 'black' : 'white') ? 'animate-pulse' : ''}>
+              {game?.winner === (game?.player_color === 'w' ? 'white' : 'black') ? <span style={{ color: '#739552' }}>♛</span> : game?.result === 'draw' ? '🤝' : <LobsterEmoji />}
+            </div>
+            <div className="font-sans text-3xl text-white mb-2 font-bold tracking-wide">
+              {game?.winner === (game?.player_color === 'w' ? 'white' : 'black') ? 'You Won!' : game?.result === 'draw' ? "Draw!" : `${agentName} Wins!`}
+            </div>
+              <div style={{ fontFamily: "'Inter', sans-serif", color: 'rgba(242,242,242,0.5)', fontSize: '14px', marginBottom: '24px' }}>
+                {game?.winner === (game?.player_color === 'w' ? 'white' : 'black') ? <>Well played. Your agent salutes you. <LobsterEmoji /></> :
+                 game?.result === 'draw' ? 'An equal battle. Honor to both sides.' :
+                 `${agentName} proved their worth today.`}
+              </div>
+              <div className="font-sans text-xs text-neutral-500 mb-8 pt-4" style={{ color: 'rgba(242,242,242,0.3)' }}>
+                {Math.floor((game.move_history || []).length / 2) + ((game.move_history || []).length % 2)} moves played
+              </div>
+              <div className="flex flex-col gap-3">
+                <button 
+                  data-testid="play-again-button"
+                  onClick={() => {
+                    setClosingGameOver(true);
+                    setTimeout(() => navigate('/'), 300);
+                  }}
+                  className="text-white font-semibold flex items-center justify-center py-3.5 rounded-xl w-full transition-all active:translate-y-[1px] active:scale-[0.98] design-btn-primary"
+                >
+                  Play Again
+                </button>
+                <button 
+                  data-testid="share-result-button"
+                  onClick={handleShareResult}
+                  className="bg-white/5 text-neutral-400 border border-white/10 font-semibold py-3.5 rounded-xl w-full transition-all hover:bg-white/10 hover:text-white active:translate-y-[1px] active:scale-[0.98]"
+                >
+                  Share Result
+                </button>
+              </div>
           </div>
         </div>
       )}
 
-      {/* SETTINGS MODAL */}
-      <AnimatePresence>
-      {showSettings && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowSettings(false)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <motion.div 
-            initial={{ scale: 0.95, opacity: 0, y: 10 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 10 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-lg bg-[#111111] border border-[#222] rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#222] bg-[#0a0a0a]">
-              <div className="flex items-center gap-3">
-                <Settings size={20} className="text-[#e63946]" />
-                <h2 className="text-lg font-bold text-white tracking-tight">Settings</h2>
+      {/* SETTINGS MODAL (Untouched) */}
+      <Modal open={showSettings} onClose={() => setShowSettings(false)} title="Settings" size="md">
+        <div className="space-y-8">
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-[var(--color-text-muted)] tracking-wider uppercase">Preferences</h3>
+            <div className="space-y-2">
+              <label className="text-sm text-[var(--color-text-secondary)]">Board Theme</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'green', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/green.png' },
+                  { id: 'brown', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/brown.png' },
+                  { id: 'blue', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/blue.png' },
+                  { id: 'red', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/red.png' },
+                  { id: 'icy_sea', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/icy_sea.png' },
+                  { id: 'tournament', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/tournament.png' }
+                ].map(theme => (
+                  <button
+                    data-testid={`theme-button-${theme.id}`}
+                    key={theme.id}
+                    onClick={() => {
+                      setBoardTheme(theme.id);
+                      localStorage.setItem('cwc_theme', theme.id);
+                      fetch('/api/actions', { 
+                        method: 'POST', 
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'x-agent-token': agentToken || ''
+                        }, 
+                        body: JSON.stringify({ gameId, action: 'set_board_theme', value: theme.id }) 
+                      }).catch(() => {});
+                    }}
+                    className={`relative aspect-square rounded-md overflow-hidden border-2 transition-all ${boardTheme === theme.id ? 'border-[var(--color-red-primary)]' : 'border-transparent hover:border-[var(--color-border-default)]'}`}
+                    title={theme.id}
+                  >
+                    <div className="absolute inset-0" style={{ backgroundImage: `url(${theme.url})`, backgroundSize: '100% 100%' }}>
+                    </div>
+                    {boardTheme === theme.id && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <Check size={16} className="text-white drop-shadow-md" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-[var(--color-text-secondary)]">Piece Style</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'neo', label: 'Neo', icon: <div style={{ width: 32, height: 32 }}><WN pieceStyle="neo" /></div> },
+                  { id: 'tournament', label: 'Tournament', icon: <div style={{ width: 32, height: 32 }}><WN pieceStyle="tournament" /></div> },
+                  { id: 'ocean', label: 'Ocean', icon: <div style={{ width: 32, height: 32 }}><WN pieceStyle="ocean" /></div> }
+                ].map(piece => (
+                  <button
+                    data-testid={`piece-button-${piece.id}`}
+                    key={piece.id}
+                    onClick={() => {
+                      setPieceTheme(piece.id);
+                      localStorage.setItem('cwc_pieces', piece.id);
+                      fetch('/api/actions', { 
+                        method: 'POST', 
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'x-agent-token': agentToken || ''
+                        }, 
+                        body: JSON.stringify({ gameId, action: 'set_piece_style', value: piece.id }) 
+                      }).catch(() => {});
+                    }}
+                    className={`flex items-center gap-3 p-3 rounded-md border transition-all ${pieceTheme === piece.id ? 'bg-[var(--color-red-primary)]/10 border-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-default)] hover:text-white'}`}
+                  >
+                    <div className="flex items-center justify-center w-8 h-8">{piece.icon}</div>
+                    <span className="text-sm font-medium">{piece.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Sound Effects</h3>
+                <p className="text-xs text-[var(--color-text-muted)]">Play sounds for moves and captures</p>
               </div>
               <button 
-                onClick={() => setShowSettings(false)} 
-                className="p-2 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                aria-label="Close"
+                data-testid="toggle-sound-button"
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                className={`p-2 rounded-md transition-colors ${soundEnabled ? 'bg-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]'}`}
               >
-                <XIcon size={18} />
+                {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
               </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-none">
-              {/* BOARD THEME */}
-              <div className="space-y-3">
-                <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest font-sans">Board Theme</div>
-                <div className="flex gap-3">
-                  {[
-                    { id: 'green', color: '#769656' },
-                    { id: 'brown', color: '#b58863' },
-                    { id: 'icy_sea', color: '#8ca2ac' },
-                    { id: 'blue', color: '#4b7399' },
-                    { id: 'red', color: '#b85b56' }
-                  ].map(theme => (
-                    <button
-                      data-testid={`theme-button-${theme.id}`}
-                      key={theme.id}
-                      onClick={() => {
-                        setBoardTheme(theme.id);
-                        localStorage.setItem('cwc_board_theme', theme.id);
-                        localStorage.setItem('cwc_theme', theme.id);
-                        setGame(prev => prev ? { ...prev, board_theme: theme.id } : prev);
-                        fetch('/api/actions', { 
-                          method: 'POST', 
-                          headers: { 
-                            'Content-Type': 'application/json',
-                            'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-                          }, 
-                          body: JSON.stringify({ gameId, action: 'set_board_theme', value: theme.id }) 
-                        }).catch(() => {});
-                      }}
-                      className={`w-10 h-10 rounded-xl flex-shrink-0 transition-all ${boardTheme === theme.id ? 'ring-2 ring-white ring-offset-2 ring-offset-[#111111] scale-110 shadow-lg' : 'hover:scale-105 hover:shadow-md'}`}
-                      style={{ backgroundColor: theme.color }}
-                      title={theme.id}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* PIECE STYLE */}
-              <div className="space-y-3 pt-6 border-t border-[#222]">
-                <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest font-sans">Piece Style</div>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { id: 'neo', label: 'Neo', icon: <Pieces.wN pieceStyle="neo" /> },
-                    { id: 'neo_wood', label: 'Wood', icon: <Pieces.wN pieceStyle="neo_wood" /> },
-                    { id: 'ocean', label: 'Ocean', icon: <Pieces.wN pieceStyle="ocean" /> }
-                  ].map(piece => (
-                    <button
-                      data-testid={`piece-button-${piece.id}`}
-                      key={piece.id}
-                      onClick={() => {
-                        setPieceStyle(piece.id);
-                        localStorage.setItem('cwc_piece_style', piece.id);
-                        setGame(prev => prev ? { ...prev, piece_style: piece.id } : prev);
-                        fetch('/api/actions', { 
-                          method: 'POST', 
-                          headers: { 
-                            'Content-Type': 'application/json',
-                            'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-                          }, 
-                          body: JSON.stringify({ gameId, action: 'set_piece_style', value: piece.id }) 
-                        }).catch(() => {});
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${pieceStyle === piece.id ? 'border-[#e63946] bg-[#e63946]/10 text-white' : 'border-[#222] bg-[#111111] text-white/50 hover:border-white/20 hover:text-white'}`}
-                    >
-                      <div className="w-8 h-8 mb-2">{piece.icon}</div>
-                      <span className="text-xs font-semibold">{piece.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* SOUND & AUDIO */}
-              <div className="space-y-3 pt-6 border-t border-[#222]">
-                <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest font-sans">Audio</div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-[#111111] border border-[#222]">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${soundEnabled ? 'bg-[#e63946]/10 text-[#e63946]' : 'bg-black/50 text-white/40'}`}>
-                        {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-                      </div>
-                      <span className="text-sm font-medium text-white/80">Sound Effects</span>
-                    </div>
-                    <button
-                      onClick={() => setSoundEnabled(!soundEnabled)}
-                      className={`w-11 h-6 rounded-full relative transition-colors ${soundEnabled ? 'bg-[#e63946]' : 'bg-[#333]'}`}
-                    >
-                      <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${soundEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-[#111111] border border-[#222]">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${bgmEnabled ? 'bg-[#e63946]/10 text-[#e63946]' : 'bg-black/50 text-white/40'}`}>
-                        {bgmEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-                      </div>
-                      <span className="text-sm font-medium text-white/80">Background Music</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const next = !bgmEnabled;
-                        setBgmEnabled(next);
-                        localStorage.setItem('cwc_bgm', String(next));
-                      }}
-                      className={`w-11 h-6 rounded-full relative transition-colors ${bgmEnabled ? 'bg-[#e63946]' : 'bg-[#333]'}`}
-                    >
-                      <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${bgmEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* THOUGHTS LANGUAGE */}
-              <div className="space-y-3 pt-6 border-t border-[#222]">
-                <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest font-sans">Agent Thoughts Language</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { value: 'english', label: 'English' },
-                    { value: 'hindi', label: 'Hindi' },
-                    { value: 'hinglish', label: 'Hinglish' },
-                    { value: 'simple_english', label: 'Simple' }
-                  ].map(lang => (
-                    <button
-                      key={lang.value}
-                      onClick={() => {
-                        setThoughtVisible(false);
-                        setThoughtText('');
-                        setPreviousThoughtText('');
-                        if (thoughtTimerRef.current) clearTimeout(thoughtTimerRef.current);
-                        setThoughtLanguage(lang.value);
-                        setGame(prev => prev ? { ...prev, thought_language: lang.value } : prev);
-                        localStorage.setItem('cwc_thought_language', lang.value);
-                        try {
-                          fetch('/api/actions', {
-                            method: 'POST',
-                            headers: { 
-                              'Content-Type': 'application/json',
-                              'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-                            },
-                            body: JSON.stringify({ gameId, action: 'set_thought_language', value: lang.value })
-                          });
-                        } catch (e) {}
-                      }}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${thoughtLanguage === lang.value ? 'bg-[#e63946] text-white shadow-md shadow-red-500/20' : 'bg-[#111111] text-white/50 border border-[#222] hover:bg-[#222] hover:text-white'}`}
-                    >
-                      {lang.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* GAME INFO */}
-              <div className="space-y-3 pt-6 border-t border-[#222]">
-                <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest font-sans">Game Identity</div>
-                <div className="flex items-center justify-between bg-[#111111] border border-[#222] rounded-xl p-3">
-                  <code className="text-xs text-white/60 font-mono select-all">
-                    {gameId}
-                  </code>
+            <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
+              <label className="text-sm text-[var(--color-text-secondary)]">Agent Thoughts Language</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'english', label: 'English' },
+                  { value: 'hindi', label: 'Hindi' },
+                  { value: 'hinglish', label: 'Hinglish' },
+                  { value: 'simple_english', label: 'Simple English' }
+                ].map(lang => (
                   <button
-                    onClick={(e) => {
-                      navigator.clipboard.writeText(gameId);
-                      const btn = e.currentTarget;
-                      const oldText = btn.innerText;
-                      btn.innerText = 'Copied!';
-                      setTimeout(() => { btn.innerText = oldText; }, 2000);
+                    key={lang.value}
+                    onClick={async () => {
+                      setThoughtLanguage(lang.value);
+                      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { thought_language: lang.value }, gameId}) });
                     }}
-                    className="text-xs font-bold text-[#e63946] hover:text-[#f74554] transition-colors ml-4"
+                    className={`flex items-center justify-center p-2 rounded-md border text-sm transition-all ${thoughtLanguage === lang.value ? 'bg-[var(--color-red-primary)]/10 border-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-default)] hover:text-white'}`}
                   >
-                    Copy
+                    {lang.label}
                   </button>
-                </div>
-              </div>
-
-              {/* GAME CONTROLS */}
-              <div className="space-y-3 pt-6 border-t border-[#222] pb-4">
-                <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest font-sans">Match Controls</div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    data-testid="draw-button"
-                    onClick={() => {
-                      if (drawOfferPending || game?.status !== 'active') return;
-                      toast('Offer a draw?', {
-                        action: {
-                          label: 'Offer',
-                          onClick: async () => {
-                            setDrawOfferPending(true);
-                            setDrawDeclined(false);
-                            try {
-                              await fetch('/api/actions', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'x-game-token': localStorage.getItem(`game_owner_${gameId}`) || ''
-                                },
-                                body: JSON.stringify({ gameId, action: 'offer_draw', role: 'human' })
-                              });
-                            } catch(e) {
-                              setDrawOfferPending(false);
-                            }
-                          }
-                        },
-                        cancel: {
-                          label: 'Cancel'
-                        },
-                        style: { background: '#111111', border: '1px solid #333', color: '#f2f2f2' }
-                      });
-                    }}
-                    disabled={drawOfferPending || game?.status === 'finished' || game?.status === 'abandoned' || isSpectator}
-                    className={`py-3 rounded-xl text-sm font-bold transition-all border ${confirmDraw ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-[#111111] border-[#222] text-white/60'} ${(game?.status === 'finished' || game?.status === 'abandoned' || isSpectator) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#222] hover:text-white'}`}
-                  >
-                    {drawOfferPending
-                      ? <span className="text-xs text-white/50">Waiting...</span>
-                      : drawDeclined
-                      ? <span className="text-xs text-[#e63946]">Declined ✕</span>
-                      : 'Offer Draw'}
-                  </button>
-                  <button 
-                    data-testid="resign-button"
-                    onClick={handleResign}
-                    disabled={game?.status === 'finished' || game?.status === 'abandoned'}
-                    className={`py-3 rounded-xl text-sm font-bold transition-all border ${confirmResign ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-[#111111] border-[#222] text-white/60'} ${(game?.status === 'finished' || game?.status === 'abandoned') ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#222] hover:text-white'}`}
-                  >
-                    {confirmResign ? 'Confirm Resign?' : 'Resign Match'}
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
-          </motion.div>
+          </div>
+          <Divider />
+          <div>
+            <label>Game ID</label>
+            <code style={{fontSize:11,color:'#888'}}>{gameId}</code>
+          </div>
+          <Divider />
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-[var(--color-text-muted)] tracking-wider uppercase">Game Controls</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                data-testid="draw-button"
+                onClick={handleDraw}
+                disabled={game?.status === 'finished' || game?.status === 'abandoned'}
+                variant="secondary"
+                className={confirmDraw ? 'bg-yellow-600/20 text-yellow-500 border-yellow-600/50 hover:bg-yellow-600/30' : ''}
+              >
+                {confirmDraw ? 'Confirm Draw?' : 'Offer Draw'}
+              </Button>
+              <Button 
+                data-testid="resign-button"
+                onClick={handleResign}
+                disabled={game?.status === 'finished' || game?.status === 'abandoned'}
+                variant="danger"
+                className={confirmResign ? 'animate-pulse' : ''}
+                leftIcon={!confirmResign && <Flag size={16} />}
+              >
+                {confirmResign ? 'Confirm Resign?' : 'Resign'}
+              </Button>
+            </div>
+          </div>
         </div>
-      )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-      {showLeaveWarning && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowLeaveWarning(false); }}
-          style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(5,5,5,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeIn' }}
-            style={{ background: '#111111', border: '1px solid #222', borderRadius: 16, padding: 28, maxWidth: 340, width: '100%' }}
-          >
-            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 17, color: '#f2f2f2', marginBottom: 8 }}>
-              Leave this game?
-            </div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, color: 'rgba(242,242,242,0.55)', lineHeight: 1.5, marginBottom: 22 }}>
-              Your game with {game?.agent_name || 'Your Agent'} is still active. Leaving now won&apos;t end it, but you&apos;ll need this game&apos;s link to come back.
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setShowLeaveWarning(false)}
-                style={{ flex: 1, height: 44, background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(242,242,242,0.7)', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-              >
-                Stay
-              </button>
-              <button
-                onClick={() => navigate('/')}
-                style={{ flex: 1, height: 44, background: '#e63946', border: 'none', borderRadius: 10, color: '#f2f2f2', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-              >
-                Leave
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-      </AnimatePresence>
+      </Modal>
 
       <style dangerouslySetInnerHTML={{__html: `
         @import url('https://fonts.googleapis.com/css2?family=family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -4338,45 +2617,33 @@ export default function Game() {
           100% { background-color: rgba(255, 255, 255, 0); }
         }
         @keyframes pieceLift {
-          0% { transform: scale(1) translateY(0); }
-          100% { transform: scale(1.15) translateY(-4px); }
+          0% { transform: scale(1) translateY(0); filter: none; }
+          100% { transform: scale(1.15) translateY(-4px); filter: none; }
         }
-        
         @keyframes pieceDrop {
           0% { transform: scale(1.15) translateY(-4px); }
           100% { transform: scale(1) translateY(0); }
         }
-        @-webkit-keyframes pieceDrop {
-          0% { -webkit-transform: scale(1.15) translateY(-4px); }
-          100% { -webkit-transform: scale(1) translateY(0); }
-        }
         @keyframes pieceCapture {
           0% { transform: scale(1); opacity: 1; }
           100% { transform: scale(0.5); opacity: 0; }
-        }
-        @-webkit-keyframes pieceCapture {
-          0% { -webkit-transform: scale(1); opacity: 1; }
-          100% { -webkit-transform: scale(0.5); opacity: 0; }
         }
         @keyframes boardShake {
           0%, 100% { transform: translateX(0); }
           20%, 60% { transform: translateX(-4px); }
           40%, 80% { transform: translateX(4px); }
         }
-        @-webkit-keyframes boardShake {
-          0%, 100% { -webkit-transform: translateX(0); }
-          20%, 60% { -webkit-transform: translateX(-4px); }
-          40%, 80% { -webkit-transform: translateX(4px); }
+        @keyframes agentMoveFlash {
+          0% { background-color: rgba(230, 57, 70, 0.6); }
+          100% { background-color: rgba(255, 213, 79, 0.3); }
+        }
+        @keyframes pieceEntrance {
+          0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
         }
         @keyframes boardThinkingGlow {
-          0%, 100% { box-shadow: 0 0 0 1px #111111, 0 4px 24px rgba(0,0,0,0.8); }
-          50% { box-shadow: 0 0 0 1px rgba(230,57,70,0.5), 0 4px 24px rgba(230,57,70,0.2), 0 0 12px rgba(230,57,70,0.1); border-color: rgba(230,57,70,0.5); }
-        }
-        @-webkit-keyframes boardThinkingGlow {
-          0%, 100% { box-shadow: 0 0 0 1px #111111, 0 4px 24px rgba(0,0,0,0.8); }
-          50% { box-shadow: 0 0 0 1px rgba(230,57,70,0.5), 0 4px 24px rgba(230,57,70,0.2), 0 0 12px rgba(230,57,70,0.1); border-color: rgba(230,57,70,0.5); }
-        }
-
+          0%, 100% { box-shadow: 0 0 0 1px #0f0f0f, 0 4px 24px rgba(0,0,0,0.8); }
+          50% { box-shadow: 0 0 0 1px #0f0f0f, 0 4px 24px rgba(230,57,70,0.2), 0 0 12px rgba(230,57,70,0.1); }
         }
         @keyframes checkPulse {
           0%, 100% { opacity: 0.7; }
@@ -4385,48 +2652,31 @@ export default function Game() {
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
         input::placeholder { color: #888; }
       `}} />
-
-      {/* CHAT ACTION SHEET (Telegram style) */}
-      {actionSheetMsg && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:9999, display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
-          <div style={{flex:1}} onTouchStart={() => setActionSheetMsg(null)} onClick={() => setActionSheetMsg(null)} />
-          <div style={{
-            background:'#111111', borderRadius:'16px 16px 0 0', padding:'16px',
-            animation:'pickerIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)', borderTop:'1px solid rgba(255,255,255,0.05)'
-          }}>
-            <div style={{display:'flex', gap:10, overflowX:'auto', paddingBottom:16, borderBottom:'1px solid rgba(255,255,255,0.05)', marginBottom:8}} className="scrollbar-none">
-              {REACTION_ICONS.map(({ id, icon }) => (
-                <button key={id} onClick={() => { sendReaction(actionSheetMsg.id, id); setActionSheetMsg(null); }}
-                  style={{background:'rgba(255,255,255,0.05)', color: '#f2f2f2', border:'none', borderRadius:'50%', minWidth:44, height:44, display:'flex', alignItems:'center', justifyContent:'center'}}>
-                  {id === '❤️' ? renderReactionIcon(id, Array.isArray(actionSheetMsg.reactions?.[id]) && actionSheetMsg.reactions[id].includes('human')) : React.cloneElement(icon, { size: 20 })}
-                </button>
-              ))}
+      {/* LEAVE WARNING MODAL */}
+      {showLeaveWarning && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#111111', border: '1px solid #222222', borderRadius: '16px', padding: '32px 24px', maxWidth: '320px', width: '100%', textAlign: 'center' }}>
+            <h2 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, color: '#f2f2f2', margin: '0 0 12px 0', fontSize: '20px' }}>Leave the game?</h2>
+            <p style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400, color: '#555555', fontSize: '14px', margin: '0 0 24px 0', lineHeight: 1.4 }}>
+              Your agent is still waiting. The game will continue where you left off.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button 
+                onClick={() => setShowLeaveWarning(false)} 
+                className="design-btn-primary" 
+                style={{ padding: '12px', borderRadius: '8px', fontWeight: 600, fontSize: '14px' }}
+              >
+                Stay
+              </button>
+              <button 
+                onClick={() => navigate('/')} 
+                style={{ padding: '12px', borderRadius: '8px', fontWeight: 600, fontSize: '14px', background: 'transparent', color: '#888', border: 'none' }}
+                className="hover:bg-white/5 active:translate-y-[1px] active:scale-[0.98] transition-all"
+              >
+                Leave
+              </button>
             </div>
-            {[
-              { label:'Reply', icon:<Send size={16}/>, action:() => handleReplyToMessage(actionSheetMsg) },
-              { label:'Copy', icon:<Copy size={16}/>, action:() => handleCopyMessage(actionSheetMsg) },
-              { label:'Select', icon:<Check size={16}/>, action:() => handleEnterSelectMode(actionSheetMsg) }
-            ].map((item, idx) => (
-              <div key={idx} onClick={() => { item.action(); setActionSheetMsg(null); }}
-                style={{display:'flex', alignItems:'center', gap:12, padding:'12px 8px', color:'#f2f2f2', fontSize:15, cursor:'pointer'}}>
-                {item.icon} {item.label}
-              </div>
-            ))}
           </div>
-        </div>
-      )}
-
-      {/* SELECT MODE BAR */}
-      {selectMode && (
-        <div style={{ position:'fixed', bottom:0, insetX:0, background:'#111111', padding:'16px 20px', paddingBottom:'calc(16px + env(safe-area-inset-bottom))', zIndex:9998, display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-          <button onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} style={{background:'transparent', border:'none', color:'#e63946', fontSize:15, fontWeight:600}}>Cancel</button>
-          <span style={{color:'#f2f2f2', fontSize:14}}>{selectedIds.size} Selected</span>
-          <button onClick={() => {
-            const texts = normalizedMessages.filter(m => selectedIds.has(m.id)).map(m => m.message || m.text).join('\n\n');
-            navigator.clipboard?.writeText(texts);
-            setSelectMode(false);
-            setSelectedIds(new Set());
-          }} style={{background:'transparent', border:'none', color:'#888', cursor:'pointer'}}><Copy size={20}/></button>
         </div>
       )}
     </div>

@@ -680,7 +680,7 @@ export default function Home() {
               </div>
             </div>
             <p style={{ fontSize: '13px', color: 'rgba(242,242,242,0.45)', fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.5 }}>
-              Create match, send the invite message to your agent, that's it.
+              Create match, send the invite message to your agent, that&apos;s it.
             </p>
           </div>
         </div>
