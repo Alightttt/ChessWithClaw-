@@ -34,6 +34,37 @@ function pieceImgUrl(letter, isWhite, style) {
   return `https://images.chesscomfiles.com/chess-themes/pieces/${s}/150/${code}.png`;
 }
 
+const CloudBubble = ({ children, isPrevious }) => (
+  <div style={{
+    position: 'relative',
+    background: '#f2f2f2',
+    color: '#1a1a1a',
+    borderRadius: '24px',
+    padding: '12px 18px',
+    fontSize: '13px',
+    fontFamily: 'Inter, sans-serif',
+    alignSelf: 'flex-start',
+    wordBreak: 'break-word',
+    marginTop: isPrevious ? '0' : '10px',
+    zIndex: 0,
+    opacity: isPrevious ? 0.6 : 1
+  }}>
+    <div style={{ position: 'absolute', top: '-8px', left: '15px', width: '25px', height: '25px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-12px', left: '35px', width: '35px', height: '35px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-6px', right: '20px', width: '20px', height: '20px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-8px', left: '25px', width: '30px', height: '30px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-6px', right: '25px', width: '20px', height: '20px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
+    
+    {!isPrevious && (
+      <>
+        <div style={{ position: 'absolute', left: '-10px', bottom: '8px', width: '10px', height: '10px', background: '#f2f2f2', borderRadius: '50%', zIndex: 1 }} />
+        <div style={{ position: 'absolute', left: '-20px', bottom: '0px', width: '6px', height: '6px', background: '#f2f2f2', borderRadius: '50%', zIndex: 1 }} />
+      </>
+    )}
+    <div style={{ position: 'relative', zIndex: 2 }}>{children}</div>
+  </div>
+);
+
 export default function Game() {
   const { id: gameId } = useParams();
   const agentToken = null;
@@ -699,15 +730,16 @@ export default function Game() {
         await supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
-      if (!gameId || !agentToken) {
+      if (!gameId) {
         setNotFound(true);
         setLoading(false);
         return;
       }
       try {
-        const res = await fetch(`/api/state?id=${gameId}`, {
-          headers: { 'x-agent-token': agentToken }
-        });
+        const headers = {};
+        if (agentToken) headers['x-agent-token'] = agentToken;
+
+        const res = await fetch(`/api/state?id=${gameId}`, { headers });
         if (res.ok) {
           const data = await res.json();
           prevFenRef.current = data.fen;
@@ -834,11 +866,6 @@ export default function Game() {
     if (boardLocked || submittingRef.current) return;
     
     const agentName = game?.agent_name || 'Your Agent';
-    
-    if (!agentToken) {
-      toast.error('You are not the creator of this game.');
-      return;
-    }
 
     submittingRef.current = true;
     setBoardLocked(true);
@@ -1495,15 +1522,11 @@ export default function Game() {
   return (
     <div 
       ref={containerRef}
-      className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border scrollbar-none`}
+      className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border scrollbar-none bg-[#0a0a0a]`}
       style={{
         height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
-        background: isOpenClawTurn
-          ? 'radial-gradient(ellipse at 50% 0%, rgba(230,57,70,0.07) 0%, transparent 70%)'
-          : 'transparent',
-        transition: 'background 0.8s ease',
         position: 'relative'
       }}
     >
@@ -1741,46 +1764,14 @@ export default function Game() {
               {/* Right Column: Thoughts */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
                 {previousThoughtText && (
-                  <div style={{
-                    background: '#f2f2f2',
-                    color: '#1a1a1a',
-                    borderRadius: '16px',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    fontFamily: 'Inter, sans-serif',
-                    opacity: 0.55,
-                    alignSelf: 'flex-start',
-                    wordBreak: 'break-word'
-                  }}>
+                  <CloudBubble isPrevious={true}>
                     {previousThoughtText}
-                  </div>
+                  </CloudBubble>
                 )}
                 {thoughtText && thoughtVisible && (
-                  <div style={{
-                    background: '#f2f2f2',
-                    color: '#1a1a1a',
-                    borderRadius: '16px',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    fontFamily: 'Inter, sans-serif',
-                    position: 'relative',
-                    alignSelf: 'flex-start',
-                    wordBreak: 'break-word',
-                    zIndex: 0
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      left: '-4px',
-                      top: '14px',
-                      width: '10px',
-                      height: '10px',
-                      background: '#f2f2f2',
-                      transform: 'rotate(45deg)',
-                      borderRadius: '2px',
-                      zIndex: -1
-                    }} />
+                  <CloudBubble isPrevious={false}>
                     {thoughtText}
-                  </div>
+                  </CloudBubble>
                 )}
               </div>
             </>
@@ -1804,7 +1795,7 @@ export default function Game() {
               ⚠️ Check!
             </div>
           )}
-          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: isOpenClawTurn ? '0 0 40px rgba(230,57,70,0.12), 0 0 80px rgba(230,57,70,0.06)' : '0 2px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
+          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
           <ChessBoard 
             fen={optimisticFen || game.fen} 
             showCoordinates={false}
@@ -2127,46 +2118,14 @@ export default function Game() {
               {/* Right Column: Thoughts */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
                 {previousThoughtText && (
-                  <div style={{
-                    background: '#f2f2f2',
-                    color: '#1a1a1a',
-                    borderRadius: '16px',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    fontFamily: 'Inter, sans-serif',
-                    opacity: 0.55,
-                    alignSelf: 'flex-start',
-                    wordBreak: 'break-word'
-                  }}>
+                  <CloudBubble isPrevious={true}>
                     {previousThoughtText}
-                  </div>
+                  </CloudBubble>
                 )}
                 {thoughtText && thoughtVisible && (
-                  <div style={{
-                    background: '#f2f2f2',
-                    color: '#1a1a1a',
-                    borderRadius: '16px',
-                    padding: '10px 14px',
-                    fontSize: '13px',
-                    fontFamily: 'Inter, sans-serif',
-                    position: 'relative',
-                    alignSelf: 'flex-start',
-                    wordBreak: 'break-word',
-                    zIndex: 0
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      left: '-4px',
-                      top: '14px',
-                      width: '10px',
-                      height: '10px',
-                      background: '#f2f2f2',
-                      transform: 'rotate(45deg)',
-                      borderRadius: '2px',
-                      zIndex: -1
-                    }} />
+                  <CloudBubble isPrevious={false}>
                     {thoughtText}
-                  </div>
+                  </CloudBubble>
                 )}
               </div>
             </>
@@ -2189,7 +2148,7 @@ export default function Game() {
               ⚠️ Check!
             </div>
           )}
-          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: isOpenClawTurn ? '0 0 40px rgba(230,57,70,0.12), 0 0 80px rgba(230,57,70,0.06)' : '0 2px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
+          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
           <ChessBoard 
             fen={optimisticFen || game.fen} 
             showCoordinates={false}
