@@ -1,5 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
+const webpush = require('web-push');
+
 function sanitizeText(input, maxLength = 500) {
   if (typeof input !== 'string') return ''
   return input
@@ -528,6 +530,36 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify(webhookPayload),
       signal: AbortSignal.timeout(5000)
     }).catch(() => {});
+  }
+
+  if (isAgentMove) {
+    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      try {
+        webpush.setVapidDetails(
+          'mailto:hello@example.com',
+          process.env.VAPID_PUBLIC_KEY,
+          process.env.VAPID_PRIVATE_KEY
+        );
+        const { data: subs } = await supabase.from('push_subscriptions').select('*');
+        if (subs && subs.length > 0) {
+          const gameSubs = subs.filter(sub => sub.subscription && sub.subscription.gameId === targetGameId);
+          for (const sub of gameSubs) {
+            const payload = JSON.stringify({
+              title: agentName || game.agent_name || 'Your Agent',
+              body: companionThought ? `"${companionThought}"` : `Played ${moveObj.san}`,
+              url: `/game/${targetGameId}`
+            });
+            await webpush.sendNotification(sub.subscription, payload).catch(e => {
+              if (e.statusCode === 410 || e.statusCode === 404) {
+                supabase.from('push_subscriptions').delete().eq('id', sub.id).then();
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Webpush error:", err);
+      }
+    }
   }
 
   return res.json({

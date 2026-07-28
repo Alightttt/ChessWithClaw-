@@ -21,9 +21,15 @@ export default function PushNotificationManager() {
   const [timePassed, setTimePassed] = useState(false);
   const location = useLocation();
 
+  const [gameId, setGameId] = useState(null);
+
   useEffect(() => {
     if (location.pathname.startsWith('/game/')) {
       setVisitedGame(true);
+      const parts = location.pathname.split('/');
+      if (parts[2]) {
+        setGameId(parts[2]);
+      }
     }
   }, [location.pathname]);
 
@@ -46,6 +52,13 @@ export default function PushNotificationManager() {
           registration.pushManager.getSubscription().then((subscription) => {
             if (!subscription) {
               subscribeUser(registration);
+            } else if (gameId) {
+              // Send the existing subscription to the backend for the new gameId
+              fetch('/api/actions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_push_subscription', subscription, gameId })
+              }).catch(console.error);
             }
           });
         }
@@ -90,7 +103,7 @@ export default function PushNotificationManager() {
       await fetch('/api/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save_push_subscription', subscription })
+        body: JSON.stringify({ action: 'save_push_subscription', subscription, gameId })
       });
       console.log('User is subscribed to push notifications.');
     } catch (err) {

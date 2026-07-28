@@ -34,36 +34,48 @@ function pieceImgUrl(letter, isWhite, style) {
   return `https://images.chesscomfiles.com/chess-themes/pieces/${s}/150/${code}.png`;
 }
 
-const CloudBubble = ({ children, isPrevious }) => (
+const CloudBubble = ({ children, isPrevious, isHuman }) => {
+  const bg = isHuman ? '#e63946' : '#f2f2f2';
+  return (
   <div style={{
     position: 'relative',
-    background: '#f2f2f2',
-    color: '#1a1a1a',
+    background: bg,
+    color: isHuman ? 'white' : '#1a1a1a',
     borderRadius: '24px',
     padding: '12px 18px',
     fontSize: '13px',
     fontFamily: 'Inter, sans-serif',
-    alignSelf: 'flex-start',
+    alignSelf: isHuman ? 'flex-end' : 'flex-start',
     wordBreak: 'break-word',
     marginTop: isPrevious ? '0' : '10px',
     zIndex: 0,
     opacity: isPrevious ? 0.6 : 1
   }}>
-    <div style={{ position: 'absolute', top: '-8px', left: '15px', width: '25px', height: '25px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', top: '-12px', left: '35px', width: '35px', height: '35px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', top: '-6px', right: '20px', width: '20px', height: '20px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', bottom: '-8px', left: '25px', width: '30px', height: '30px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', bottom: '-6px', right: '25px', width: '20px', height: '20px', background: '#f2f2f2', borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-8px', left: '15px', width: '25px', height: '25px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-12px', left: '35px', width: '35px', height: '35px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-6px', right: '20px', width: '20px', height: '20px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-8px', left: '25px', width: '30px', height: '30px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-6px', right: '25px', width: '20px', height: '20px', background: bg, borderRadius: '50%', zIndex: -1 }} />
     
     {!isPrevious && (
       <>
-        <div style={{ position: 'absolute', left: '-10px', bottom: '8px', width: '10px', height: '10px', background: '#f2f2f2', borderRadius: '50%', zIndex: 1 }} />
-        <div style={{ position: 'absolute', left: '-20px', bottom: '0px', width: '6px', height: '6px', background: '#f2f2f2', borderRadius: '50%', zIndex: 1 }} />
+        {isHuman ? (
+          <>
+            <div style={{ position: 'absolute', right: '-10px', bottom: '8px', width: '10px', height: '10px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', right: '-20px', bottom: '0px', width: '6px', height: '6px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+          </>
+        ) : (
+          <>
+            <div style={{ position: 'absolute', left: '-10px', bottom: '8px', width: '10px', height: '10px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', left: '-20px', bottom: '0px', width: '6px', height: '6px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+          </>
+        )}
       </>
     )}
     <div style={{ position: 'relative', zIndex: 2 }}>{children}</div>
   </div>
-);
+  );
+};
 
 const CapturedPiecesRow = ({ byWhite, byBlack, pieceTheme, humanColor }) => {
   const getMaterialAdvantage = (w, b) => {
@@ -501,6 +513,7 @@ export default function Game() {
 
   const boardRef = useRef(null);
   const chatMessagesRef = useRef(null);
+  const moveHistoryScrollRef = useRef(null);
 
   const channelRef = useRef(null);
   const containerRef = useRef(null);
@@ -569,9 +582,24 @@ export default function Game() {
   }, [game?.companion_thought]);
 
   // Auto-scroll chat
+  
+  // Auto-scroll Move History
   useEffect(() => {
-    if (chatMessagesRef.current) {
-      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    const el = moveHistoryScrollRef.current;
+    if (el) {
+      const isScrolledUp = el.scrollHeight - el.clientHeight - el.scrollTop > 50;
+      if (!isScrolledUp) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+  }, [game?.move_history, moveHistoryOpen]);
+  useEffect(() => {
+    const el = chatMessagesRef.current;
+    if (el) {
+      const isScrolledUp = el.scrollHeight - el.clientHeight - el.scrollTop > 50;
+      if (!isScrolledUp) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [normalizedMessages]);
 
@@ -1360,38 +1388,23 @@ export default function Game() {
           const isNew = index >= seenMsgCountRef.current;
           const prevMsg = msgs[index - 1];
           const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role;
+          const isHuman = !isAgent;
 
-          if (msg.type === 'resign_request') {
+          if (msg.type === 'resign_request' || msg.type === 'draw_offer') {
             return (
-              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#161616', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
+              <div key={msg.id} style={{ alignSelf: 'center', background: '#1a1a1a', border: '1px solid #2a2a2a', color: 'white', borderRadius: '12px', padding: '12px', margin: '8px 0', width: '100%', fontFamily: "'Inter', sans-serif", fontSize: '13px', textAlign: 'center' }}>
                 {msg.text || msg.message || msg.content}
-                {game.status === 'active' && (
-                  <button data-testid="accept-resignation-button" onClick={acceptAgentResignation} className="block w-full mt-2 text-white border-none rounded py-2 font-sans text-xs font-bold cursor-pointer active:translate-y-[1px] active:scale-[0.98] transition-all design-btn-primary">Accept Resignation</button>
+                {game?.status === 'active' && msg.type === 'resign_request' && (
+                  <button onClick={acceptAgentResignation} className="block w-full mt-3 text-white bg-[#e63946] rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Resignation</button>
                 )}
-              </div>
-            );
-          }
-          if (msg.type === 'draw_offer') {
-            return (
-              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#161616', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
-                {msg.text || msg.message || msg.content}
-                {game.status === 'active' && (
-                  <button data-testid="accept-draw-button" onClick={async () => {
+                {game?.status === 'active' && msg.type === 'draw_offer' && (
+                  <button onClick={async () => {
                     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
-                  }} className="block w-full mt-2 text-white border-none rounded py-2 font-sans text-xs font-bold cursor-pointer active:translate-y-[1px] active:scale-[0.98] transition-all design-btn-success">Accept Draw</button>
+                  }} className="block w-full mt-3 text-white bg-green-600 rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Draw</button>
                 )}
               </div>
             );
           }
-        
-          // Get human's reaction to this message (if any)
-          const myReaction = Object.entries(msg.reactions || {}).find(
-            ([emoji, reactors]) => reactors && reactors.includes('human')
-          );
-          // Get agent's reaction to this message (if any)
-          const agentReaction = Object.entries(msg.reactions || {}).find(
-            ([emoji, reactors]) => reactors && reactors.includes('agent')
-          );
         
           return (
             <div
@@ -1400,206 +1413,17 @@ export default function Game() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: isAgent ? 'flex-start' : 'flex-end',
-                marginBottom: '2px',
-                paddingBottom: (myReaction || agentReaction) ? '18px' : '4px',
+                marginBottom: '4px',
                 position: 'relative',
-                animation: isNew ? 'msgIn 0.2s ease-out' : 'none',
-                willChange: 'transform, opacity'
+                animation: isNew ? 'msgSlide 0.2s ease-out' : 'none'
               }}
             >
-              {/* Agent name above first bubble in group */}
-              {isAgent && isFirstInGroup && (
-                <span style={{
-                  fontSize: '11px',
-                  color: 'rgba(242,242,242,0.35)',
-                  marginBottom: '3px',
-                  marginLeft: '4px',
-                  fontFamily: 'Inter, sans-serif'
-                }}>
-                  {agentName}
-                </span>
-              )}
-        
-              {/* Message bubble */}
-              <div
-                onTouchStart={() => handleMsgTouchStart(msg.id)}
-                onTouchEnd={handleMsgTouchEnd}
-                onTouchMove={handleMsgTouchMove}
-                onContextMenu={(e) => {
-                  if (isAgent) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Desktop: right-click shows picker
-                    setActivePickerMsgId(msg.id);
-                  }
-                }}
-                style={{
-                  background: isAgent ? '#1e1e1e' : '#e63946',
-                  color: '#f2f2f2',
-                  borderRadius: isAgent
-                    ? '18px 18px 18px 4px'
-                    : '18px 18px 4px 18px',
-                  padding: '10px 14px',
-                  fontSize: '14px',
-                  lineHeight: '1.5',
-                  fontFamily: 'Inter, sans-serif',
-                  border: isAgent ? '1px solid #2a2a2a' : 'none',
-                  maxWidth: '78%',
-                  wordBreak: 'break-word',
-                  position: 'relative',
-                  cursor: isAgent ? 'pointer' : 'default',
-                  userSelect: 'text',
-                  WebkitUserSelect: 'text'
-                }}
-              >
-                {msg.message || msg.text || msg.content || ''}
-              </div>
-        
-              {/* Instagram-style reaction below bubble */}
-              {(myReaction || agentReaction) && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '2px',
-                  [isAgent ? 'left' : 'right']: '8px',
-                  display: 'flex',
-                  gap: '2px'
-                }}>
-                  {myReaction && (
-                    <span
-                      style={{
-                        fontSize: '14px',
-                        background: '#1e1e1e',
-                        border: '1px solid #2a2a2a',
-                        borderRadius: '100px',
-                        padding: '1px 6px',
-                        animation: 'reactionPop 0.3s ease-out',
-                        willChange: 'transform, opacity',
-                        cursor: 'pointer'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        sendReaction(msg.id, myReaction[0]);
-                      }}
-                    >
-                      {myReaction[0]}
-                    </span>
-                  )}
-                  {agentReaction && agentReaction[0] !== myReaction?.[0] && (
-                    <span style={{
-                      fontSize: '14px',
-                      background: '#1e1e1e',
-                      border: '1px solid #2a2a2a',
-                      borderRadius: '100px',
-                      padding: '1px 6px'
-                    }}>
-                      {agentReaction[0]}
-                    </span>
-                  )}
-                </div>
-              )}
-        
-              {/* Full reaction picker (long press / desktop right click) */}
-              {isAgent && activePickerMsgId === msg.id && (
-                <div
-                  style={{
-                    display: 'flex', gap: '4px',
-                    background: '#1c1c1c', border: '1px solid #2a2a2a',
-                    borderRadius: '100px', padding: '8px 12px',
-                    marginTop: '6px',
-                    alignSelf: 'flex-start',
-                    animation: 'pickerIn 0.15s ease-out',
-                    willChange: 'transform, opacity'
-                  }}
-                  onClick={e => e.stopPropagation()}
-                >
-                  {['❤️', '😂', '🔥', '😮', '😅', '👏'].map(emoji => (
-                    <button key={emoji} onClick={() => sendReaction(msg.id, emoji)}
-                      style={{background:'none',border:'none',cursor:'pointer',
-                              fontSize:'20px',padding:'2px',lineHeight:1}}>
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <CloudBubble isPrevious={!isFirstInGroup} isHuman={isHuman}>
+                {msg.text || msg.message || msg.content}
+              </CloudBubble>
             </div>
           );
         })}
-        {game?.agent_typing && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 2px 8px',
-            marginTop: '2px'
-          }}>
-            <span style={{
-              fontSize: '11px',
-              color: 'rgba(242,242,242,0.35)',
-              fontFamily: 'Inter'
-            }}>
-              {agentName}
-            </span>
-            <div style={{
-              display: 'flex',
-              gap: '3px',
-              background: '#1e1e1e',
-              border: '1px solid #2a2a2a',
-              borderRadius: '12px',
-              padding: '8px 12px',
-              alignItems: 'center'
-            }}>
-              {[0,1,2].map(i => (
-                <span key={i} style={{
-                  width: '6px', height: '6px',
-                  borderRadius: '50%',
-                  background: 'rgba(242,242,242,0.5)',
-                  display: 'inline-block',
-                  animation: `typingBounce 1.2s ease-in-out infinite`,
-                  animationDelay: `${i * 0.2}s`
-                }} />
-              ))}
-            </div>
-          </div>
-        )}
-        {game?.human_typing && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 2px 8px',
-            marginTop: '2px',
-            justifyContent: 'flex-end',
-            width: '100%'
-          }}>
-            <div style={{
-              display: 'flex',
-              gap: '3px',
-              background: '#241416',
-              border: '1px solid #3d1b1d',
-              borderRadius: '12px',
-              padding: '8px 12px',
-              alignItems: 'center'
-            }}>
-              {[0,1,2].map(i => (
-                <span key={i} style={{
-                  width: '6px', height: '6px',
-                  borderRadius: '50%',
-                  background: '#e63946',
-                  display: 'inline-block',
-                  animation: `typingBounce 1.2s ease-in-out infinite`,
-                  animationDelay: `${i * 0.2}s`
-                }} />
-              ))}
-            </div>
-            <span style={{
-              fontSize: '11px',
-              color: 'rgba(230,57,70,0.65)',
-              fontFamily: 'Inter'
-            }}>
-              Human (You) is typing...
-            </span>
-          </div>
-        )}
       </div>
     );
   };
@@ -1888,7 +1712,7 @@ export default function Game() {
               ⚠️ Check!
             </div>
           )}
-          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
+          <div style={{ padding: "0 12px", width: "100%" }}><div style={{ borderRadius: "4px", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.4)", width: "100%", position: "relative", transition: "box-shadow 0.8s ease" }}>
           <ChessBoard 
             fen={optimisticFen || game.fen} 
             showCoordinates={false}
@@ -1902,7 +1726,7 @@ export default function Game() {
             onIllegalMove={handleIllegalMove}
             onCapture={handleCapture}
           />
-          </div>
+          </div></div>
           <CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} />
           {(game.status === 'finished' || game.status === 'abandoned') && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
@@ -1915,9 +1739,7 @@ export default function Game() {
             </div>
           )}
         </div></div>
-            
-
-      {/* STEP 4: BOTTOM INFO BAR */}
+        {/* STEP 4: BOTTOM INFO BAR */}
       <BottomStatusBar agentConnected={agentConnected} game={game} agentName={agentName} isMobile={false} />
     </div>
 
@@ -2211,7 +2033,7 @@ export default function Game() {
               ⚠️ Check!
             </div>
           )}
-          <div style={{ borderRadius: '4px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', width: '100%', position: 'relative', transition: 'box-shadow 0.8s ease' }}>
+          <div style={{ padding: "0 12px", width: "100%" }}><div style={{ borderRadius: "4px", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.4)", width: "100%", position: "relative", transition: "box-shadow 0.8s ease" }}>
           <ChessBoard 
             fen={optimisticFen || game.fen} 
             showCoordinates={false}
@@ -2225,7 +2047,7 @@ export default function Game() {
             onIllegalMove={handleIllegalMove}
             onCapture={handleCapture}
           />
-          </div>
+          </div></div>
           <CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} />
           {(game.status === 'finished' || game.status === 'abandoned') && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
@@ -2251,53 +2073,70 @@ export default function Game() {
           </button>
         </div>
 
-        {/* E) MOVE HISTORY */}
-        <div style={{ background: '#0a0a0a' }}>
+                {/* E) MOVE HISTORY */}
+        <div style={{ background: '#0a0a0a', display: 'flex', flexDirection: 'column' }}>
           <div 
             onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
-            style={{ padding: '10px 12px', borderTop: '1px solid #111', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+            style={{ padding: '12px 16px', borderTop: '1px solid #1a1a1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
           >
-            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, color: 'rgba(242,242,242,0.3)' }}>
+            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.4)', letterSpacing: '0.08em' }}>
               MOVE HISTORY · {game.move_history?.length || 0} MOVES
             </span>
-            <ChevronDown size={14} className="text-neutral-500" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s' }} />
+            <ChevronDown size={16} className="text-neutral-500" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 280ms ease-out' }} />
           </div>
-          {moveHistoryOpen && (
-            <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '0 12px 12px' }} className="scrollbar-none">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '4px', borderBottom: '1px solid #111', marginBottom: '4px' }}>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateRows: moveHistoryOpen ? '1fr' : '0fr',
+            transition: 'grid-template-rows 280ms ease-out'
+          }}>
+            <div style={{ overflow: 'hidden' }}>
+              <div 
+                ref={moveHistoryScrollRef}
+                style={{ 
+                  maxHeight: '240px', 
+                  overflowY: 'auto', 
+                  padding: '0 16px 16px', 
+                  opacity: moveHistoryOpen ? 1 : 0, 
+                  transition: 'opacity 140ms ease-out 140ms',
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '2px'
+                }} 
+                className="scrollbar-none"
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid #1a1a1a', marginBottom: '4px' }}>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
                 </div>
                 {Array.from({ length: Math.ceil((game.move_history || []).length / 2) }).map((_, i) => {
                   const youMove = game.player_color === 'b' ? game.move_history[i * 2 + 1] : game.move_history[i * 2];
                   const agentMove = game.player_color === 'b' ? game.move_history[i * 2] : game.move_history[i * 2 + 1];
                   return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '3px 0', fontFamily: "'Inter', sans-serif", fontSize: '12px' }}>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '4px 0', fontFamily: "'Inter', sans-serif", fontSize: '13px' }}>
                       <div style={{ color: 'rgba(242,242,242,0.25)' }}>{i + 1}.</div>
-                      <div style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:4 }}>
+                      <div style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:6 }}>
                         {youMove?.san && (() => {
                           const { letter, rest } = sanToPieceImg(youMove.san, true, pieceTheme);
                           return (
                             <>
-                              <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                              <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:16,height:16,objectFit:'contain'}}
                                 onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
                               />
-                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:14}}>{rest}</span>
                             </>
                           );
                         })()}
                       </div>
-                      <div style={{ color: '#e63946', display:'flex', alignItems:'center', gap:4 }}>
+                      <div style={{ color: '#e63946', display:'flex', alignItems:'center', gap:6 }}>
                         {agentMove?.san && (() => {
                           const { letter, rest } = sanToPieceImg(agentMove.san, false, pieceTheme);
                           return (
                             <>
-                              <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                              <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:16,height:16,objectFit:'contain'}}
                                 onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
                               />
-                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                              <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:14}}>{rest}</span>
                             </>
                           );
                         })()}
@@ -2307,11 +2146,9 @@ export default function Game() {
                 })}
               </div>
             </div>
-          )}
-        </div>
           </div>
-          
-
+        </div>
+        </div>
       {/* STEP 4: BOTTOM INFO BAR */}
       <BottomStatusBar agentConnected={agentConnected} game={game} agentName={agentName} isMobile={true} />
         </>
@@ -2381,193 +2218,392 @@ export default function Game() {
         </div>
       )}
 
-      {/* SETTINGS MODAL (Untouched) */}
-      <Modal open={showSettings} onClose={() => setShowSettings(false)} title="Settings" size="md">
-        <div className="space-y-8">
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-[var(--color-text-muted)] tracking-wider uppercase">Preferences</h3>
-            <div className="space-y-2">
-              <label className="text-sm text-[var(--color-text-secondary)]">Board Theme</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'green', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/green.png' },
-                  { id: 'brown', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/brown.png' },
-                  { id: 'blue', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/blue.png' },
-                  { id: 'red', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/red.png' },
-                  { id: 'icy_sea', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/icy_sea.png' },
-                  { id: 'tournament', url: 'https://raw.githubusercontent.com/GiorgioMegrelli/chess.com-boards-and-pieces/master/boards/tournament.png' }
-                ].map(theme => (
-                  <button
-                    data-testid={`theme-button-${theme.id}`}
-                    key={theme.id}
-                    onClick={() => {
-                      setBoardTheme(theme.id);
-                      localStorage.setItem('cwc_theme', theme.id);
-                      fetch('/api/actions', { 
-                        method: 'POST', 
-                        headers: { 
-                          'Content-Type': 'application/json',
-                          'x-agent-token': agentToken || ''
-                        }, 
-                        body: JSON.stringify({ gameId, action: 'set_board_theme', value: theme.id }) 
-                      }).catch(() => {});
-                    }}
-                    className={`relative aspect-square rounded-md overflow-hidden border-2 transition-all ${boardTheme === theme.id ? 'border-[var(--color-red-primary)]' : 'border-transparent hover:border-[var(--color-border-default)]'}`}
-                    title={theme.id}
-                  >
-                    <div className="absolute inset-0" style={{ backgroundImage: `url(${theme.url})`, backgroundSize: '100% 100%' }}>
-                    </div>
-                    {boardTheme === theme.id && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                        <Check size={16} className="text-white drop-shadow-md" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-[var(--color-text-secondary)]">Piece Style</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'neo', label: 'Neo', icon: <div style={{ width: 32, height: 32 }}><WN pieceStyle="neo" /></div> },
-                  { id: 'tournament', label: 'Tournament', icon: <div style={{ width: 32, height: 32 }}><WN pieceStyle="tournament" /></div> },
-                  { id: 'ocean', label: 'Ocean', icon: <div style={{ width: 32, height: 32 }}><WN pieceStyle="ocean" /></div> }
-                ].map(piece => (
-                  <button
-                    data-testid={`piece-button-${piece.id}`}
-                    key={piece.id}
-                    onClick={() => {
-                      setPieceTheme(piece.id);
-                      localStorage.setItem('cwc_pieces', piece.id);
-                      fetch('/api/actions', { 
-                        method: 'POST', 
-                        headers: { 
-                          'Content-Type': 'application/json',
-                          'x-agent-token': agentToken || ''
-                        }, 
-                        body: JSON.stringify({ gameId, action: 'set_piece_style', value: piece.id }) 
-                      }).catch(() => {});
-                    }}
-                    className={`flex items-center gap-3 p-3 rounded-md border transition-all ${pieceTheme === piece.id ? 'bg-[var(--color-red-primary)]/10 border-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-default)] hover:text-white'}`}
-                  >
-                    <div className="flex items-center justify-center w-8 h-8">{piece.icon}</div>
-                    <span className="text-sm font-medium">{piece.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center justify-between pt-2">
-              <div>
-                <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Sound Effects</h3>
-                <p className="text-xs text-[var(--color-text-muted)]">Play sounds for moves and captures</p>
-              </div>
+            {/* SETTINGS BOTTOM SHEET */}
+      {showSettings && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+          <div 
+            id="settings-sheet-backdrop"
+            onClick={() => {
+              const sheet = document.getElementById('settings-sheet-content');
+              const backdrop = document.getElementById('settings-sheet-backdrop');
+              if (sheet) sheet.style.animation = 'slideDown 220ms ease-in forwards';
+              if (backdrop) backdrop.style.animation = 'fadeOut 220ms ease-in forwards';
+              setTimeout(() => setShowSettings(false), 220);
+            }}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(2px)', pointerEvents: 'auto', animation: 'fadeIn 200ms ease-out forwards' }} 
+          />
+          <div 
+            id="settings-sheet-content"
+            style={{ 
+            background: '#0a0a0a', 
+            width: '100%', 
+            maxHeight: '85vh', 
+            borderTopLeftRadius: '20px', 
+            borderTopRightRadius: '20px', 
+            pointerEvents: 'auto', 
+            position: 'relative', 
+            display: 'flex', 
+            flexDirection: 'column',
+            animation: 'slideUp 320ms cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '22px', fontWeight: 800, color: 'white' }}>Settings</span>
               <button 
-                data-testid="toggle-sound-button"
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className={`p-2 rounded-md transition-colors ${soundEnabled ? 'bg-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]'}`}
+                onClick={() => {
+                  const sheet = document.getElementById('settings-sheet-content');
+                  const backdrop = document.getElementById('settings-sheet-backdrop');
+                  if (sheet) sheet.style.animation = 'slideDown 220ms ease-in forwards';
+                  if (backdrop) backdrop.style.animation = 'fadeOut 220ms ease-in forwards';
+                  setTimeout(() => setShowSettings(false), 220);
+                }}
+                style={{ width: '36px', height: '36px', background: 'transparent', border: '1px solid transparent', borderRadius: '8px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 150ms ease', outline: 'none' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#e63946'; e.currentTarget.style.boxShadow = '0 0 8px rgba(230,57,70,0.4)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
+                onMouseDown={(e) => { e.currentTarget.style.borderColor = '#e63946'; e.currentTarget.style.boxShadow = '0 0 8px rgba(230,57,70,0.4)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
               >
-                {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                <XIcon size={24} />
               </button>
             </div>
-            <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
-              <label className="text-sm text-[var(--color-text-secondary)]">Agent Thoughts Language</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'english', label: 'English' },
-                  { value: 'hindi', label: 'Hindi' },
-                  { value: 'hinglish', label: 'Hinglish' },
-                  { value: 'simple_english', label: 'Simple English' }
-                ].map(lang => (
-                  <button
-                    key={lang.value}
-                    onClick={async () => {
-                      setThoughtLanguage(lang.value);
-                      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { thought_language: lang.value }, gameId}) });
+            
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }} className="scrollbar-none">
+              
+              {/* PREFERENCES */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', fontWeight: 700, color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  PREFERENCES
+                </div>
+                
+                {/* Board Theme */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white' }}>Board Theme</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                    {[
+                      { id: 'green', c1: '#eeeed2', c2: '#769656' },
+                      { id: 'brown', c1: '#f0d9b5', c2: '#b58863' },
+                      { id: 'blue', c1: '#dee3e6', c2: '#8ca2ad' },
+                      { id: 'red', c1: '#e8ecef', c2: '#c27a76' },
+                      { id: 'icy_sea', c1: '#c4d7e2', c2: '#6d92a4' },
+                      { id: 'tournament', c1: '#e0dfdb', c2: '#61855e' }
+                    ].map(theme => {
+                      const isSel = boardTheme === theme.id;
+                      return (
+                        <button
+                          key={theme.id}
+                          onClick={() => {
+                            setBoardTheme(theme.id);
+                            localStorage.setItem('cwc_theme', theme.id);
+                            const t = typeof agentToken !== 'undefined' ? agentToken : '';
+                            fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': t }, body: JSON.stringify({ gameId, action: 'set_board_theme', value: theme.id }) }).catch(()=>{});
+                            const btn = document.getElementById(`theme-btn-${theme.id}`);
+                            if(btn) {
+                              btn.style.animation = 'none';
+                              void btn.offsetWidth;
+                              btn.style.animation = 'scalePulse 200ms ease-out';
+                            }
+                          }}
+                          id={`theme-btn-${theme.id}`}
+                          style={{ 
+                            position: 'relative', 
+                            aspectRatio: '1', 
+                            borderRadius: '12px', 
+                            overflow: 'hidden', 
+                            border: `2px solid ${isSel ? '#e63946' : 'transparent'}`, 
+                            padding: 0, 
+                            cursor: 'pointer',
+                            background: `conic-gradient(${theme.c1} 90deg, ${theme.c2} 90deg 180deg, ${theme.c1} 180deg 270deg, ${theme.c2} 270deg) 0 0 / 25px 25px`
+                          }}
+                        >
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isSel ? 1 : 0, transition: 'opacity 150ms ease' }}>
+                            <Check size={28} color="white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Piece Style */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white' }}>Piece Style</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                    {[
+                      { id: 'neo', label: 'Neo' },
+                      { id: 'tournament', label: 'Tournament' },
+                      { id: 'ocean', label: 'Ocean' }
+                    ].map((piece, idx) => {
+                      const isSel = pieceTheme === piece.id;
+                      return (
+                        <button
+                          key={piece.id}
+                          onClick={() => {
+                            setPieceTheme(piece.id);
+                            localStorage.setItem('cwc_pieces', piece.id);
+                            const t = typeof agentToken !== 'undefined' ? agentToken : '';
+                            fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': t }, body: JSON.stringify({ gameId, action: 'set_piece_style', value: piece.id }) }).catch(()=>{});
+                            const btn = document.getElementById(`piece-btn-${piece.id}`);
+                            if(btn) {
+                              btn.style.animation = 'none';
+                              void btn.offsetWidth;
+                              btn.style.animation = 'scalePulse 200ms ease-out';
+                            }
+                          }}
+                          id={`piece-btn-${piece.id}`}
+                          style={{ 
+                            gridColumn: idx === 2 ? '1 / -1' : 'auto',
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            gap: '8px',
+                            background: '#1a1a1a', 
+                            borderRadius: '12px', 
+                            padding: '16px', 
+                            border: `2px solid ${isSel ? '#e63946' : 'transparent'}`, 
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div style={{ width: 48, height: 48 }}><WN pieceStyle={piece.id} /></div>
+                          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white' }}>{piece.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Sound Effects */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white' }}>Sound Effects</span>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', color: 'rgba(242,242,242,0.5)' }}>Play sounds for moves and captures</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSoundEnabled(!soundEnabled);
+                      const btn = document.getElementById('sound-toggle-btn');
+                      if(btn) {
+                        btn.style.animation = 'none';
+                        void btn.offsetWidth;
+                        btn.style.animation = 'pressPulse 150ms ease-out';
+                      }
                     }}
-                    className={`flex items-center justify-center p-2 rounded-md border text-sm transition-all ${thoughtLanguage === lang.value ? 'bg-[var(--color-red-primary)]/10 border-[var(--color-red-primary)] text-white' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-default)] hover:text-white'}`}
+                    id="sound-toggle-btn"
+                    style={{ 
+                      width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0, 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer',
+                      background: soundEnabled ? '#e63946' : '#2a2a2a',
+                      transition: 'background 200ms ease'
+                    }}
                   >
-                    {lang.label}
+                    <div style={{ position: 'relative', width: 24, height: 24 }}>
+                      <Volume2 size={24} color="white" style={{ position: 'absolute', inset: 0, opacity: soundEnabled ? 1 : 0, transition: 'opacity 200ms ease' }} />
+                      <VolumeX size={24} color="white" style={{ position: 'absolute', inset: 0, opacity: !soundEnabled ? 1 : 0, transition: 'opacity 200ms ease' }} />
+                    </div>
                   </button>
-                ))}
+                </div>
+
+                {/* Agent Thoughts Language */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white' }}>Agent Thoughts Language</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                    {[
+                      { value: 'english', label: 'English' },
+                      { value: 'hindi', label: 'Hindi' },
+                      { value: 'hinglish', label: 'Hinglish' },
+                      { value: 'simple_english', label: 'Simple English' }
+                    ].map(lang => {
+                      const isSel = thoughtLanguage === lang.value;
+                      return (
+                        <button
+                          key={lang.value}
+                          onClick={async () => {
+                            setThoughtLanguage(lang.value);
+                            const t = typeof agentToken !== 'undefined' ? agentToken : '';
+                            await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': t }, body: JSON.stringify({action: 'set_thought_language', value: lang.value, gameId}) });
+                            const btn = document.getElementById(`lang-btn-${lang.value}`);
+                            if(btn) {
+                              btn.style.animation = 'none';
+                              void btn.offsetWidth;
+                              btn.style.animation = 'scalePulse 200ms ease-out';
+                            }
+                          }}
+                          id={`lang-btn-${lang.value}`}
+                          style={{ 
+                            background: '#1a1a1a', 
+                            borderRadius: '12px', 
+                            padding: '16px', 
+                            border: `2px solid ${isSel ? '#e63946' : 'transparent'}`, 
+                            cursor: 'pointer',
+                            fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {lang.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
               </div>
-            </div>
-          </div>
-          <Divider />
-          <div>
-            <label>Game ID</label>
-            <code style={{fontSize:11,color:'#888'}}>{gameId}</code>
-          </div>
-          <Divider />
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-[var(--color-text-muted)] tracking-wider uppercase">Game Controls</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <Button 
-                data-testid="draw-button"
-                onClick={handleDraw}
-                disabled={game?.status === 'finished' || game?.status === 'abandoned'}
-                variant="secondary"
-                className={confirmDraw ? 'bg-yellow-600/20 text-yellow-500 border-yellow-600/50 hover:bg-yellow-600/30' : ''}
-              >
-                {confirmDraw ? 'Confirm Draw?' : 'Offer Draw'}
-              </Button>
-              <Button 
-                data-testid="resign-button"
-                onClick={handleResign}
-                disabled={game?.status === 'finished' || game?.status === 'abandoned'}
-                variant="danger"
-                className={confirmResign ? 'animate-pulse' : ''}
-                leftIcon={!confirmResign && <Flag size={16} />}
-              >
-                {confirmResign ? 'Confirm Resign?' : 'Resign'}
-              </Button>
+
+              <div style={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+
+              {/* GAME ID */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white' }}>Game ID</span>
+                <button 
+                  onClick={(e) => {
+                    navigator.clipboard.writeText(gameId);
+                    const btn = e.currentTarget;
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = 'rgba(255,255,255,0.4)';
+                    setTimeout(() => {
+                      btn.innerHTML = originalHTML;
+                      btn.style.color = 'rgba(242,242,242,0.5)';
+                      btn.style.borderColor = '#2a2a2a';
+                    }, 1500);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', fontFamily: 'monospace', fontSize: '12px', color: 'rgba(242,242,242,0.5)' }}
+                >
+                  <Copy size={14} />
+                  {gameId.slice(0,8)}...
+                </button>
+              </div>
+
+              <div style={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+
+              {/* GAME CONTROLS */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', fontWeight: 700, color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  GAME CONTROLS
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    onClick={handleDraw}
+                    disabled={game?.status === 'finished' || game?.status === 'abandoned'}
+                    style={{ flex: 1, height: '48px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', fontFamily: "'Inter', sans-serif", fontSize: '15px', fontWeight: 600, color: 'white', cursor: 'pointer', opacity: (game?.status === 'finished' || game?.status === 'abandoned') ? 0.5 : 1 }}
+                  >
+                    Offer Draw
+                  </button>
+                  <button 
+                    onClick={handleResign}
+                    disabled={game?.status === 'finished' || game?.status === 'abandoned'}
+                    style={{ flex: 1, height: '48px', background: 'rgba(230,57,70,0.12)', border: '1px solid rgba(230,57,70,0.3)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: "'Inter', sans-serif", fontSize: '15px', fontWeight: 600, color: '#e63946', cursor: 'pointer', opacity: (game?.status === 'finished' || game?.status === 'abandoned') ? 0.5 : 1 }}
+                  >
+                    <Flag size={18} />
+                    Resign
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
-      </Modal>
+      )}
 
       {chatMobileOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#0a0a0a', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid #1a1a1a' }}>
-            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: 'white' }}>Chat with {agentName}</span>
-            <button onClick={() => setChatMobileOpen(false)} style={{ background: 'transparent', border: 'none', color: 'white' }}>
-              <XIcon size={20} />
-            </button>
-          </div>
-          <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {normalizedMessages.length === 0 ? (
-              <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '24px' }}>💬</span>
-                <span>{agentName} can chat while playing</span>
-              </div>
-            ) : (
-              renderChatMessages()
-            )}
-          </div>
-          <form 
-            onSubmit={(e) => { sendMessage(e); setChatMobileOpen(false); }} 
-            style={{ padding: '12px 16px', borderTop: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: '8px', background: '#111111' }}
-          >
-            <input
-              type="text"
-              value={chatInput}
-              onChange={handleChatInputChange}
-              placeholder={`Message ${agentName}...`}
-              style={{ flex: 1, height: '40px', background: '#1a1a1a', border: 'none', borderRadius: '20px', color: 'white', padding: '0 16px', fontSize: '14px', outline: 'none' }}
-            />
-            <button 
-              type="submit"
-              disabled={!chatInput.trim()}
-              style={{ width: '40px', height: '40px', background: chatInput.trim() ? '#e63946' : '#2a2a2a', borderRadius: '50%', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+          <div 
+            id="chat-sheet-backdrop"
+            onClick={() => {
+              const sheet = document.getElementById('chat-sheet-content');
+              const backdrop = document.getElementById('chat-sheet-backdrop');
+              if (sheet) sheet.style.animation = 'slideOutRight 220ms ease-in forwards';
+              if (backdrop) backdrop.style.animation = 'fadeOut 220ms ease-in forwards';
+              setTimeout(() => setChatMobileOpen(false), 220);
+            }}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(2px)', pointerEvents: 'auto', animation: 'fadeIn 200ms ease-out forwards' }} 
+          />
+          <div 
+            id="chat-sheet-content"
+            style={{ 
+            background: '#0a0a0a', 
+            width: '100%', 
+            height: '65vh', 
+            borderTopLeftRadius: '20px', 
+            borderTopRightRadius: '20px', 
+            pointerEvents: 'auto', 
+            position: 'relative', 
+            display: 'flex', 
+            flexDirection: 'column',
+            animation: 'slideUp 280ms cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '18px', fontWeight: 700, color: 'white' }}>Chat with {agentName || 'Your Agent'}</span>
+              <button 
+                onClick={() => {
+                  const sheet = document.getElementById('chat-sheet-content');
+                  const backdrop = document.getElementById('chat-sheet-backdrop');
+                  if (sheet) sheet.style.animation = 'slideOutRight 220ms ease-in forwards';
+                  if (backdrop) backdrop.style.animation = 'fadeOut 220ms ease-in forwards';
+                  setTimeout(() => setChatMobileOpen(false), 220);
+                }} 
+                style={{ width: '36px', height: '36px', background: 'transparent', border: '1px solid transparent', borderRadius: '8px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 150ms ease', outline: 'none' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#e63946'; e.currentTarget.style.boxShadow = '0 0 8px rgba(230,57,70,0.4)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
+                onMouseDown={(e) => { e.currentTarget.style.borderColor = '#e63946'; e.currentTarget.style.boxShadow = '0 0 8px rgba(230,57,70,0.4)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                <XIcon size={24} />
+              </button>
+            </div>
+            
+            <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="scrollbar-none">
+              {normalizedMessages.length === 0 ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg>
+                  <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: 'rgba(242,242,242,0.4)' }}>Your Agent can chat while playing</span>
+                </div>
+              ) : (
+                renderChatMessages()
+              )}
+            </div>
+            
+            <form 
+              onSubmit={(e) => { 
+                sendMessage(e); 
+                const btn = document.getElementById('chat-send-overlay');
+                if(btn) {
+                  btn.style.animation = 'none';
+                  void btn.offsetWidth;
+                  btn.style.animation = 'pressPulse 150ms ease-out';
+                }
+              }} 
+              style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', background: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <Send size={18} />
-            </button>
-          </form>
+              <input
+                type="text"
+                value={chatInput}
+                onChange={handleChatInputChange}
+                placeholder={`Message ${agentName || 'Your Agent'}...`}
+                style={{ flex: 1, height: '48px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '24px', color: 'white', padding: '0 20px', fontSize: '15px', outline: 'none', fontFamily: "'Inter', sans-serif" }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#e63946'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#2a2a2a'; }}
+              />
+              <button 
+                id="chat-send-overlay"
+                type="submit"
+                disabled={!chatInput.trim()}
+                style={{ width: '48px', height: '48px', background: chatInput.trim() ? '#e63946' : '#2a2a2a', borderRadius: '50%', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 150ms ease' }}
+              >
+                <Send size={20} style={{ transform: 'translateX(-1px)' }} />
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
-        @import url('https://fonts.googleapis.com/css2?family=family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes slideRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes scalePulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes pressPulse { 0% { transform: scale(1); } 50% { transform: scale(0.94); } 100% { transform: scale(1); } }
+          @import url('https://fonts.googleapis.com/css2?family=family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
         @keyframes ripple {
           0%   { transform: scale(1);   opacity: 0.5; }
           100% { transform: scale(2.4); opacity: 0;   }

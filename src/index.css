@@ -313,3 +313,19 @@ div[data-piece] {
 .animate-subtle-pulse {
   animation: subtlePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+html, body {
+  background-color: #0a0a0a !important;
+  color: #f2f2f2;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+

@@ -102,10 +102,16 @@ module.exports = async function handler(req, res) {
     if (action === 'get_vapid_key') {
       return res.status(200).json({ success: true, key: process.env.VAPID_PUBLIC_KEY || '' });
     } else if (action === 'save_push_subscription') {
-      const { subscription } = req.body;
+      const { subscription, gameId } = req.body;
       if (!subscription) return res.status(400).json({ error: 'Missing subscription' });
+      
+      if (gameId) {
+        subscription.gameId = gameId; // Embed gameId in the JSONB object
+      }
+
       // Generate a unique ID based on the endpoint or gameId to avoid duplicates
-      const subId = Buffer.from(subscription.endpoint).toString('base64').substring(0, 50);
+      const crypto = require('crypto');
+      const subId = crypto.createHash('sha256').update(subscription.endpoint + (gameId || '')).digest('hex');
       
       const { error: insertError } = await supabase.from('push_subscriptions').upsert({
         id: subId,

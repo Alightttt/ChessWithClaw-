@@ -1221,6 +1221,49 @@ export default function Agent() {
   
   if (!game) return null;
 
+  const CloudBubble = ({ children, isPrevious, isHuman }) => {
+  const bg = isHuman ? '#e63946' : '#f2f2f2';
+  return (
+  <div style={{
+    position: 'relative',
+    background: bg,
+    color: isHuman ? 'white' : '#1a1a1a',
+    borderRadius: '24px',
+    padding: '12px 18px',
+    fontSize: '13px',
+    fontFamily: 'Inter, sans-serif',
+    alignSelf: isHuman ? 'flex-end' : 'flex-start',
+    wordBreak: 'break-word',
+    marginTop: isPrevious ? '0' : '10px',
+    zIndex: 0,
+    opacity: isPrevious ? 0.6 : 1
+  }}>
+    <div style={{ position: 'absolute', top: '-8px', left: '15px', width: '25px', height: '25px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-12px', left: '35px', width: '35px', height: '35px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-6px', right: '20px', width: '20px', height: '20px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-8px', left: '25px', width: '30px', height: '30px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-6px', right: '25px', width: '20px', height: '20px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    
+    {!isPrevious && (
+      <>
+        {isHuman ? (
+          <>
+            <div style={{ position: 'absolute', right: '-10px', bottom: '8px', width: '10px', height: '10px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', right: '-20px', bottom: '0px', width: '6px', height: '6px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+          </>
+        ) : (
+          <>
+            <div style={{ position: 'absolute', left: '-10px', bottom: '8px', width: '10px', height: '10px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', left: '-20px', bottom: '0px', width: '6px', height: '6px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+          </>
+        )}
+      </>
+    )}
+    <div style={{ position: 'relative', zIndex: 2 }}>{children}</div>
+  </div>
+  );
+};
+
   const renderChatMessages = () => {
     const msgs = normalizedMessages;
     return (
@@ -1231,38 +1274,23 @@ export default function Agent() {
           const isNew = index >= seenMsgCountRef.current;
           const prevMsg = msgs[index - 1];
           const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role;
+          const isHuman = !isAgent;
 
-          if (msg.type === 'resign_request') {
+          if (msg.type === 'resign_request' || msg.type === 'draw_offer') {
             return (
-              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#161616', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
+              <div key={msg.id} style={{ alignSelf: 'center', background: '#1a1a1a', border: '1px solid #2a2a2a', color: 'white', borderRadius: '12px', padding: '12px', margin: '8px 0', width: '100%', fontFamily: "'Inter', sans-serif", fontSize: '13px', textAlign: 'center' }}>
                 {msg.text || msg.message || msg.content}
-                {game.status === 'active' && (
-                  <button data-testid="accept-resignation-button" onClick={acceptAgentResignation} className="block w-full mt-2 text-white border-none rounded py-2 font-sans text-xs font-bold cursor-pointer active:translate-y-[1px] active:scale-[0.98] transition-all design-btn-primary">Accept Resignation</button>
+                {game?.status === 'active' && msg.type === 'resign_request' && (
+                  <button onClick={acceptAgentResignation} className="block w-full mt-3 text-white bg-[#e63946] rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Resignation</button>
                 )}
-              </div>
-            );
-          }
-          if (msg.type === 'draw_offer') {
-            return (
-              <div key={msg.id} style={{ alignSelf: 'flex-start', background: '#161616', border: '1px solid #222', color: 'rgba(242,242,242,0.85)', borderRadius: '10px 10px 10px 3px', padding: '7px 12px', maxWidth: '75%', fontFamily: "'Inter', sans-serif", fontSize: '13px', lineHeight: 1.5 }}>
-                {msg.text || msg.message || msg.content}
-                {game.status === 'active' && (
-                  <button data-testid="accept-draw-button" onClick={async () => {
+                {game?.status === 'active' && msg.type === 'draw_offer' && (
+                  <button onClick={async () => {
                     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
-                  }} className="block w-full mt-2 text-white border-none rounded py-2 font-sans text-xs font-bold cursor-pointer active:translate-y-[1px] active:scale-[0.98] transition-all design-btn-success">Accept Draw</button>
+                  }} className="block w-full mt-3 text-white bg-green-600 rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Draw</button>
                 )}
               </div>
             );
           }
-        
-          // Get human's reaction to this message (if any)
-          const myReaction = Object.entries(msg.reactions || {}).find(
-            ([emoji, reactors]) => reactors && reactors.includes('human')
-          );
-          // Get agent's reaction to this message (if any)
-          const agentReaction = Object.entries(msg.reactions || {}).find(
-            ([emoji, reactors]) => reactors && reactors.includes('agent')
-          );
         
           return (
             <div
@@ -1271,206 +1299,17 @@ export default function Agent() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: isAgent ? 'flex-start' : 'flex-end',
-                marginBottom: '2px',
-                paddingBottom: (myReaction || agentReaction) ? '18px' : '4px',
+                marginBottom: '4px',
                 position: 'relative',
-                animation: isNew ? 'msgIn 0.2s ease-out' : 'none',
-                willChange: 'transform, opacity'
+                animation: isNew ? 'msgSlide 0.2s ease-out' : 'none'
               }}
             >
-              {/* Agent name above first bubble in group */}
-              {isAgent && isFirstInGroup && (
-                <span style={{
-                  fontSize: '11px',
-                  color: 'rgba(242,242,242,0.35)',
-                  marginBottom: '3px',
-                  marginLeft: '4px',
-                  fontFamily: 'Inter, sans-serif'
-                }}>
-                  {agentName}
-                </span>
-              )}
-        
-              {/* Message bubble */}
-              <div
-                onTouchStart={() => handleMsgTouchStart(msg.id)}
-                onTouchEnd={handleMsgTouchEnd}
-                onTouchMove={handleMsgTouchMove}
-                onContextMenu={(e) => {
-                  if (isAgent) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Desktop: right-click shows picker
-                    setActivePickerMsgId(msg.id);
-                  }
-                }}
-                style={{
-                  background: isAgent ? '#1e1e1e' : '#e63946',
-                  color: '#f2f2f2',
-                  borderRadius: isAgent
-                    ? '18px 18px 18px 4px'
-                    : '18px 18px 4px 18px',
-                  padding: '10px 14px',
-                  fontSize: '14px',
-                  lineHeight: '1.5',
-                  fontFamily: 'Inter, sans-serif',
-                  border: isAgent ? '1px solid #2a2a2a' : 'none',
-                  maxWidth: '78%',
-                  wordBreak: 'break-word',
-                  position: 'relative',
-                  cursor: isAgent ? 'pointer' : 'default',
-                  userSelect: 'text',
-                  WebkitUserSelect: 'text'
-                }}
-              >
-                {msg.message || msg.text || msg.content || ''}
-              </div>
-        
-              {/* Instagram-style reaction below bubble */}
-              {(myReaction || agentReaction) && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '2px',
-                  [isAgent ? 'left' : 'right']: '8px',
-                  display: 'flex',
-                  gap: '2px'
-                }}>
-                  {myReaction && (
-                    <span
-                      style={{
-                        fontSize: '14px',
-                        background: '#1e1e1e',
-                        border: '1px solid #2a2a2a',
-                        borderRadius: '100px',
-                        padding: '1px 6px',
-                        animation: 'reactionPop 0.3s ease-out',
-                        willChange: 'transform, opacity',
-                        cursor: 'pointer'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        sendReaction(msg.id, myReaction[0]);
-                      }}
-                    >
-                      {myReaction[0]}
-                    </span>
-                  )}
-                  {agentReaction && agentReaction[0] !== myReaction?.[0] && (
-                    <span style={{
-                      fontSize: '14px',
-                      background: '#1e1e1e',
-                      border: '1px solid #2a2a2a',
-                      borderRadius: '100px',
-                      padding: '1px 6px'
-                    }}>
-                      {agentReaction[0]}
-                    </span>
-                  )}
-                </div>
-              )}
-        
-              {/* Full reaction picker (long press / desktop right click) */}
-              {isAgent && activePickerMsgId === msg.id && (
-                <div
-                  style={{
-                    display: 'flex', gap: '4px',
-                    background: '#1c1c1c', border: '1px solid #2a2a2a',
-                    borderRadius: '100px', padding: '8px 12px',
-                    marginTop: '6px',
-                    alignSelf: 'flex-start',
-                    animation: 'pickerIn 0.15s ease-out',
-                    willChange: 'transform, opacity'
-                  }}
-                  onClick={e => e.stopPropagation()}
-                >
-                  {['❤️', '😂', '🔥', '😮', '😅', '👏'].map(emoji => (
-                    <button key={emoji} onClick={() => sendReaction(msg.id, emoji)}
-                      style={{background:'none',border:'none',cursor:'pointer',
-                              fontSize:'20px',padding:'2px',lineHeight:1}}>
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <CloudBubble isPrevious={!isFirstInGroup} isHuman={isHuman}>
+                {msg.text || msg.message || msg.content}
+              </CloudBubble>
             </div>
           );
         })}
-        {game?.agent_typing && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 2px 8px',
-            marginTop: '2px'
-          }}>
-            <span style={{
-              fontSize: '11px',
-              color: 'rgba(242,242,242,0.35)',
-              fontFamily: 'Inter'
-            }}>
-              {agentName}
-            </span>
-            <div style={{
-              display: 'flex',
-              gap: '3px',
-              background: '#1e1e1e',
-              border: '1px solid #2a2a2a',
-              borderRadius: '12px',
-              padding: '8px 12px',
-              alignItems: 'center'
-            }}>
-              {[0,1,2].map(i => (
-                <span key={i} style={{
-                  width: '6px', height: '6px',
-                  borderRadius: '50%',
-                  background: 'rgba(242,242,242,0.5)',
-                  display: 'inline-block',
-                  animation: `typingBounce 1.2s ease-in-out infinite`,
-                  animationDelay: `${i * 0.2}s`
-                }} />
-              ))}
-            </div>
-          </div>
-        )}
-        {game?.human_typing && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 2px 8px',
-            marginTop: '2px',
-            justifyContent: 'flex-end',
-            width: '100%'
-          }}>
-            <div style={{
-              display: 'flex',
-              gap: '3px',
-              background: '#241416',
-              border: '1px solid #3d1b1d',
-              borderRadius: '12px',
-              padding: '8px 12px',
-              alignItems: 'center'
-            }}>
-              {[0,1,2].map(i => (
-                <span key={i} style={{
-                  width: '6px', height: '6px',
-                  borderRadius: '50%',
-                  background: '#e63946',
-                  display: 'inline-block',
-                  animation: `typingBounce 1.2s ease-in-out infinite`,
-                  animationDelay: `${i * 0.2}s`
-                }} />
-              ))}
-            </div>
-            <span style={{
-              fontSize: '11px',
-              color: 'rgba(230,57,70,0.65)',
-              fontFamily: 'Inter'
-            }}>
-              Human (You) is typing...
-            </span>
-          </div>
-        )}
       </div>
     );
   };
