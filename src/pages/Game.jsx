@@ -42,32 +42,35 @@ const CloudBubble = ({ children, isPrevious, isHuman }) => {
     background: bg,
     color: isHuman ? 'white' : '#1a1a1a',
     borderRadius: '24px',
-    padding: '12px 18px',
-    fontSize: '13px',
+    padding: '14px 20px',
+    fontSize: '15px',
+    fontWeight: 500,
     fontFamily: 'Inter, sans-serif',
     alignSelf: isHuman ? 'flex-end' : 'flex-start',
     wordBreak: 'break-word',
-    marginTop: isPrevious ? '0' : '10px',
+    marginTop: isPrevious ? '0' : '8px',
     zIndex: 0,
-    opacity: isPrevious ? 0.6 : 1
+    opacity: isPrevious ? 0.7 : 1,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
   }}>
-    <div style={{ position: 'absolute', top: '-8px', left: '15px', width: '25px', height: '25px', background: bg, borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', top: '-12px', left: '35px', width: '35px', height: '35px', background: bg, borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', top: '-6px', right: '20px', width: '20px', height: '20px', background: bg, borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', bottom: '-8px', left: '25px', width: '30px', height: '30px', background: bg, borderRadius: '50%', zIndex: -1 }} />
-    <div style={{ position: 'absolute', bottom: '-6px', right: '25px', width: '20px', height: '20px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    {/* Cloud bumps */}
+    <div style={{ position: 'absolute', top: '-10px', left: '15%', width: '30%', height: '30px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-16px', left: '40%', width: '40%', height: '40px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', top: '-8px', right: '10%', width: '25%', height: '25px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-10px', left: '20%', width: '35%', height: '35px', background: bg, borderRadius: '50%', zIndex: -1 }} />
+    <div style={{ position: 'absolute', bottom: '-8px', right: '15%', width: '30%', height: '30px', background: bg, borderRadius: '50%', zIndex: -1 }} />
     
     {!isPrevious && (
       <>
         {isHuman ? (
           <>
-            <div style={{ position: 'absolute', right: '-10px', bottom: '8px', width: '10px', height: '10px', background: bg, borderRadius: '50%', zIndex: 1 }} />
-            <div style={{ position: 'absolute', right: '-20px', bottom: '0px', width: '6px', height: '6px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', right: '-12px', bottom: '10px', width: '12px', height: '12px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', right: '-24px', bottom: '0px', width: '8px', height: '8px', background: bg, borderRadius: '50%', zIndex: 1 }} />
           </>
         ) : (
           <>
-            <div style={{ position: 'absolute', left: '-10px', bottom: '8px', width: '10px', height: '10px', background: bg, borderRadius: '50%', zIndex: 1 }} />
-            <div style={{ position: 'absolute', left: '-20px', bottom: '0px', width: '6px', height: '6px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', left: '-12px', bottom: '10px', width: '12px', height: '12px', background: bg, borderRadius: '50%', zIndex: 1 }} />
+            <div style={{ position: 'absolute', left: '-24px', bottom: '0px', width: '8px', height: '8px', background: bg, borderRadius: '50%', zIndex: 1 }} />
           </>
         )}
       </>
@@ -161,9 +164,9 @@ const BottomStatusBar = ({ agentConnected, game, agentName, isMobile }) => {
   const pillText = isHumanTurn ? 'Your turn' : `${agentName}'s turn`;
 
   return (
-    <div style={{ flexShrink: 0, height: isMobile ? '48px' : '48px', background: isMobile ? '#0a0a0a' : '#111111', borderTop: isMobile ? '1px solid #1a1a1a' : 'none', border: isMobile ? 'none' : '1px solid #1a1a1a', borderRadius: isMobile ? '0' : '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', zIndex: 40, width: '100%', boxSizing: 'border-box' }}>
+    <div style={{ flexShrink: 0, height: isMobile ? '56px' : '48px', background: isMobile ? '#1e1c1b' : '#111111', borderTopLeftRadius: isMobile ? '20px' : '8px', borderTopRightRadius: isMobile ? '20px' : '8px', borderBottomLeftRadius: isMobile ? '0' : '8px', borderBottomRightRadius: isMobile ? '0' : '8px', border: isMobile ? 'none' : '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', zIndex: 40, width: '100%', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', justifyContent: 'space-between' }}>
-        <div style={{ background: pillBg, color: 'white', borderRadius: '9999px', padding: '6px 16px', fontSize: '14px', fontWeight: 700, fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ background: pillBg, color: 'white', borderRadius: '8px', padding: '6px 16px', fontSize: '15px', fontWeight: 700, fontFamily: "'Inter', sans-serif" }}>
           {pillText}
         </div>
         
@@ -255,6 +258,28 @@ export default function Game() {
   const [agentSectionOpen, setAgentSectionOpen] = useState(false);
   const [moveHistoryOpen, setMoveHistoryOpen] = useState(false);
   const [showStatusPopover, setShowStatusPopover] = useState(false);
+  const [currentThought, setCurrentThought] = useState(null);
+  const [previousThought, setPreviousThought] = useState(null);
+
+  useEffect(() => {
+    if (game?.agent_thought && game.agent_thought !== currentThought) {
+      setPreviousThought(currentThought);
+      setCurrentThought(game.agent_thought);
+      
+      const t1 = setTimeout(() => {
+        setCurrentThought(null);
+        setPreviousThought(game.agent_thought);
+        setTimeout(() => {
+          setPreviousThought(prev => prev === game.agent_thought ? null : prev);
+        }, 3500);
+      }, 3500);
+      
+      return () => {
+        clearTimeout(t1);
+      };
+    }
+  }, [game?.agent_thought, currentThought]);
+
   
   const [boardSize, setBoardSize] = useState(320);
   const [boardTheme, setBoardTheme] = useState(() => {
@@ -1394,6 +1419,11 @@ export default function Game() {
   const isSpectator = false;
   const isMyTurn = game?.turn === 'b' && (game?.status === 'active' || game?.status === 'waiting');
   
+
+  const previousThoughtText = previousThought;
+  const thoughtText = currentThought;
+  const thoughtVisible = !!thoughtText;
+
   if (!game) return null;
 
   const renderChatMessages = () => {
@@ -1484,32 +1514,6 @@ export default function Game() {
   const statusLabel = agentPresence === 'reconnecting' ? 'Away' : agentPresence === 'not_here' ? 'Offline' : (game?.status === 'waiting' ? 'Waiting' : 'Online');
   const getAgentLastSeenText = () => game?.agent_last_seen ? 'Seen recently' : 'Never seen';
   
-  const [currentThought, setCurrentThought] = useState(null);
-  const [previousThought, setPreviousThought] = useState(null);
-
-  useEffect(() => {
-    if (game?.agent_thought && game.agent_thought !== currentThought) {
-      setPreviousThought(currentThought);
-      setCurrentThought(game.agent_thought);
-      
-      const t1 = setTimeout(() => {
-        setCurrentThought(null);
-        setPreviousThought(game.agent_thought);
-        
-        const t2 = setTimeout(() => {
-          setPreviousThought(prev => prev === game.agent_thought ? null : prev);
-        }, 3500);
-      }, 3500);
-      
-      return () => {
-        clearTimeout(t1);
-      };
-    }
-  }, [game?.agent_thought, currentThought]);
-
-  const previousThoughtText = previousThought;
-  const thoughtText = currentThought;
-  const thoughtVisible = !!thoughtText;
   const agentColor = (game?.player_color || 'w') === 'w' ? 'b' : 'w';
   const isAgentThinking = game?.turn === agentColor && game?.status === 'active';
   const agentNameContent = (
@@ -1528,7 +1532,7 @@ export default function Game() {
   return (
     <div 
       ref={containerRef}
-      className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border scrollbar-none bg-[#0a0a0a]`}
+      className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border scrollbar-none bg-[#2c2826]`}
       style={{
         height: '100dvh',
         display: 'flex',
@@ -1582,10 +1586,11 @@ export default function Game() {
       )}
       
       {/* HEADER (Fixed) */}
-      <header style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: 'none', background: '#0a0a0a', zIndex: 50, position: 'sticky', top: 0 }}>
+      <header style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: 'none', background: '#2c2826', zIndex: 50, position: 'sticky', top: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', cursor: 'pointer' }} onClick={handleGoHome}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(242,242,242,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(242,242,242,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
@@ -1595,7 +1600,7 @@ export default function Game() {
             draggable={false}
             onContextMenu={(e) => e.preventDefault()}
             style={{ 
-              height: '18px',
+              height: '24px',
               width: 'auto',
               objectFit: 'contain',
               userSelect: 'none',
@@ -1611,7 +1616,7 @@ export default function Game() {
           className="text-[rgba(242,242,242,0.7)] hover:text-[rgba(242,242,242,1)] transition-all active:translate-y-[1px] active:scale-[0.98]"
           style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <Settings size={20} />
+          <Settings size={26} />
         </button>
       </header>
       {/* MAIN CONTENT AREA - RESPONSIVE */}
@@ -1837,7 +1842,7 @@ export default function Game() {
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
               {/* Only Move History button is needed if you want it here, but actually we use the move history panel header to toggle it.
                   If the prompt implies keeping the toggle button in the row for move history, then we keep the move history button here. */}
-              <button onClick={() => setMoveHistoryOpen(!moveHistoryOpen)} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', cursor: 'pointer' }}>
+              <button onClick={() => setMoveHistoryOpen(!moveHistoryOpen)} style={{ flex: 1, background: '#3d3937', border: 'none', borderRadius: '12px', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', cursor: 'pointer' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.46 5.46"/></svg>
               </button>
             </div>
@@ -1994,17 +1999,21 @@ export default function Game() {
             </div>
             
             {/* MOBILE BUTTONS */}
-            <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center' }}>
-              <button onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); setChatMobileOpen(false); }} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: moveHistoryOpen ? '#e63946' : '#666', cursor: 'pointer', transition: 'color 0.2s', fontWeight: 600, fontFamily: 'Inter, sans-serif', fontSize: '13px', gap: '8px' }}>
-                <History size={18} /> History
+            <div style={{ display: 'flex', gap: '16px', padding: '12px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center' }}>
+              <button onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); setChatMobileOpen(false); }} style={{ flex: 1, height: '60px', background: '#3d3937', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: moveHistoryOpen ? '#e63946' : '#e0dbd9', cursor: 'pointer', transition: 'color 0.2s' }}>
+                <History size={28} />
               </button>
-              <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#666', position: 'relative', cursor: 'pointer', transition: 'color 0.2s', fontWeight: 600, fontFamily: 'Inter, sans-serif', fontSize: '13px', gap: '8px' }}>
-                <MessageSquare size={18} /> Chat
+              <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, height: '60px', background: '#3d3937', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#e0dbd9', position: 'relative', cursor: 'pointer', transition: 'color 0.2s' }}>
+                <MessageSquare size={28} />
+                {/* Red dot indicator if there's a new message */}
+                {chatMobileOpen === false && normalizedMessages.length > 0 && normalizedMessages[normalizedMessages.length - 1].sender === 'agent' && (
+                  <div style={{ position: 'absolute', top: '16px', right: '36px', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
+                )}
               </button>
             </div>
 
             {/* EXPANDABLE DRAWERS CONTAINER */}
-            <div style={{ background: '#0a0a0a', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative' }}>
+            <div style={{ background: '#2c2826', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative' }}>
               
               {/* MOVE HISTORY DRAWER */}
               <div style={{ 
@@ -2108,7 +2117,7 @@ export default function Game() {
                     onChange={handleChatInputChange}
                     placeholder={isSpectator ? "Spectating..." : `Chat with ${agentName}...`}
                     disabled={isSpectator}
-                    style={{ flex: 1, height: '38px', background: '#1c1c1c', border: 'none', borderRadius: '19px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                    style={{ flex: 1, height: '38px', background: '#3d3937', border: 'none', borderRadius: '19px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
                     onFocus={(e) => { e.target.style.boxShadow = '0 0 0 1px #e63946'; }}
                     onBlur={(e) => { e.target.style.boxShadow = 'none'; }}
                   />
