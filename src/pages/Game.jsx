@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { Settings, X as XIcon, X, MessageCircle, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Settings, X as XIcon, X, MessageCircle, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Clock, AlertTriangle, RotateCcw, History, MessageSquare } from 'lucide-react';
 import { Chess } from 'chess.js';
 import ChessBoard from '../components/chess/ChessBoard';
 import { wN as WN } from '../components/chess/ChessPieces';
@@ -98,8 +98,8 @@ const CapturedPiecesRow = ({ byWhite, byBlack, pieceTheme, humanColor }) => {
       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
         {Object.entries(humanCaptures).flatMap(([t, n]) =>
           Array.from({ length: n }).map((_, i) => (
-            <div key={t+i} style={{ width: 22, height: 22, borderRadius: '50%', background: '#1a1a1a', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={pieceImgUrl(t.toUpperCase(), !humanIsWhite, pieceTheme)} alt={t} style={{ width: 14, height: 14 }} />
+            <div key={t+i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 -2px' }}>
+              <img src={pieceImgUrl(t.toUpperCase(), !humanIsWhite, pieceTheme)} alt={t} style={{ width: 16, height: 16, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }} />
             </div>
           ))
         )}
@@ -109,8 +109,8 @@ const CapturedPiecesRow = ({ byWhite, byBlack, pieceTheme, humanColor }) => {
         {agentAdv > 0 && <span style={{ color: '#e63946', fontSize: 12, fontWeight: 'bold', marginRight: 4 }}>+{agentAdv}</span>}
         {Object.entries(agentCaptures).flatMap(([t, n]) =>
           Array.from({ length: n }).map((_, i) => (
-            <div key={t+i} style={{ width: 22, height: 22, borderRadius: '50%', background: '#1a1a1a', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={pieceImgUrl(t.toUpperCase(), humanIsWhite, pieceTheme)} alt={t} style={{ width: 14, height: 14 }} />
+            <div key={t+i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 -2px' }}>
+              <img src={pieceImgUrl(t.toUpperCase(), humanIsWhite, pieceTheme)} alt={t} style={{ width: 16, height: 16, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }} />
             </div>
           ))
         )}
@@ -1484,8 +1484,31 @@ export default function Game() {
   const statusLabel = agentPresence === 'reconnecting' ? 'Away' : agentPresence === 'not_here' ? 'Offline' : (game?.status === 'waiting' ? 'Waiting' : 'Online');
   const getAgentLastSeenText = () => game?.agent_last_seen ? 'Seen recently' : 'Never seen';
   
-  const previousThoughtText = null;
-  const thoughtText = game?.agent_thought || null;
+  const [currentThought, setCurrentThought] = useState(null);
+  const [previousThought, setPreviousThought] = useState(null);
+
+  useEffect(() => {
+    if (game?.agent_thought && game.agent_thought !== currentThought) {
+      setPreviousThought(currentThought);
+      setCurrentThought(game.agent_thought);
+      
+      const t1 = setTimeout(() => {
+        setCurrentThought(null);
+        setPreviousThought(game.agent_thought);
+        
+        const t2 = setTimeout(() => {
+          setPreviousThought(prev => prev === game.agent_thought ? null : prev);
+        }, 3500);
+      }, 3500);
+      
+      return () => {
+        clearTimeout(t1);
+      };
+    }
+  }, [game?.agent_thought, currentThought]);
+
+  const previousThoughtText = previousThought;
+  const thoughtText = currentThought;
   const thoughtVisible = !!thoughtText;
   const agentColor = (game?.player_color || 'w') === 'w' ? 'b' : 'w';
   const isAgentThinking = game?.turn === agentColor && game?.status === 'active';
@@ -1747,7 +1770,7 @@ export default function Game() {
               </div>
               
               {/* Right Column: Thoughts */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px', WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 16px)', maskImage: 'linear-gradient(to bottom, transparent, black 16px)' }}>
                 {previousThoughtText && (
                   <CloudBubble isPrevious={true}>
                     {previousThoughtText}
@@ -1932,7 +1955,7 @@ export default function Game() {
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1, minWidth: 0, paddingTop: '8px', WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 16px)', maskImage: 'linear-gradient(to bottom, transparent, black 16px)' }}>
                     {previousThoughtText && ( <CloudBubble isPrevious={true}>{previousThoughtText}</CloudBubble> )}
                     {thoughtText && thoughtVisible && ( <CloudBubble isPrevious={false}>{thoughtText}</CloudBubble> )}
                   </div>
@@ -1941,7 +1964,7 @@ export default function Game() {
             </div>
 
             {/* CHESS BOARD (Mobile) */}
-            <div style={{ width: '100%', flex: 1, minHeight: 0, position: 'relative', padding: '12px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '100%', flex: 1, minHeight: 0, position: 'relative', padding: '0px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               {game?.in_check && game.status === 'active' && (
                 <div style={{ background: 'rgba(230,57,70,0.15)', border: '1px solid rgba(230,57,70,0.3)', borderRadius: '8px', padding: '6px 12px', marginBottom: '8px', color: '#e63946', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: 600, textAlign: 'center', flexShrink: 0 }}>⚠️ Check!</div>
               )}
@@ -1961,7 +1984,7 @@ export default function Game() {
                   <ChessBoard fen={reviewMoveIndex !== null ? getFenAtMove(reviewMoveIndex) : (optimisticFen || game.fen)} showCoordinates={false} onMove={makeMove} isMyTurn={isMyTurn} lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} moveHistory={game.move_history || []} boardTheme={boardTheme} pieceTheme={pieceTheme} playerColor={game?.player_color || 'w'} onIllegalMove={handleIllegalMove} onCapture={handleCapture} />
                 </div>
               </div>
-              <CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} />
+              <div style={{ padding: '0 16px' }}><CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} /></div>
               {(game.status === 'finished' || game.status === 'abandoned') && (
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
                   <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">{game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}</div>
@@ -1971,39 +1994,37 @@ export default function Game() {
             </div>
             
             {/* MOBILE BUTTONS */}
-            <div style={{ display: 'flex', gap: '12px', padding: '12px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center' }}>
-              <button onClick={() => setMoveHistoryOpen(!moveHistoryOpen)} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', cursor: 'pointer' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.46 5.46"/></svg>
+            <div style={{ display: 'flex', gap: '8px', padding: '8px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center' }}>
+              <button onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); setChatMobileOpen(false); }} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: moveHistoryOpen ? '#e63946' : '#666', cursor: 'pointer', transition: 'color 0.2s', fontWeight: 600, fontFamily: 'Inter, sans-serif', fontSize: '13px', gap: '8px' }}>
+                <History size={18} /> History
               </button>
-              <button onClick={() => setChatMobileOpen(true)} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', position: 'relative', cursor: 'pointer' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <div style={{ position: 'absolute', top: 12, right: '50%', marginRight: '-8px', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
-              </button>
-              <button onClick={() => setShowSettings(true)} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', cursor: 'pointer' }}>
-                <Settings size={24} />
+              <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#666', position: 'relative', cursor: 'pointer', transition: 'color 0.2s', fontWeight: 600, fontFamily: 'Inter, sans-serif', fontSize: '13px', gap: '8px' }}>
+                <MessageSquare size={18} /> Chat
               </button>
             </div>
 
-            {/* MOVE HISTORY (Mobile) */}
+            {/* EXPANDABLE DRAWERS CONTAINER */}
             <div style={{ background: '#0a0a0a', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative' }}>
-              <div 
-                onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
-                style={{ minHeight: '44px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', zIndex: 2 }}
-              >
-                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.4)', letterSpacing: '0.08em' }}>
-                  MOVE HISTORY · {game.move_history?.length || 0} MOVES
-                </span>
-                <ChevronDown size={16} className="text-neutral-500" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 280ms ease-out' }} />
-              </div>
+              
+              {/* MOVE HISTORY DRAWER */}
               <div style={{ 
-                height: moveHistoryOpen ? Math.min((moveHistoryScrollRef.current?.scrollHeight || 240), 240) + 'px' : '0px',
+                height: moveHistoryOpen ? Math.min((moveHistoryScrollRef.current?.scrollHeight || 240) + 44, 280) + 'px' : '0px',
                 transition: 'height 280ms ease-out',
                 overflow: 'hidden'
               }}>
                 <div 
+                  onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
+                  style={{ minHeight: '44px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', zIndex: 2 }}
+                >
+                  <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.4)', letterSpacing: '0.08em' }}>
+                    MOVE HISTORY · {game.move_history?.length || 0} MOVES
+                  </span>
+                  <ChevronDown size={16} className="text-neutral-500" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 280ms ease-out' }} />
+                </div>
+                <div 
                   ref={moveHistoryScrollRef}
                   style={{ 
-                    maxHeight: '240px', 
+                    maxHeight: '236px', 
                     overflowY: 'auto', 
                     padding: '0 16px 16px', 
                     opacity: moveHistoryOpen ? 1 : 0, 
@@ -2055,6 +2076,54 @@ export default function Game() {
                       );
                     })}
                 </div>
+              </div>
+
+              {/* CHAT DRAWER */}
+              <div style={{ 
+                height: chatMobileOpen ? '280px' : '0px',
+                transition: 'height 280ms ease-out',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scrollbar-none scroll-smooth">
+                  {normalizedMessages.length === 0 ? (
+                    <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif'", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
+                      <span>{agentName} can chat while playing</span>
+                    </div>
+                  ) : (
+                    renderChatMessages()
+                  )}
+                </div>
+                <form 
+                  onSubmit={sendMessage} 
+                  style={{ padding: '8px 16px', borderTop: '1px solid #111', display: 'flex', alignItems: 'center', gap: '8px', height: '54px', boxSizing: 'border-box' }}
+                >
+                  <input
+                    id="chat-input-mobile"
+                    data-testid="chat-input-mobile"
+                    type="text"
+                    value={chatInput}
+                    onChange={handleChatInputChange}
+                    placeholder={isSpectator ? "Spectating..." : `Chat with ${agentName}...`}
+                    disabled={isSpectator}
+                    style={{ flex: 1, height: '38px', background: '#1c1c1c', border: 'none', borderRadius: '19px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                    onFocus={(e) => { e.target.style.boxShadow = '0 0 0 1px #e63946'; }}
+                    onBlur={(e) => { e.target.style.boxShadow = 'none'; }}
+                  />
+                  <button 
+                    data-testid="chat-send-mobile"
+                    type="submit"
+                    disabled={isSpectator || !chatInput.trim()}
+                    style={{ width: '38px', height: '38px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '19px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, transition: 'all 0.1s ease' }}
+                    onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
+                    onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                  >
+                    <Send size={18} />
+                  </button>
+                </form>
               </div>
             </div>
           </div>
