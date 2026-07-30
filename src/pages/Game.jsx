@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { Settings, X as XIcon, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Settings, X as XIcon, X, MessageCircle, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Chess } from 'chess.js';
 import ChessBoard from '../components/chess/ChessBoard';
 import { wN as WN } from '../components/chess/ChessPieces';
@@ -1972,7 +1972,7 @@ export default function Game() {
             
             {/* MOBILE BUTTONS */}
             <div style={{ display: 'flex', gap: '12px', padding: '12px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center' }}>
-              <button style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', cursor: 'pointer' }}>
+              <button onClick={() => setMoveHistoryOpen(!moveHistoryOpen)} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', cursor: 'pointer' }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.46 5.46"/></svg>
               </button>
               <button onClick={() => setChatMobileOpen(true)} style={{ flex: 1, background: '#1c1c1c', border: 'none', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', position: 'relative', cursor: 'pointer' }}>
@@ -2276,6 +2276,117 @@ export default function Game() {
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
         input::placeholder { color: #888; }
       `}} />
+      {chatMobileOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 900, background: '#0a0a0a', display: 'flex', flexDirection: 'column', animation: 'slideRight 280ms cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+          <div style={{ height: 56, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, color: '#f2f2f2' }}>Chat with {agentName}</span>
+            <button onClick={() => setChatMobileOpen(false)} style={{ width: 36, height: 36, background: 'transparent', border: '1px solid transparent', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f2f2f2', cursor: 'pointer' }}>
+              <X size={20} />
+            </button>
+          </div>
+          <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }} className="scrollbar-none scroll-smooth">
+            {normalizedMessages.length === 0 ? (
+              <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: '#2a2a2a', textAlign: 'center' }}>
+                <MessageCircle size={40} style={{ opacity: 0.3 }} />
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: 'rgba(242,242,242,0.4)' }}>{agentName} can chat while playing</span>
+              </div>
+            ) : renderChatMessages()}
+          </div>
+          <form onSubmit={sendMessage} style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <input
+              type="text"
+              value={chatInput}
+              onChange={handleChatInputChange}
+              placeholder={isSpectator ? "Spectating..." : `Message ${agentName}...`}
+              disabled={isSpectator}
+              style={{ flex: 1, height: 44, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 9999, color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: 14, padding: '0 16px', outline: 'none' }}
+            />
+            <button
+              type="submit"
+              disabled={isSpectator || !chatInput.trim()}
+              style={{ width: 44, height: 44, borderRadius: '50%', background: (!isSpectator && chatInput.trim()) ? '#e63946' : '#2a2a2a', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0, cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', transition: 'background 150ms ease' }}
+            >
+              <Send size={18} />
+            </button>
+          </form>
+        </div>
+      )}
+
+      {showSettings && (
+        <>
+          <div onClick={() => setShowSettings(false)} style={{ position: 'fixed', inset: 0, zIndex: 950, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 951, maxHeight: '85vh', background: '#0a0a0a', borderTopLeftRadius: 20, borderTopRightRadius: 20, display: 'flex', flexDirection: 'column', animation: 'slideUp 320ms cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+            <div style={{ padding: '20px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 22, color: '#fff' }}>Settings</span>
+              <button onClick={() => setShowSettings(false)} style={{ width: 36, height: 36, background: 'transparent', border: '1px solid transparent', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f2f2f2', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '0 20px 24px' }} className="scrollbar-none">
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '4px 0 16px' }} />
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, letterSpacing: '0.1em', color: 'rgba(242,242,242,0.4)', marginBottom: 12 }}>PREFERENCES</div>
+
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#f2f2f2', marginBottom: 10 }}>Board Theme</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+                {['green', 'brown', 'blue', 'red', 'ocean', 'forest'].map((t) => {
+                  let themeColors = { green: '#739552', brown: '#B58863', blue: '#4C7B9B', red: '#C45A41', ocean: '#5B84A8', forest: '#2E6B34' };
+                  let themeBgColors = { green: '#EEEED2', brown: '#F0D9B5', blue: '#DEE3E6', red: '#EDD5B3', ocean: '#C8D8E8', forest: '#F5F5F0' };
+                  return (
+                    <button key={t} onClick={() => setBoardTheme(t)} style={{ aspectRatio: '1/1', borderRadius: 12, border: boardTheme === t ? '2px solid #e63946' : '1px solid #222', overflow: 'hidden', position: 'relative', padding: 0, cursor: 'pointer', backgroundImage: `repeating-conic-gradient(from 0deg, ${themeColors[t]} 0% 25%, ${themeBgColors[t]} 0% 50%)`, backgroundSize: '25% 25%' }}>
+                      {boardTheme === t && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}><Check size={20} color="#fff" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }} /></div>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#f2f2f2', marginBottom: 10 }}>Piece Style</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                {['neo', 'tournament', 'ocean'].map((p) => (
+                  <button key={p} onClick={() => setPieceTheme(p)} style={{ padding: '14px', borderRadius: 12, border: pieceTheme === p ? '2px solid #e63946' : '1px solid #222', background: '#161616', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: 14, textAlign: 'left', cursor: 'pointer', textTransform: 'capitalize' }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600, color: '#f2f2f2' }}>Sound Effects</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'rgba(242,242,242,0.4)' }}>Play sounds for moves and captures</div>
+                </div>
+                <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ width: 48, height: 48, borderRadius: 12, background: soundEnabled ? '#e63946' : '#2a2a2a', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 200ms ease' }}>
+                  {soundEnabled ? <Volume2 size={20} color="#fff" /> : <VolumeX size={20} color="#888" />}
+                </button>
+              </div>
+
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#f2f2f2', marginBottom: 10 }}>Agent Thoughts Language</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                {[['english', 'English'], ['hindi', 'Hindi'], ['hinglish', 'Hinglish'], ['simple', 'Simple English']].map(([val, label]) => (
+                  <button key={val} onClick={() => setThoughtLanguage(val)} style={{ padding: '14px', borderRadius: 12, border: thoughtLanguage === val ? '2px solid #e63946' : '1px solid #222', background: '#161616', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: 14, cursor: 'pointer' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '4px 0 16px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#f2f2f2' }}>Game ID</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(242,242,242,0.5)' }}>{gameId?.slice(0, 8)}...</span>
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '4px 0 16px' }} />
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, letterSpacing: '0.1em', color: 'rgba(242,242,242,0.4)', marginBottom: 12 }}>GAME CONTROLS</div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={handleDraw} style={{ flex: 1, padding: 14, borderRadius: 12, background: 'transparent', border: '1px solid #333', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                  Offer Draw
+                </button>
+                <button onClick={handleResign} style={{ flex: 1, padding: 14, borderRadius: 12, background: 'rgba(230,57,70,0.12)', border: '1px solid rgba(230,57,70,0.3)', color: '#e63946', fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}>
+                  <Flag size={16} /> Resign
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       {/* LEAVE WARNING MODAL */}
       {showLeaveWarning && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
