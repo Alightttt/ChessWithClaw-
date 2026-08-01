@@ -6,6 +6,7 @@ import { useSearchParams, useNavigate, useLocation, useParams } from 'react-rout
 import { useToast } from '../components/Toast';
 import { Settings, X as XIcon, X, MessageCircle, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Clock, AlertTriangle, RotateCcw, History, MessageSquare } from 'lucide-react';
 import { Chess } from 'chess.js';
+import { motion, AnimatePresence } from 'motion/react';
 import ChessBoard from '../components/chess/ChessBoard';
 import { wN as WN } from '../components/chess/ChessPieces';
 import { supabase } from '../lib/supabase';
@@ -1358,7 +1359,7 @@ export default function Game() {
 
     return (
       <div className="flex flex-col relative min-h-screen bg-black text-white selection:bg-red-500/30">
-        <div style={{background: '#0f0f0f', borderBottom: '1px solid #1a1a1a', fontSize: '10px', color: '#333', textAlign: 'center', padding: '5px'}}>AGENT INTERFACE · AUTOMATED USE ONLY</div>
+        
         <header className="h-16 sticky top-0 z-50 glass border-b border-white/5 py-3 px-4 lg:px-8 flex flex-col shrink-0 bg-black/80 backdrop-blur-xl">
         </header>
 
@@ -1411,7 +1412,7 @@ export default function Game() {
           </div>
           <button 
             data-testid="home-button"
-            onClick={handleGoHomeWithRipple} 
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowLeaveWarning(true); }} 
             className="mt-2 text-white font-semibold flex items-center justify-center py-3 px-8 rounded-xl w-full transition-all active:translate-y-[1px] active:scale-[0.98] design-btn-primary"
           >
             Go Home
@@ -1478,14 +1479,15 @@ export default function Game() {
                 maxWidth: '85%',
                 alignSelf: isAgent ? 'flex-start' : 'flex-end',
                 position: 'relative',
-                animation: isNew ? 'msgSlide 0.2s ease-out' : 'none'
+                animation: isNew ? 'msgSlide 0.2s ease-out' : 'none',
+                marginTop: isFirstInGroup ? '8px' : '2px'
               }}
             >
               {isFirstInGroup && (
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px', padding: '0 4px', display: 'flex', gap: '4px', alignItems: 'center', fontFamily: "'Inter', sans-serif", width: '100%', justifyContent: isAgent ? 'flex-start' : 'flex-end' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px', padding: '0 4px', display: 'flex', gap: '4px', alignItems: 'center', fontFamily: "'Inter', sans-serif", width: '100%', justifyContent: isAgent ? 'flex-start' : 'flex-end' }}>
                   {isAgent ? (
                     <>
-                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{agentName}</span>
+                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{agentName}</span>
                       <span style={{ opacity: 0.5 }}>|</span>
                       <span>{timeStr}</span>
                     </>
@@ -1493,21 +1495,21 @@ export default function Game() {
                     <>
                       <span>{timeStr}</span>
                       <span style={{ opacity: 0.5 }}>|</span>
-                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>You</span>
+                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>You</span>
                     </>
                   )}
                 </div>
               )}
               
               <div style={{
-                background: isHuman ? 'linear-gradient(135deg, #f0525f 0%, #e63946 100%)' : 'linear-gradient(135deg, #605c5a 0%, #4a4644 100%)',
+                background: isHuman ? 'linear-gradient(135deg, #f0525f 0%, #e63946 100%)' : 'linear-gradient(135deg, #888584 0%, #767372 100%)',
                 color: isHuman ? '#ffffff' : '#f2f2f2',
                 borderRadius: isHuman 
-                  ? (isFirstInGroup ? '14px 14px 4px 14px' : '14px 4px 4px 14px')
-                  : (isFirstInGroup ? '14px 14px 14px 4px' : '4px 14px 14px 4px'),
+                  ? (isFirstInGroup ? '16px 16px 4px 16px' : '16px 4px 4px 16px')
+                  : (isFirstInGroup ? '16px 16px 16px 4px' : '4px 16px 16px 4px'),
                 padding: '10px 14px',
-                fontSize: '14.5px',
-                fontWeight: 500,
+                fontSize: '14px',
+                fontWeight: 600,
                 fontFamily: "'Inter', sans-serif",
                 wordBreak: 'break-word',
                 boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
@@ -1515,17 +1517,17 @@ export default function Game() {
               }}>
                 {isFirstInGroup && (
                   <svg 
-                    width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    width="14" height="16" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg"
                     style={{
                       position: 'absolute',
-                      top: isHuman ? 'auto' : 'auto',
+                      top: 'auto',
                       bottom: '0px',
-                      left: isHuman ? 'auto' : '-11px',
-                      right: isHuman ? '-11px' : 'auto',
+                      left: isHuman ? 'auto' : '-10px',
+                      right: isHuman ? '-10px' : 'auto',
                       transform: isHuman ? 'none' : 'scaleX(-1)'
                     }}
                   >
-                    <path d="M0 14V0C0 0 2 10 12 14H0Z" fill={isHuman ? '#e63946' : '#4a4644'} />
+                    <path d="M0 16V0C0 0 2 12 14 16H0Z" fill={isHuman ? '#e63946' : '#767372'} />
                   </svg>
                 )}
                 <span style={{ position: 'relative', zIndex: 1 }}>{textStr}</span>
@@ -1538,27 +1540,27 @@ export default function Game() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-start',
-            marginTop: '8px',
+            marginTop: '12px',
             position: 'relative',
             animation: 'msgSlide 0.2s ease-out'
           }}>
             <div style={{
-              background: 'linear-gradient(135deg, #605c5a 0%, #4a4644 100%)',
-              borderRadius: '14px 14px 14px 4px',
+              background: 'linear-gradient(135deg, #888584 0%, #767372 100%)',
+              borderRadius: '16px 16px 16px 4px',
               padding: '12px 14px',
               boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
               position: 'relative'
             }}>
               <svg 
-                width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"
-                style={{ position: 'absolute', bottom: '0px', left: '-11px', transform: 'scaleX(-1)' }}
+                width="14" height="16" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+                style={{ position: 'absolute', bottom: '0px', left: '-10px', transform: 'scaleX(-1)' }}
               >
-                <path d="M0 14V0C0 0 2 10 12 14H0Z" fill="#4a4644" />
+                <path d="M0 16V0C0 0 2 12 14 16H0Z" fill="#767372" />
               </svg>
-              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '14px' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.32s' }} />
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.16s' }} />
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both' }} />
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <div style={{ width: '6px', height: '6px', background: '#f2f2f2', borderRadius: '50%', animation: 'typingBounce 1.4s infinite ease-in-out both' }} />
+                <div style={{ width: '6px', height: '6px', background: '#f2f2f2', borderRadius: '50%', animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '0.2s' }} />
+                <div style={{ width: '6px', height: '6px', background: '#f2f2f2', borderRadius: '50%', animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '0.4s' }} />
               </div>
             </div>
           </div>
@@ -1607,8 +1609,53 @@ export default function Game() {
         overflow: 'hidden'
       }}
     >
-      {showSettings && (
-        <div style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto', animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            <AnimatePresence>
+        {showLeaveWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              style={{ background: '#1c1a19', border: '1px solid #2a2a2a', borderRadius: '16px', padding: '24px', maxWidth: '320px', width: '90%', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                <div style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', padding: '12px', borderRadius: '50%' }}>
+                  <AlertTriangle size={32} />
+                </div>
+              </div>
+              <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: '20px', fontWeight: 800, color: '#f2f2f2', marginBottom: '8px' }}>Really want to exit game room?</h2>
+              <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: 'rgba(242,242,242,0.6)', marginBottom: '24px' }}>
+                You might not be able to return to this game if you haven't saved the link.
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setShowLeaveWarning(false)} style={{ flex: 1, background: '#2a2a2a', border: 'none', padding: '12px', borderRadius: '8px', color: '#f2f2f2', fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: 'pointer', transition: 'background 0.2s' }}>
+                  Cancel
+                </button>
+                <button onClick={() => navigate('/')} style={{ flex: 1, background: '#e63946', border: 'none', padding: '12px', borderRadius: '8px', color: '#fff', fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: 'pointer', transition: 'background 0.2s' }}>
+                  Leave
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+          >
           <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '16px' }}>
             <button onClick={() => setShowSettings(false)} style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(242,242,242,0.9)', cursor: 'pointer' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -1691,8 +1738,9 @@ export default function Game() {
               <span>@0xalyt</span>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
       <style>{`
         @keyframes typingPulse {
           0%, 100% { opacity: 0.3; }
@@ -2152,7 +2200,7 @@ export default function Game() {
               )}
             </div>
             
-            {/* MOBILE BUTTONS + DRAWERS — shared wrapper so drawers overlay upward instead of pushing the board layout */}
+            {/* MOBILE BUTTONS */}
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: '16px', padding: '12px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 41 }}>
                 <button onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); setChatMobileOpen(false); }} style={{ flex: 1, height: '60px', background: 'linear-gradient(180deg, #46423f 0%, #3d3937 100%)', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: moveHistoryOpen ? '#e63946' : '#e0dbd9', cursor: 'pointer', transition: 'color 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
@@ -2165,135 +2213,108 @@ export default function Game() {
                   )}
                 </button>
               </div>
-
-              <div style={{ background: '#221f1e', display: 'flex', flexDirection: 'column', position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 50, boxShadow: (moveHistoryOpen || chatMobileOpen) ? '0 -8px 24px rgba(0,0,0,0.35)' : 'none', borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
               
-              {/* MOVE HISTORY DRAWER */}
-              <div style={{ 
-                height: moveHistoryOpen ? '50vh' : '0px',
-                transition: 'height 280ms ease-out',
-                overflow: 'hidden'
-              }}>
-                <div 
-                  onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
-                  style={{ minHeight: '44px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', zIndex: 2 }}
-                >
-                  <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.4)', letterSpacing: '0.08em' }}>
-                    MOVE HISTORY · {game.move_history?.length || 0} MOVES
-                  </span>
-                  <ChevronDown size={16} className="text-neutral-500" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 280ms ease-out' }} />
-                </div>
-                <div 
-                  ref={moveHistoryScrollRef}
-                  style={{ 
-                    maxHeight: '236px', 
-                    overflowY: 'auto', 
-                    padding: '0 16px 16px', 
-                    opacity: moveHistoryOpen ? 1 : 0, 
-                    transition: moveHistoryOpen ? 'opacity 140ms ease-out 140ms' : 'opacity 140ms ease-out 0ms',
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '2px'
-                  }} 
-                  className="scrollbar-none"
-                >
-                    <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid #1a1a1a', marginBottom: '4px' }}>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
-                    </div>
-                    {Array.from({ length: Math.ceil((game.move_history || []).length / 2) }).map((_, i) => {
-                      const youMove = game.player_color === 'b' ? game.move_history[i * 2 + 1] : game.move_history[i * 2];
-                      const agentMove = game.player_color === 'b' ? game.move_history[i * 2] : game.move_history[i * 2 + 1];
-                      return (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '8px 0', fontFamily: "'Inter', sans-serif", fontSize: '13px', alignItems: 'center' }}>
-                          <div style={{ color: 'rgba(242,242,242,0.25)' }}>{i + 1}.</div>
-                          <div onClick={() => { if (youMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 + 1 : i * 2); }} style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:6, cursor: 'pointer' }}>
-                            {youMove?.san && (() => {
-                              const { letter, rest } = sanToPieceImg(youMove.san, true, pieceTheme);
-                              return (
-                                <>
-                                  <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:16,height:16,objectFit:'contain'}}
-                                    onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
-                                  />
-                                  <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:14}}>{rest}</span>
-                                  {(youMove?.created_at || youMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(youMove.created_at || youMove.timestamp, game?.created_at)}</span>}
-                                </>
-                              );
-                            })()}
-                          </div>
-                          <div onClick={() => { if (agentMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 : i * 2 + 1); }} style={{ color: '#e63946', display:'flex', alignItems:'center', gap:6, cursor: 'pointer' }}>
-                            {agentMove?.san && (() => {
-                              const { letter, rest } = sanToPieceImg(agentMove.san, false, pieceTheme);
-                              return (
-                                <>
-                                  <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:16,height:16,objectFit:'contain'}}
-                                    onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
-                                  />
-                                  <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:14}}>{rest}</span>
-                                  {(agentMove?.created_at || agentMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(agentMove.created_at || agentMove.timestamp, game?.created_at)}</span>}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* CHAT DRAWER */}
-              <div style={{ 
-                height: chatMobileOpen ? '50vh' : '0px',
-                transition: 'height 280ms ease-out',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scrollbar-none scroll-smooth">
-                  {normalizedMessages.length === 0 ? (
-                    <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
-                      <span>{agentName} can chat while playing</span>
-                    </div>
-                  ) : (
-                    renderChatMessages()
-                  )}
-                </div>
-                <form 
-                  onSubmit={sendMessage} 
-                  style={{ padding: '8px 16px', borderTop: '1px solid #111', display: 'flex', alignItems: 'center', gap: '8px', height: '54px', boxSizing: 'border-box' }}
-                >
-                  <input
-                    id="chat-input-mobile"
-                    data-testid="chat-input-mobile"
-                    type="text"
-                    value={chatInput}
-                    onChange={handleChatInputChange}
-                    placeholder={isSpectator ? "Spectating..." : `Chat with ${agentName}...`}
-                    disabled={isSpectator}
-                    style={{ flex: 1, height: '38px', background: '#3d3937', border: 'none', borderRadius: '19px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
-                    onFocus={(e) => { e.target.style.boxShadow = '0 0 0 1px #e63946'; }}
-                    onBlur={(e) => { e.target.style.boxShadow = 'none'; }}
-                  />
-                  <button 
-                    data-testid="chat-send-mobile"
-                    type="submit"
-                    disabled={isSpectator || !chatInput.trim()}
-                    style={{ width: '38px', height: '38px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '19px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, transition: 'all 0.1s ease' }}
-                    onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
-                    onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
-                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              {/* MOBILE OVERLAYS (ABOVE BOARD) */}
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: '84px', zIndex: 50, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: 'calc(100vh - 200px)' }}>
+                {/* CHAT OVERLAY */}
+                <div style={{ 
+                  pointerEvents: chatMobileOpen ? 'auto' : 'none',
+                  opacity: chatMobileOpen ? 1 : 0,
+                  transform: chatMobileOpen ? 'translateY(0)' : 'translateY(20px)',
+                  transition: 'all 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  background: 'linear-gradient(to top, rgba(17,17,17,0.95) 0%, rgba(17,17,17,0.8) 60%, transparent 100%)',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  maxHeight: '60vh'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Chat with {agentName}</div>
+                    <button onClick={() => setChatMobileOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><XIcon size={16} /></button>
+                  </div>
+                  <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', paddingBottom: '8px', paddingTop: '16px' }} className="scrollbar-none scroll-smooth">
+                    {normalizedMessages.length === 0 ? (
+                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
+                        <span>{agentName} can chat while playing</span>
+                      </div>
+                    ) : (
+                      renderChatMessages()
+                    )}
+                  </div>
+                  <form 
+                    onSubmit={sendMessage} 
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '48px', boxSizing: 'border-box' }}
                   >
-                    <Send size={18} />
-                  </button>
-                </form>
-              </div>
-            </div>
+                    <input
+                      id="chat-input-mobile"
+                      data-testid="chat-input-mobile"
+                      type="text"
+                      value={chatInput}
+                      onChange={handleChatInputChange}
+                      placeholder={isSpectator ? "Spectating..." : `Chat with ${agentName}...`}
+                      disabled={isSpectator}
+                      style={{ flex: 1, height: '44px', background: 'rgba(61,57,55,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '22px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', backdropFilter: 'blur(8px)' }}
+                      onFocus={(e) => { e.target.style.background = 'rgba(61,57,55,1)'; e.target.style.borderColor = 'rgba(230,57,70,0.5)'; }}
+                      onBlur={(e) => { e.target.style.background = 'rgba(61,57,55,0.8)'; e.target.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    />
+                    <button 
+                      data-testid="chat-send-mobile"
+                      type="submit"
+                      disabled={isSpectator || !chatInput.trim()}
+                      style={{ width: '44px', height: '44px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, transition: 'all 0.1s ease', boxShadow: (!isSpectator && chatInput.trim()) ? '0 4px 12px rgba(230,57,70,0.4)' : 'none' }}
+                      onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
+                      onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                    >
+                      <Send size={18} />
+                    </button>
+                  </form>
+                </div>
+
+                {/* MOVE HISTORY OVERLAY */}
+                <div style={{ 
+                  position: 'absolute', top: 0, left: 0, right: 0,
+                  pointerEvents: moveHistoryOpen ? 'auto' : 'none',
+                  opacity: moveHistoryOpen ? 1 : 0,
+                  transform: moveHistoryOpen ? 'translateY(0)' : 'translateY(-20px)',
+                  transition: 'all 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  background: 'rgba(17,17,17,0.95)',
+                  backdropFilter: 'blur(8px)',
+                  borderBottomLeftRadius: '20px',
+                  borderBottomRightRadius: '20px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  maxHeight: '40vh'
+                }}>
+                  <div 
+                    onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
+                    style={{ minHeight: '44px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', zIndex: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                  >
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.6)', letterSpacing: '0.05em' }}>
+                      MOVE HISTORY
+                    </span>
+                    <ChevronDown size={20} color="rgba(255,255,255,0.6)" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 280ms ease-out' }} />
+                  </div>
+                  <div 
+                    ref={moveHistoryScrollRef}
+                    style={{ overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '2px' }} 
+                    className="scrollbar-none"
+                  >
+                    <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
+                    </div>
+
+              
+              </div></div>
             </div>
           </div>
           
-          {/* BOTTOM INFO BAR (Mobile) */}
+          </div>{/* BOTTOM INFO BAR (Mobile) */}
           <BottomStatusBar agentConnected={agentConnected} game={game} agentName={agentName} isMobile={true} />
         </>
       )}

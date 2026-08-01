@@ -1,22 +1,36 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/pages/Game.jsx', 'utf8');
 
-// I accidentally removed the contents of the if condition for mobile chat drawer, leaving nothing.
-const oldSyntax = `{normalizedMessages.length === 0 ? (
-                    
-                  ) : (
-                    renderChatMessages()
-                  )}`;
-                  
-const newSyntax = `{normalizedMessages.length === 0 ? (
-                    <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
-                      <span>{agentName} can chat while playing</span>
-                    </div>
-                  ) : (
-                    renderChatMessages()
-                  )}`;
+// The closing tags are currently:
+/*
+            <div style={{ textAlign: 'center', padding: '20px 0 12px', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>
+              <span>v0.1.3</span>
+              <span>© ChessWithClaw</span>
+              <span>@0xalyt</span>
+            </div>
+          </div>
+        </div>
+      )}
+*/
+const toReplace = `            <div style={{ textAlign: 'center', padding: '20px 0 12px', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>
+              <span>v0.1.3</span>
+              <span>© ChessWithClaw</span>
+              <span>@0xalyt</span>
+            </div>
+          </div>
+        </div>
+      )}`;
 
-code = code.replace(oldSyntax, newSyntax);
+const replacement = `            <div style={{ textAlign: 'center', padding: '20px 0 12px', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>
+              <span>v0.1.3</span>
+              <span>© ChessWithClaw</span>
+              <span>@0xalyt</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+      </AnimatePresence>`;
+
+code = code.replace(toReplace, replacement);
+
 fs.writeFileSync('src/pages/Game.jsx', code);
-console.log('Fixed syntax error.');

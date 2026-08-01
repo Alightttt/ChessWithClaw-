@@ -266,13 +266,11 @@ module.exports = async function handler(req, res) {
   }
 
   if (sender === 'agent') {
-    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    const pubKey = process.env.VAPID_PUBLIC_KEY || "BGL6xxxlPvquFXopdjltYbw5Xgz36Gka6N4Onz4qLY2F78BjHqxTdx6opzZBc8d6IXcN87enRfYXD0Tdn9tPi4g";
+    const privKey = process.env.VAPID_PRIVATE_KEY || "ME6VzfWt_j6nk9K8dsBDFYFynv_tvrum0Y3JK2ePiL4";
+    if (pubKey && privKey) {
       try {
-        webpush.setVapidDetails(
-          'mailto:hello@example.com',
-          process.env.VAPID_PUBLIC_KEY,
-          process.env.VAPID_PRIVATE_KEY
-        );
+        webpush.setVapidDetails('mailto:hello@example.com', pubKey, privKey);
         const { data: subs } = await supabase.from('push_subscriptions').select('*');
         if (subs && subs.length > 0) {
           const gameSubs = subs.filter(sub => sub.subscription && sub.subscription.gameId === gameId);

@@ -1153,7 +1153,7 @@ export default function Agent() {
 
     return (
       <div className="flex flex-col relative min-h-screen bg-black text-white selection:bg-red-500/30">
-        <div style={{background: '#0f0f0f', borderBottom: '1px solid #1a1a1a', fontSize: '10px', color: '#333', textAlign: 'center', padding: '5px'}}>AGENT INTERFACE · AUTOMATED USE ONLY</div>
+        
         <header className="h-16 sticky top-0 z-50 glass border-b border-white/5 py-3 px-4 lg:px-8 flex flex-col shrink-0 bg-black/80 backdrop-blur-xl">
         </header>
 

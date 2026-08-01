@@ -100,7 +100,7 @@ module.exports = async function handler(req, res) {
     let result_reason = '';
 
     if (action === 'get_vapid_key') {
-      return res.status(200).json({ success: true, key: process.env.VAPID_PUBLIC_KEY || '' });
+      return res.status(200).json({ success: true, key: process.env.VAPID_PUBLIC_KEY || "BGL6xxxlPvquFXopdjltYbw5Xgz36Gka6N4Onz4qLY2F78BjHqxTdx6opzZBc8d6IXcN87enRfYXD0Tdn9tPi4g" });
     } else if (action === 'save_push_subscription') {
       const { subscription, gameId } = req.body;
       if (!subscription) return res.status(400).json({ error: 'Missing subscription' });
