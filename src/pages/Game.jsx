@@ -262,15 +262,15 @@ export default function Game() {
   const [previousThought, setPreviousThought] = useState(null);
 
   useEffect(() => {
-    if (game?.agent_thought && game.agent_thought !== currentThought) {
+    if (game?.companion_thought && game.companion_thought !== currentThought) {
       setPreviousThought(currentThought);
-      setCurrentThought(game.agent_thought);
+      setCurrentThought(game.companion_thought);
       
       const t1 = setTimeout(() => {
         setCurrentThought(null);
-        setPreviousThought(game.agent_thought);
+        setPreviousThought(game.companion_thought);
         setTimeout(() => {
-          setPreviousThought(prev => prev === game.agent_thought ? null : prev);
+          setPreviousThought(prev => prev === game.companion_thought ? null : prev);
         }, 3500);
       }, 3500);
       
@@ -278,7 +278,7 @@ export default function Game() {
         clearTimeout(t1);
       };
     }
-  }, [game?.agent_thought, currentThought]);
+  }, [game?.companion_thought, currentThought]);
 
   
   const [boardSize, setBoardSize] = useState(320);
@@ -314,10 +314,20 @@ export default function Game() {
   const [agentTyping, setAgentTyping] = useState(false);
   const [isCheckState, setIsCheckState] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [bgmEnabled, setBgmEnabled] = useState(() => localStorage.getItem('cwc_bgm') === 'true');
+  useEffect(() => { localStorage.setItem('cwc_bgm', bgmEnabled); }, [bgmEnabled]);
   const [agentDisconnected, setAgentDisconnected] = useState(false);
 
-  const [visibleThought, setVisibleThought] = useState('');
-  const prevThoughtValRef = useRef('');
+  const formatMoveTime = (time, gameStartTime) => {
+    if (!time || !gameStartTime) return '';
+    const elapsed = Math.max(0, new Date(time).getTime() - new Date(gameStartTime).getTime());
+    const s = Math.floor(elapsed / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  };
+
+
 
   useEffect(() => {
     const checkCheck = () => {
@@ -506,7 +516,7 @@ export default function Game() {
     // Step 2: Clear all local component state
     setGame(null)
     setAgentConnected(false)
-    setVisibleThought('')
+    
     setLastMoveHighlight(null)
     setArrivedSquare(null)
     setLastMoveTo(null)
@@ -612,12 +622,7 @@ export default function Game() {
     };
   }, []);
 
-  useEffect(() => {
-    if (game?.companion_thought && game.companion_thought !== prevThoughtValRef.current) {
-      prevThoughtValRef.current = game.companion_thought;
-      setVisibleThought(game.companion_thought);
-    }
-  }, [game?.companion_thought]);
+
 
   // Auto-scroll chat
   
@@ -1541,6 +1546,92 @@ export default function Game() {
         overflow: 'hidden'
       }}
     >
+      {showSettings && (
+        <div style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '16px' }}>
+            <button onClick={() => setShowSettings(false)} style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(242,242,242,0.9)', cursor: 'pointer' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: '22px', color: '#f2f2f2' }}>Settings</span>
+          </div>
+
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>Game ID</span>
+              <button onClick={() => { navigator.clipboard.writeText(gameId); toast.success('Game ID copied'); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#2a2a2a', border: 'none', borderRadius: '8px', padding: '8px 12px', color: 'rgba(242,242,242,0.7)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', cursor: 'pointer' }}>
+                <Copy size={14} />
+                {gameId ? `${gameId.slice(0, 13)}...` : ''}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={handleDraw} style={{ flex: 1, height: '48px', borderRadius: '10px', border: 'none', fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '15px', color: '#1a1a1a', cursor: 'pointer', background: 'linear-gradient(180deg, #d4b95a 0%, #b89c3e 100%)' }}>
+                {confirmDraw ? 'Confirm?' : 'Offer Draw'}
+              </button>
+              <button onClick={handleResign} style={{ flex: 1, height: '48px', borderRadius: '10px', border: 'none', fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '15px', color: '#fff', cursor: 'pointer', background: 'linear-gradient(180deg, #e6555f 0%, #c92f3a 100%)' }}>
+                {confirmResign ? 'Confirm?' : 'Resign'}
+              </button>
+            </div>
+
+            <div style={{ borderTop: '1px solid #2a2a2a' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '15px', color: '#f2f2f2' }}>Sound effects</span>
+              <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ width: '48px', height: '28px', borderRadius: '14px', border: 'none', cursor: 'pointer', background: soundEnabled ? '#4ade80' : '#3a3a3a', position: 'relative', transition: 'background 0.2s' }}>
+                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: soundEnabled ? '23px' : '3px', transition: 'left 0.2s' }} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '15px', color: '#f2f2f2' }}>BGM</span>
+              <button onClick={() => setBgmEnabled(!bgmEnabled)} style={{ width: '48px', height: '28px', borderRadius: '14px', border: 'none', cursor: 'pointer', background: bgmEnabled ? '#4ade80' : '#3a3a3a', position: 'relative', transition: 'background 0.2s' }}>
+                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: bgmEnabled ? '23px' : '3px', transition: 'left 0.2s' }} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '15px', color: '#f2f2f2' }}>Thoughts language</span>
+              <select value={thoughtLanguage} onChange={(e) => setThoughtLanguage(e.target.value)} style={{ background: '#2a2a2a', border: 'none', borderRadius: '8px', padding: '8px 12px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: 600 }}>
+                <option value="english">ENG</option>
+                <option value="hindi">HIN</option>
+                <option value="hinglish">HING</option>
+              </select>
+            </div>
+
+            <div>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Chessboard theme</span>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {['green', 'brown', 'slate', 'navy', 'red', 'forest', 'icy_sea', 'blue', 'tournament', 'dark_green'].map((key) => {
+                  const bg = { green: '#769656', brown: '#B58863', slate: '#4C7B9B', navy: '#5B84A8', red: '#C45A41', forest: '#2E6B34', icy_sea: '#8CA2AC', blue: '#4B7399', tournament: '#4B7399', dark_green: '#2E6B34' }[key];
+                  return (
+                    <button key={key} onClick={() => { setBoardTheme(key); localStorage.setItem('cwc_theme', key); }} style={{ width: 40, height: 40, borderRadius: 8, border: boardTheme === key ? '2px solid #fff' : '2px solid transparent', background: bg, cursor: 'pointer' }} title={key} />
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Chess pieces</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {['neo', 'tournament', 'ocean'].map((key) => (
+                  <button key={key} onClick={() => { setPieceTheme(key); localStorage.setItem('cwc_pieces', key); }} style={{ width: 80, height: 48, borderRadius: 8, border: pieceTheme === key ? '2px solid #fff' : '2px solid transparent', background: '#3a3a3a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 32, height: 32 }}>
+                      <WN pieceStyle={key} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', padding: '20px 0 12px', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>
+              <span>v0.1.3</span>
+              <span>© ChessWithClaw</span>
+              <span>@0xalyt</span>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes typingPulse {
           0%, 100% { opacity: 0.3; }
@@ -1876,6 +1967,7 @@ export default function Game() {
                                   onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
                                 />
                                 <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                                {(youMove?.created_at || youMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(youMove.created_at || youMove.timestamp, game?.created_at)}</span>}
                               </>
                             );
                           })()}
@@ -1889,6 +1981,7 @@ export default function Game() {
                                   onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
                                 />
                                 <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                                {(agentMove?.created_at || agentMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(agentMove.created_at || agentMove.timestamp, game?.created_at)}</span>}
                               </>
                             );
                           })()}
@@ -1998,22 +2091,21 @@ export default function Game() {
               )}
             </div>
             
-            {/* MOBILE BUTTONS */}
-            <div style={{ display: 'flex', gap: '16px', padding: '12px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center' }}>
-              <button onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); setChatMobileOpen(false); }} style={{ flex: 1, height: '60px', background: '#3d3937', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: moveHistoryOpen ? '#e63946' : '#e0dbd9', cursor: 'pointer', transition: 'color 0.2s' }}>
-                <History size={28} />
-              </button>
-              <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, height: '60px', background: '#3d3937', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#e0dbd9', position: 'relative', cursor: 'pointer', transition: 'color 0.2s' }}>
-                <MessageSquare size={28} />
-                {/* Red dot indicator if there's a new message */}
-                {chatMobileOpen === false && normalizedMessages.length > 0 && normalizedMessages[normalizedMessages.length - 1].sender === 'agent' && (
-                  <div style={{ position: 'absolute', top: '16px', right: '36px', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
-                )}
-              </button>
-            </div>
+            {/* MOBILE BUTTONS + DRAWERS — shared wrapper so drawers overlay upward instead of pushing the board layout */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: '16px', padding: '12px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 41 }}>
+                <button onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); setChatMobileOpen(false); }} style={{ flex: 1, height: '60px', background: 'linear-gradient(180deg, #46423f 0%, #3d3937 100%)', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: moveHistoryOpen ? '#e63946' : '#e0dbd9', cursor: 'pointer', transition: 'color 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                  <History size={28} />
+                </button>
+                <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, height: '60px', background: 'linear-gradient(180deg, #46423f 0%, #3d3937 100%)', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#e0dbd9', position: 'relative', cursor: 'pointer', transition: 'color 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                  <MessageSquare size={28} />
+                  {chatMobileOpen === false && normalizedMessages.length > 0 && normalizedMessages[normalizedMessages.length - 1].sender === 'agent' && (
+                    <div style={{ position: 'absolute', top: '16px', right: '36px', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
+                  )}
+                </button>
+              </div>
 
-            {/* EXPANDABLE DRAWERS CONTAINER */}
-            <div style={{ background: '#2c2826', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative' }}>
+              <div style={{ background: '#2c2826', display: 'flex', flexDirection: 'column', position: 'absolute', left: 0, right: 0, bottom: '100%', zIndex: 40, boxShadow: (moveHistoryOpen || chatMobileOpen) ? '0 -8px 24px rgba(0,0,0,0.35)' : 'none' }}>
               
               {/* MOVE HISTORY DRAWER */}
               <div style={{ 
@@ -2064,6 +2156,7 @@ export default function Game() {
                                     onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
                                   />
                                   <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:14}}>{rest}</span>
+                                  {(youMove?.created_at || youMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(youMove.created_at || youMove.timestamp, game?.created_at)}</span>}
                                 </>
                               );
                             })()}
@@ -2077,6 +2170,7 @@ export default function Game() {
                                     onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
                                   />
                                   <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:14}}>{rest}</span>
+                                  {(agentMove?.created_at || agentMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(agentMove.created_at || agentMove.timestamp, game?.created_at)}</span>}
                                 </>
                               );
                             })()}
@@ -2134,6 +2228,7 @@ export default function Game() {
                   </button>
                 </form>
               </div>
+            </div>
             </div>
           </div>
           
