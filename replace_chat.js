@@ -1,139 +1,216 @@
 const fs = require('fs');
+let code = fs.readFileSync('src/pages/Game.jsx', 'utf8');
 
-function processFile(file) {
-  let content = fs.readFileSync(file, 'utf8');
+const oldRenderChatMessages = `  const renderChatMessages = () => {
+    const msgs = normalizedMessages;
+    return (
+      <div style={{ paddingBottom: '10px' }}>
+        {msgs.map((msg, index) => {
+          if (!msg) return null;
+          const isAgent = msg.role === 'agent' || msg.sender === 'agent' || (msg.role !== 'human' && msg.sender !== 'agent');
+          const isNew = index >= seenMsgCountRef.current;
+          const prevMsg = msgs[index - 1];
+          const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role;
+          const isHuman = !isAgent;
 
-  const startStr = "{chatMobileOpen && (";
-  const endStr = "      )}";
-  
-  const startIndex = content.indexOf(startStr);
-  if (startIndex === -1) return;
-  
-  let currentIndex = startIndex;
-  let nextEnd = content.indexOf(endStr, currentIndex);
-  while (nextEnd !== -1) {
-      const block = content.substring(startIndex, nextEnd + endStr.length);
-      if (block.includes("chatMobileOpen && (") && block.includes("chatMessagesRef")) {
-          break;
-      }
-      currentIndex = nextEnd + 1;
-      nextEnd = content.indexOf(endStr, currentIndex);
-  }
-  
-  if (nextEnd === -1) return;
-  
-  const closingBrace = nextEnd + endStr.length;
-
-  const newChat = `{chatMobileOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-          <div 
-            id="chat-sheet-backdrop"
-            onClick={() => {
-              const sheet = document.getElementById('chat-sheet-content');
-              const backdrop = document.getElementById('chat-sheet-backdrop');
-              if (sheet) sheet.style.animation = 'slideOutRight 220ms ease-in forwards';
-              if (backdrop) backdrop.style.animation = 'fadeOut 220ms ease-in forwards';
-              setTimeout(() => setChatMobileOpen(false), 220);
-            }}
-            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(2px)', pointerEvents: 'auto', animation: 'fadeIn 200ms ease-out forwards' }} 
-          />
-          <div 
-            id="chat-sheet-content"
-            style={{ 
-            background: '#0a0a0a', 
-            width: '100%', 
-            height: '65vh', 
-            borderTopLeftRadius: '20px', 
-            borderTopRightRadius: '20px', 
-            pointerEvents: 'auto', 
-            position: 'relative', 
-            display: 'flex', 
-            flexDirection: 'column',
-            animation: 'slideUp 280ms cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '18px', fontWeight: 700, color: 'white' }}>Chat with {agentName || 'Your Agent'}</span>
-              <button 
-                onClick={() => {
-                  const sheet = document.getElementById('chat-sheet-content');
-                  const backdrop = document.getElementById('chat-sheet-backdrop');
-                  if (sheet) sheet.style.animation = 'slideOutRight 220ms ease-in forwards';
-                  if (backdrop) backdrop.style.animation = 'fadeOut 220ms ease-in forwards';
-                  setTimeout(() => setChatMobileOpen(false), 220);
-                }} 
-                style={{ width: '36px', height: '36px', background: 'transparent', border: '1px solid transparent', borderRadius: '8px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 150ms ease', outline: 'none' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#e63946'; e.currentTarget.style.boxShadow = '0 0 8px rgba(230,57,70,0.4)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
-                onMouseDown={(e) => { e.currentTarget.style.borderColor = '#e63946'; e.currentTarget.style.boxShadow = '0 0 8px rgba(230,57,70,0.4)'; }}
-                onMouseUp={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
-              >
-                <XIcon size={24} />
-              </button>
-            </div>
-            
-            <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="scrollbar-none">
-              {normalizedMessages.length === 0 ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg>
-                  <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: 'rgba(242,242,242,0.4)' }}>Your Agent can chat while playing</span>
-                </div>
-              ) : (
-                renderChatMessages()
-              )}
-            </div>
-            
-            <form 
-              onSubmit={(e) => { 
-                sendMessage(e); 
-                const btn = document.getElementById('chat-send-overlay');
-                if(btn) {
-                  btn.style.animation = 'none';
-                  void btn.offsetWidth;
-                  btn.style.animation = 'pressPulse 150ms ease-out';
-                }
-              }} 
-              style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', background: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+          if (msg.type === 'resign_request' || msg.type === 'draw_offer') {
+            return (
+              <div key={msg.id} style={{ alignSelf: 'center', background: '#1a1a1a', border: '1px solid #2a2a2a', color: 'white', borderRadius: '12px', padding: '12px', margin: '8px 0', width: '100%', fontFamily: "'Inter', sans-serif", fontSize: '13px', textAlign: 'center' }}>
+                {msg.text || msg.message || msg.content}
+                {game?.status === 'active' && msg.type === 'resign_request' && (
+                  <button onClick={acceptAgentResignation} className="block w-full mt-3 text-white bg-[#e63946] rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Resignation</button>
+                )}
+                {game?.status === 'active' && msg.type === 'draw_offer' && (
+                  <button onClick={async () => {
+                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
+                  }} className="block w-full mt-3 text-white bg-green-600 rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Draw</button>
+                )}
+              </div>
+            );
+          }
+        
+          return (
+            <div
+              key={msg.id}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: isAgent ? 'flex-start' : 'flex-end',
+                marginBottom: '4px',
+                position: 'relative',
+                animation: isNew ? 'msgSlide 0.2s ease-out' : 'none'
+              }}
             >
-              <input
-                type="text"
-                value={chatInput}
-                onChange={handleChatInputChange}
-                placeholder={\`Message \${agentName || 'Your Agent'}...\`}
-                style={{ flex: 1, height: '48px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '24px', color: 'white', padding: '0 20px', fontSize: '15px', outline: 'none', fontFamily: "'Inter', sans-serif" }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#e63946'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#2a2a2a'; }}
-              />
-              <button 
-                id="chat-send-overlay"
-                type="submit"
-                disabled={!chatInput.trim()}
-                style={{ width: '48px', height: '48px', background: chatInput.trim() ? '#e63946' : '#2a2a2a', borderRadius: '50%', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 150ms ease' }}
-              >
-                <Send size={20} style={{ transform: 'translateX(-1px)' }} />
-              </button>
-            </form>
+              <CloudBubble isPrevious={!isFirstInGroup} isHuman={isHuman}>
+                {msg.text || msg.message || msg.content}
+              </CloudBubble>
+            </div>
+          );
+        })}
+        {game?.agent_typing && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            marginBottom: '4px',
+            position: 'relative',
+            animation: 'msgSlide 0.2s ease-out'
+          }}>
+            <CloudBubble isPrevious={false} isHuman={false}>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '20px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1a1a1a', animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.32s' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1a1a1a', animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.16s' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1a1a1a', animation: 'typingBounce 1.4s infinite ease-in-out both' }} />
+              </div>
+            </CloudBubble>
           </div>
-        </div>
-      )}`;
-  
-  content = content.substring(0, startIndex) + newChat + content.substring(closingBrace);
-  
-  // also inject slideOutRight animation
-  const styleAnim = "@keyframes slideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }";
-  if (!content.includes("slideOutRight")) {
-    content = content.replace("@keyframes slideRight", styleAnim + "\n        @keyframes slideRight");
-  }
-  const fadeOutAnim = "@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }";
-  if (!content.includes("fadeOut")) {
-    content = content.replace("@keyframes fadeIn", fadeOutAnim + "\n        @keyframes fadeIn");
-  }
-  const slideDownAnim = "@keyframes slideDown { from { transform: translateY(0); } to { transform: translateY(100%); } }";
-  if (!content.includes("slideDown")) {
-    content = content.replace("@keyframes slideUp", slideDownAnim + "\n        @keyframes slideUp");
-  }
-  
-  fs.writeFileSync(file, content);
-}
+        )}
+      </div>
+    );
+  };`;
 
-processFile('src/pages/Game.jsx');
-processFile('src/pages/Agent.jsx');
+const newRenderChatMessages = `  const renderChatMessages = () => {
+    const msgs = normalizedMessages;
+    
+    const formatTime = (ts) => {
+      if (!ts) return '';
+      return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    return (
+      <div style={{ paddingBottom: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {msgs.map((msg, index) => {
+          if (!msg) return null;
+          const isAgent = msg.role === 'agent';
+          const isNew = index >= seenMsgCountRef.current;
+          const prevMsg = msgs[index - 1];
+          const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role;
+          const isHuman = !isAgent;
+
+          if (msg.type === 'resign_request' || msg.type === 'draw_offer') {
+            return (
+              <div key={msg.id} style={{ alignSelf: 'center', background: '#1a1a1a', border: '1px solid #2a2a2a', color: 'white', borderRadius: '12px', padding: '12px', margin: '8px 0', width: '100%', fontFamily: "'Inter', sans-serif", fontSize: '13px', textAlign: 'center' }}>
+                {msg.text || msg.message || msg.content}
+                {game?.status === 'active' && msg.type === 'resign_request' && (
+                  <button onClick={acceptAgentResignation} className="block w-full mt-3 text-white bg-[#e63946] rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Resignation</button>
+                )}
+                {game?.status === 'active' && msg.type === 'draw_offer' && (
+                  <button onClick={async () => {
+                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
+                  }} className="block w-full mt-3 text-white bg-green-600 rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Draw</button>
+                )}
+              </div>
+            );
+          }
+        
+          const textStr = msg.text || msg.message || msg.content;
+          const timeStr = formatTime(msg.timestamp || msg.ts);
+
+          return (
+            <div
+              key={msg.id}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: isAgent ? 'flex-start' : 'flex-end',
+                maxWidth: '85%',
+                alignSelf: isAgent ? 'flex-start' : 'flex-end',
+                position: 'relative',
+                animation: isNew ? 'msgSlide 0.2s ease-out' : 'none'
+              }}
+            >
+              {isFirstInGroup && (
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px', padding: '0 4px', display: 'flex', gap: '4px', alignItems: 'center', fontFamily: "'Inter', sans-serif", width: '100%', justifyContent: isAgent ? 'flex-start' : 'flex-end' }}>
+                  {isAgent ? (
+                    <>
+                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{agentName}</span>
+                      <span style={{ opacity: 0.5 }}>|</span>
+                      <span>{timeStr}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{timeStr}</span>
+                      <span style={{ opacity: 0.5 }}>|</span>
+                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>You</span>
+                    </>
+                  )}
+                </div>
+              )}
+              
+              <div style={{
+                background: isHuman ? 'linear-gradient(135deg, #f0525f 0%, #e63946 100%)' : 'linear-gradient(135deg, #605c5a 0%, #4a4644 100%)',
+                color: isHuman ? '#ffffff' : '#f2f2f2',
+                borderRadius: isHuman 
+                  ? (isFirstInGroup ? '14px 14px 4px 14px' : '14px 4px 4px 14px')
+                  : (isFirstInGroup ? '14px 14px 14px 4px' : '4px 14px 14px 4px'),
+                padding: '10px 14px',
+                fontSize: '14.5px',
+                fontWeight: 500,
+                fontFamily: "'Inter', sans-serif",
+                wordBreak: 'break-word',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                position: 'relative'
+              }}>
+                {isFirstInGroup && (
+                  <svg 
+                    width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style={{
+                      position: 'absolute',
+                      top: isHuman ? 'auto' : 'auto',
+                      bottom: '0px',
+                      left: isHuman ? 'auto' : '-11px',
+                      right: isHuman ? '-11px' : 'auto',
+                      transform: isHuman ? 'none' : 'scaleX(-1)'
+                    }}
+                  >
+                    <path d="M0 14V0C0 0 2 10 12 14H0Z" fill={isHuman ? '#e63946' : '#4a4644'} />
+                  </svg>
+                )}
+                <span style={{ position: 'relative', zIndex: 1 }}>{textStr}</span>
+              </div>
+            </div>
+          );
+        })}
+        {game?.agent_typing && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            marginTop: '8px',
+            position: 'relative',
+            animation: 'msgSlide 0.2s ease-out'
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #605c5a 0%, #4a4644 100%)',
+              borderRadius: '14px 14px 14px 4px',
+              padding: '12px 14px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+              position: 'relative'
+            }}>
+              <svg 
+                width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"
+                style={{ position: 'absolute', bottom: '0px', left: '-11px', transform: 'scaleX(-1)' }}
+              >
+                <path d="M0 14V0C0 0 2 10 12 14H0Z" fill="#4a4644" />
+              </svg>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '14px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.32s' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.16s' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both' }} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };`;
+
+if (code.includes('const renderChatMessages = () => {')) {
+  const indexStart = code.indexOf('const renderChatMessages = () => {');
+  const indexEnd = code.indexOf('  };', indexStart) + 4;
+  code = code.slice(0, indexStart) + newRenderChatMessages + code.slice(indexEnd);
+  fs.writeFileSync('src/pages/Game.jsx', code);
+  console.log('Successfully replaced renderChatMessages.');
+} else {
+  console.log('Could not find renderChatMessages');
+}

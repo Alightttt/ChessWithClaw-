@@ -1151,7 +1151,7 @@ export default function Game() {
     if (!chatInput.trim()) return;
     
     const text = chatInput;
-    setLocalMessages(prev => [...prev, { role: 'agent', sender: 'agent', text: text, timestamp: Date.now() }]);
+    setLocalMessages(prev => [...prev, { role: 'human', sender: 'human', text: text, timestamp: Date.now() }]);
     setChatInput('');
     
     try {
@@ -1431,13 +1431,19 @@ export default function Game() {
 
   if (!game) return null;
 
-  const renderChatMessages = () => {
+    const renderChatMessages = () => {
     const msgs = normalizedMessages;
+    
+    const formatTime = (ts) => {
+      if (!ts) return '';
+      return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
     return (
-      <div style={{ paddingBottom: '10px' }}>
+      <div style={{ paddingBottom: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {msgs.map((msg, index) => {
           if (!msg) return null;
-          const isAgent = msg.role === 'agent' || msg.sender === 'agent' || (msg.role !== 'human' && msg.sender !== 'agent');
+          const isAgent = msg.role === 'agent';
           const isNew = index >= seenMsgCountRef.current;
           const prevMsg = msgs[index - 1];
           const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role;
@@ -1459,6 +1465,9 @@ export default function Game() {
             );
           }
         
+          const textStr = msg.text || msg.message || msg.content;
+          const timeStr = formatTime(msg.timestamp || msg.ts);
+
           return (
             <div
               key={msg.id}
@@ -1466,14 +1475,61 @@ export default function Game() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: isAgent ? 'flex-start' : 'flex-end',
-                marginBottom: '4px',
+                maxWidth: '85%',
+                alignSelf: isAgent ? 'flex-start' : 'flex-end',
                 position: 'relative',
                 animation: isNew ? 'msgSlide 0.2s ease-out' : 'none'
               }}
             >
-              <CloudBubble isPrevious={!isFirstInGroup} isHuman={isHuman}>
-                {msg.text || msg.message || msg.content}
-              </CloudBubble>
+              {isFirstInGroup && (
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px', padding: '0 4px', display: 'flex', gap: '4px', alignItems: 'center', fontFamily: "'Inter', sans-serif", width: '100%', justifyContent: isAgent ? 'flex-start' : 'flex-end' }}>
+                  {isAgent ? (
+                    <>
+                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{agentName}</span>
+                      <span style={{ opacity: 0.5 }}>|</span>
+                      <span>{timeStr}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{timeStr}</span>
+                      <span style={{ opacity: 0.5 }}>|</span>
+                      <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>You</span>
+                    </>
+                  )}
+                </div>
+              )}
+              
+              <div style={{
+                background: isHuman ? 'linear-gradient(135deg, #f0525f 0%, #e63946 100%)' : 'linear-gradient(135deg, #605c5a 0%, #4a4644 100%)',
+                color: isHuman ? '#ffffff' : '#f2f2f2',
+                borderRadius: isHuman 
+                  ? (isFirstInGroup ? '14px 14px 4px 14px' : '14px 4px 4px 14px')
+                  : (isFirstInGroup ? '14px 14px 14px 4px' : '4px 14px 14px 4px'),
+                padding: '10px 14px',
+                fontSize: '14.5px',
+                fontWeight: 500,
+                fontFamily: "'Inter', sans-serif",
+                wordBreak: 'break-word',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                position: 'relative'
+              }}>
+                {isFirstInGroup && (
+                  <svg 
+                    width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style={{
+                      position: 'absolute',
+                      top: isHuman ? 'auto' : 'auto',
+                      bottom: '0px',
+                      left: isHuman ? 'auto' : '-11px',
+                      right: isHuman ? '-11px' : 'auto',
+                      transform: isHuman ? 'none' : 'scaleX(-1)'
+                    }}
+                  >
+                    <path d="M0 14V0C0 0 2 10 12 14H0Z" fill={isHuman ? '#e63946' : '#4a4644'} />
+                  </svg>
+                )}
+                <span style={{ position: 'relative', zIndex: 1 }}>{textStr}</span>
+              </div>
             </div>
           );
         })}
@@ -1482,23 +1538,28 @@ export default function Game() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-start',
-            marginBottom: '4px',
+            marginTop: '8px',
             position: 'relative',
-            animation: 'msgIn 0.15s ease-out',
-            opacity: 1,
-            transition: 'opacity 0.15s'
+            animation: 'msgSlide 0.2s ease-out'
           }}>
             <div style={{
-              background: '#1a1a1a',
-              borderRadius: '24px',
-              padding: '12px 18px',
-              display: 'flex',
-              gap: '4px',
-              alignItems: 'center'
+              background: 'linear-gradient(135deg, #605c5a 0%, #4a4644 100%)',
+              borderRadius: '14px 14px 14px 4px',
+              padding: '12px 14px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+              position: 'relative'
             }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'rgba(230,57,70,0.6)', animation: 'typingPulse 1.2s infinite 0ms' }} />
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'rgba(230,57,70,0.6)', animation: 'typingPulse 1.2s infinite 150ms' }} />
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'rgba(230,57,70,0.6)', animation: 'typingPulse 1.2s infinite 300ms' }} />
+              <svg 
+                width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"
+                style={{ position: 'absolute', bottom: '0px', left: '-11px', transform: 'scaleX(-1)' }}
+              >
+                <path d="M0 14V0C0 0 2 10 12 14H0Z" fill="#4a4644" />
+              </svg>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '14px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.32s' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both', animationDelay: '-0.16s' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f2f2f2', opacity: 0.8, animation: 'typingBounce 1.4s infinite ease-in-out both' }} />
+              </div>
             </div>
           </div>
         )}
@@ -1547,7 +1608,7 @@ export default function Game() {
       }}
     >
       {showSettings && (
-        <div style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto', animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
           <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '16px' }}>
             <button onClick={() => setShowSettings(false)} style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(242,242,242,0.9)', cursor: 'pointer' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -1691,7 +1752,7 @@ export default function Game() {
             draggable={false}
             onContextMenu={(e) => e.preventDefault()}
             style={{ 
-              height: '24px',
+              height: '28px',
               width: 'auto',
               objectFit: 'contain',
               userSelect: 'none',
@@ -2099,17 +2160,17 @@ export default function Game() {
                 </button>
                 <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, height: '60px', background: 'linear-gradient(180deg, #46423f 0%, #3d3937 100%)', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#e0dbd9', position: 'relative', cursor: 'pointer', transition: 'color 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                   <MessageSquare size={28} />
-                  {chatMobileOpen === false && normalizedMessages.length > 0 && normalizedMessages[normalizedMessages.length - 1].sender === 'agent' && (
+                  {chatMobileOpen === false && normalizedMessages.length > 0 && normalizedMessages[normalizedMessages.length - 1].role === 'agent' && (
                     <div style={{ position: 'absolute', top: '16px', right: '36px', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
                   )}
                 </button>
               </div>
 
-              <div style={{ background: '#2c2826', display: 'flex', flexDirection: 'column', position: 'absolute', left: 0, right: 0, bottom: '100%', zIndex: 40, boxShadow: (moveHistoryOpen || chatMobileOpen) ? '0 -8px 24px rgba(0,0,0,0.35)' : 'none' }}>
+              <div style={{ background: '#221f1e', display: 'flex', flexDirection: 'column', position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 50, boxShadow: (moveHistoryOpen || chatMobileOpen) ? '0 -8px 24px rgba(0,0,0,0.35)' : 'none', borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
               
               {/* MOVE HISTORY DRAWER */}
               <div style={{ 
-                height: moveHistoryOpen ? Math.min((moveHistoryScrollRef.current?.scrollHeight || 240) + 44, 280) + 'px' : '0px',
+                height: moveHistoryOpen ? '50vh' : '0px',
                 transition: 'height 280ms ease-out',
                 overflow: 'hidden'
               }}>
@@ -2183,7 +2244,7 @@ export default function Game() {
 
               {/* CHAT DRAWER */}
               <div style={{ 
-                height: chatMobileOpen ? '280px' : '0px',
+                height: chatMobileOpen ? '50vh' : '0px',
                 transition: 'height 280ms ease-out',
                 overflow: 'hidden',
                 display: 'flex',
@@ -2191,7 +2252,7 @@ export default function Game() {
               }}>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scrollbar-none scroll-smooth">
                   {normalizedMessages.length === 0 ? (
-                    <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif'", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
                       <span>{agentName} can chat while playing</span>
                     </div>
@@ -2309,7 +2370,7 @@ export default function Game() {
             {(thoughtText || normalizedMessages.length > 0) && (
               <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
                 <CloudBubble isPrevious={false}>
-                  {thoughtText || normalizedMessages[normalizedMessages.length - 1]?.content || 'Good game!'}
+                  {thoughtText || (normalizedMessages.length > 0 ? (normalizedMessages[normalizedMessages.length - 1].content || normalizedMessages[normalizedMessages.length - 1].text) : 'Good game!')}
                 </CloudBubble>
               </div>
             )}

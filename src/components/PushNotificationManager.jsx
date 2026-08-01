@@ -48,19 +48,8 @@ export default function PushNotificationManager() {
         setSwRegistration(registration);
         
         // If already granted, ensure we are subscribed immediately
-        if (Notification.permission === 'granted') {
-          registration.pushManager.getSubscription().then((subscription) => {
-            if (!subscription) {
-              subscribeUser(registration);
-            } else if (gameId) {
-              // Send the existing subscription to the backend for the new gameId
-              fetch('/api/actions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'save_push_subscription', subscription, gameId })
-              }).catch(console.error);
-            }
-          });
+        if (Notification.permission === 'granted' && gameId) {
+          subscribeUser(registration);
         }
       });
     }
