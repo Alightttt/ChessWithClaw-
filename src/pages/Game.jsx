@@ -1200,11 +1200,16 @@ export default function Game() {
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
 
   function handleGoHome(e) { 
-    if (game?.status === 'active') {
+    if (game?.status === 'finished' || game?.status === 'abandoned') {
+      navigate('/');
+      return;
+    }
+
+    if (game?.agent_connected || game?.status === 'active') {
       if (e && e.preventDefault) e.preventDefault();
       setShowLeaveWarning(true);
     } else {
-      navigate('/');
+      navigate(`/created/${gameId}`);
     }
   }
   function handleOpenSettings() { setShowSettings(true) }
@@ -1349,53 +1354,76 @@ export default function Game() {
   }, [game?.status, game?.fen, gameId, game?.agent_name]);
 
   if (loading) {
+    const isDesktopLoading = typeof window !== 'undefined' && window.innerWidth >= 1024;
     const skeletonStyle = {
-      background: 'linear-gradient(90deg, #161616 25%, #222222 50%, #161616 75%)',
+      background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)',
       backgroundSize: '200% 100%',
       animation: 'shimmer 1.5s infinite linear',
-      borderRadius: '8px',
-      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)'
+      borderRadius: '8px'
     };
 
     return (
-      <div className="flex flex-col relative min-h-screen bg-black text-white selection:bg-red-500/30">
+      <div style={{ backgroundColor: '#1c1a19', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
         
-        <header className="h-16 sticky top-0 z-50 glass border-b border-white/5 py-3 px-4 lg:px-8 flex flex-col shrink-0 bg-black/80 backdrop-blur-xl">
+        {/* Header Skeleton */}
+        <header style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: '#2c2826', zIndex: 50 }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '4px', ...skeletonStyle }} />
+          <div style={{ width: '120px', height: '28px', borderRadius: '4px', ...skeletonStyle }} />
+          <div style={{ width: '28px', height: '28px', borderRadius: '4px', ...skeletonStyle }} />
         </header>
 
-        <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden pb-12 lg:pb-0">
-          <div className="flex-none lg:flex-1 flex flex-col lg:overflow-hidden relative z-10">
-            <div className="h-[60px] border-b border-white/5 flex items-center px-4 gap-3">
-              <div style={{ ...skeletonStyle, width: '40px', height: '40px', borderRadius: '12px', flexShrink: 0 }} />
-              <div className="flex-1 flex gap-2 flex-col">
-                 <div style={{ ...skeletonStyle, width: '96px', height: '16px', borderRadius: '4px' }} />
-                 <div style={{ ...skeletonStyle, width: '128px', height: '12px', borderRadius: '4px' }} />
+        {isDesktopLoading ? (
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+              <div style={{ width: '100%', maxWidth: '600px', display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '16px', ...skeletonStyle }} />
+                <div style={{ flex: 1, height: '64px', borderRadius: '16px', ...skeletonStyle }} />
+              </div>
+              <div style={{ width: '100%', maxWidth: '600px', aspectRatio: '1', borderRadius: '4px', ...skeletonStyle }} />
+              <div style={{ width: '100%', maxWidth: '600px', display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
+                <div style={{ width: '30%', height: '24px', borderRadius: '4px', ...skeletonStyle }} />
+                <div style={{ width: '30%', height: '24px', borderRadius: '4px', ...skeletonStyle }} />
               </div>
             </div>
-            <div className="flex-1 flex flex-col items-center justify-center p-4 relative z-10">
-              <div className="w-full max-w-[400px] aspect-square" style={{ ...skeletonStyle }} />
+            <div style={{ width: '360px', background: '#111', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ height: '60px', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
+                <div style={{ width: '50%', height: '24px', borderRadius: '4px', ...skeletonStyle }} />
+              </div>
+              <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', justifyContent: 'flex-end' }}>
+                <div style={{ width: '70%', height: '48px', borderRadius: '16px 16px 16px 4px', ...skeletonStyle, alignSelf: 'flex-start' }} />
+                <div style={{ width: '60%', height: '36px', borderRadius: '16px 16px 4px 16px', ...skeletonStyle, alignSelf: 'flex-end' }} />
+                <div style={{ width: '80%', height: '48px', borderRadius: '16px 16px 16px 4px', ...skeletonStyle, alignSelf: 'flex-start' }} />
+              </div>
+              <div style={{ height: '72px', padding: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1, height: '40px', borderRadius: '20px', ...skeletonStyle }} />
+                <div style={{ width: '40px', height: '40px', borderRadius: '20px', ...skeletonStyle }} />
+              </div>
             </div>
           </div>
-
-          <div className="w-full lg:w-[360px] shrink-0 flex flex-col bg-black/60 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/5 relative z-10 transition-all">
-            <div className="flex-1 flex flex-col p-4 gap-4 justify-end mb-4 min-h-[220px]">
-              <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
-                <div style={{ ...skeletonStyle, width: '60%', height: '48px', borderRadius: '12px 12px 12px 4px' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                <div style={{ ...skeletonStyle, width: '50%', height: '36px', borderRadius: '12px 12px 4px 12px' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
-                <div style={{ ...skeletonStyle, width: '70%', height: '40px', borderRadius: '12px 12px 12px 4px' }} />
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', padding: '16px', gap: '12px', alignItems: 'center' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '16px', ...skeletonStyle }} />
+              <div style={{ flex: 1, height: '48px', borderRadius: '24px', ...skeletonStyle }} />
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
+              <div style={{ width: '100%', maxWidth: '600px', aspectRatio: '1', borderRadius: '4px', ...skeletonStyle }} />
+              <div style={{ width: '100%', maxWidth: '600px', display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+                <div style={{ width: '40%', height: '20px', borderRadius: '4px', ...skeletonStyle }} />
+                <div style={{ width: '40%', height: '20px', borderRadius: '4px', ...skeletonStyle }} />
               </div>
             </div>
-            <div className="h-[140px] flex flex-col gap-3 justify-center border-t border-white/5 bg-[#111111] p-4">
-              <div style={{ ...skeletonStyle, width: '100%', height: '12px' }} />
-              <div style={{ ...skeletonStyle, width: '100%', height: '12px' }} />
-              <div style={{ ...skeletonStyle, width: '100%', height: '12px' }} />
+            <div style={{ display: 'flex', gap: '16px', padding: '12px 16px' }}>
+              <div style={{ flex: 1, height: '60px', borderRadius: '16px', ...skeletonStyle }} />
+              <div style={{ flex: 1, height: '60px', borderRadius: '16px', ...skeletonStyle }} />
+            </div>
+            <div style={{ height: '56px', background: '#1e1c1b', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ width: '100px', height: '32px', borderRadius: '8px', ...skeletonStyle }} />
+              <div style={{ width: '60px', height: '20px', borderRadius: '4px', ...skeletonStyle }} />
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -1437,7 +1465,7 @@ export default function Game() {
     
     const formatTime = (ts) => {
       if (!ts) return '';
-      return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
     return (
@@ -1650,10 +1678,10 @@ export default function Game() {
       <AnimatePresence>
         {showSettings && (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, scale: 0.97, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 15 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
           >
           <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '16px' }}>
@@ -1698,20 +1726,38 @@ export default function Game() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '15px', color: '#f2f2f2' }}>Thoughts language</span>
-              <select value={thoughtLanguage} onChange={(e) => setThoughtLanguage(e.target.value)} style={{ background: '#2a2a2a', border: 'none', borderRadius: '8px', padding: '8px 12px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: 600 }}>
-                <option value="english">ENG</option>
-                <option value="hindi">HIN</option>
-                <option value="hinglish">HING</option>
-              </select>
+            <div>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Thoughts language</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {['english', 'hindi', 'hinglish'].map((lang) => (
+                  <button 
+                    key={lang} 
+                    onClick={() => setThoughtLanguage(lang)}
+                    style={{ 
+                      flex: 1, 
+                      padding: '8px', 
+                      background: thoughtLanguage === lang ? '#e63946' : '#2a2a2a', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      color: '#f2f2f2', 
+                      fontFamily: "'Inter', sans-serif", 
+                      fontSize: '13px', 
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    {lang === 'english' ? 'ENG' : lang === 'hindi' ? 'HIN' : 'HING'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Chessboard theme</span>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {['green', 'brown', 'slate', 'navy', 'red', 'forest', 'icy_sea', 'blue', 'tournament', 'dark_green'].map((key) => {
-                  const bg = { green: '#769656', brown: '#B58863', slate: '#4C7B9B', navy: '#5B84A8', red: '#C45A41', forest: '#2E6B34', icy_sea: '#8CA2AC', blue: '#4B7399', tournament: '#4B7399', dark_green: '#2E6B34' }[key];
+                {['green', 'brown', 'red', 'blue', 'icy_sea'].map((key) => {
+                  const bg = { green: '#769656', brown: '#B58863', red: '#C45A41', blue: '#4B7399', icy_sea: '#8CA2AC' }[key];
                   return (
                     <button key={key} onClick={() => { setBoardTheme(key); localStorage.setItem('cwc_theme', key); }} style={{ width: 40, height: 40, borderRadius: 8, border: boardTheme === key ? '2px solid #fff' : '2px solid transparent', background: bg, cursor: 'pointer' }} title={key} />
                   );
@@ -1722,10 +1768,10 @@ export default function Game() {
             <div>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Chess pieces</span>
               <div style={{ display: 'flex', gap: '10px' }}>
-                {['neo', 'tournament', 'ocean'].map((key) => (
+                {['neo', 'neo_wood', 'ocean'].map((key) => (
                   <button key={key} onClick={() => { setPieceTheme(key); localStorage.setItem('cwc_pieces', key); }} style={{ width: 80, height: 48, borderRadius: 8, border: pieceTheme === key ? '2px solid #fff' : '2px solid transparent', background: '#3a3a3a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 32, height: 32 }}>
-                      <WN pieceStyle={key} />
+                      <img src={`https://images.chesscomfiles.com/chess-themes/pieces/${key}/150/wN.png`} alt={key} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.src = pieceImgUrl('N', true, 'neo'); }} />
                     </div>
                   </button>
                 ))}
@@ -1800,7 +1846,7 @@ export default function Game() {
             draggable={false}
             onContextMenu={(e) => e.preventDefault()}
             style={{ 
-              height: '28px',
+              height: '36px',
               width: 'auto',
               objectFit: 'contain',
               userSelect: 'none',
@@ -2136,7 +2182,14 @@ export default function Game() {
               {!agentConnected ? (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
-                    <span style={{ fontSize: '56px', lineHeight: 1, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🦞</span>
+                    <span style={{ fontSize: '56px', lineHeight: 1, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      🦞
+                      <div style={{ position: 'absolute', top: '-4px', right: '-8px', display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: '2px' }}>
+                        <span style={{ fontSize: '10px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0s' }}>z</span>
+                        <span style={{ fontSize: '13px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0.3s' }}>z</span>
+                        <span style={{ fontSize: '16px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0.6s' }}>z</span>
+                      </div>
+                    </span>
                     <div style={{ background: '#111111', border: '1.5px solid rgba(230,57,70,0.5)', borderRadius: '9999px', padding: '4px 10px', color: 'rgba(242,242,242,0.6)', fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 600, maxWidth: '90px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {agentNameContent}
                     </div>
@@ -2214,24 +2267,29 @@ export default function Game() {
                 </button>
               </div>
               
-              {/* MOBILE OVERLAYS (ABOVE BOARD) */}
-              <div style={{ position: 'absolute', left: 0, right: 0, bottom: '84px', zIndex: 50, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: 'calc(100vh - 200px)' }}>
+              {/* MOBILE OVERLAYS (ABOVE BUTTONS) */}
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: '84px', zIndex: 50, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                 {/* CHAT OVERLAY */}
                 <div style={{ 
                   pointerEvents: chatMobileOpen ? 'auto' : 'none',
                   opacity: chatMobileOpen ? 1 : 0,
                   transform: chatMobileOpen ? 'translateY(0)' : 'translateY(20px)',
                   transition: 'all 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                  background: 'linear-gradient(to top, rgba(17,17,17,0.95) 0%, rgba(17,17,17,0.8) 60%, transparent 100%)',
+                  background: '#1c1a19',
+                  borderTopLeftRadius: '16px',
+                  borderTopRightRadius: '16px',
+                  boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
                   padding: '12px 16px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px',
-                  maxHeight: '60vh'
+                  height: '50vh',
+                  position: 'absolute',
+                  bottom: 0, left: 0, right: 0
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Chat with {agentName}</div>
-                    <button onClick={() => setChatMobileOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><XIcon size={16} /></button>
+                    <button onClick={() => setChatMobileOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer' }}><XIcon size={16} /></button>
                   </div>
                   <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', paddingBottom: '8px', paddingTop: '16px' }} className="scrollbar-none scroll-smooth">
                     {normalizedMessages.length === 0 ? (
@@ -2255,7 +2313,7 @@ export default function Game() {
                       onChange={handleChatInputChange}
                       placeholder={isSpectator ? "Spectating..." : `Chat with ${agentName}...`}
                       disabled={isSpectator}
-                      style={{ flex: 1, height: '44px', background: 'rgba(61,57,55,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '22px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', backdropFilter: 'blur(8px)' }}
+                      style={{ flex: 1, height: '44px', background: 'rgba(61,57,55,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '22px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
                       onFocus={(e) => { e.target.style.background = 'rgba(61,57,55,1)'; e.target.style.borderColor = 'rgba(230,57,70,0.5)'; }}
                       onBlur={(e) => { e.target.style.background = 'rgba(61,57,55,0.8)'; e.target.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     />
@@ -2275,19 +2333,18 @@ export default function Game() {
 
                 {/* MOVE HISTORY OVERLAY */}
                 <div style={{ 
-                  position: 'absolute', top: 0, left: 0, right: 0,
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
                   pointerEvents: moveHistoryOpen ? 'auto' : 'none',
                   opacity: moveHistoryOpen ? 1 : 0,
-                  transform: moveHistoryOpen ? 'translateY(0)' : 'translateY(-20px)',
+                  transform: moveHistoryOpen ? 'translateY(0)' : 'translateY(20px)',
                   transition: 'all 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                  background: 'rgba(17,17,17,0.95)',
-                  backdropFilter: 'blur(8px)',
-                  borderBottomLeftRadius: '20px',
-                  borderBottomRightRadius: '20px',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  background: '#1c1a19',
+                  borderTopLeftRadius: '16px',
+                  borderTopRightRadius: '16px',
+                  boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
                   display: 'flex',
                   flexDirection: 'column',
-                  maxHeight: '40vh'
+                  height: '40vh'
                 }}>
                   <div 
                     onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
