@@ -64,19 +64,29 @@ export default function PushNotificationManager() {
         }
       });
     }
-  }, []);
+  }, [gameId]);
 
   useEffect(() => {
-    if (swRegistration && visitedGame && timePassed) {
+    if (swRegistration && visitedGame) {
       if (Notification.permission === 'default') {
-        Notification.requestPermission().then((permission) => {
-          if (permission === 'granted') {
-            subscribeUser(swRegistration);
-          }
-        });
+        const handleInteraction = () => {
+          Notification.requestPermission().then((permission) => {
+            if (permission === 'granted') {
+              subscribeUser(swRegistration);
+            }
+          });
+          document.removeEventListener('click', handleInteraction);
+          document.removeEventListener('touchstart', handleInteraction);
+        };
+        document.addEventListener('click', handleInteraction);
+        document.addEventListener('touchstart', handleInteraction);
+        return () => {
+          document.removeEventListener('click', handleInteraction);
+          document.removeEventListener('touchstart', handleInteraction);
+        };
       }
     }
-  }, [swRegistration, visitedGame, timePassed]);
+  }, [swRegistration, visitedGame, gameId]);
 
   const subscribeUser = async (registration) => {
     try {

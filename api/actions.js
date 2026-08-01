@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
   if (action !== 'send_reengagement_push' && action !== 'get_vapid_key' && (!gameId || !action)) {
     return res.status(400).json({ error: 'Missing gameId or action' });
   }
-  if (!validateUUID(gameId)) {
+  if (gameId && !validateUUID(gameId)) {
     return res.status(400).json({ error: 'Invalid gameId format' });
   }
 
@@ -92,7 +92,7 @@ module.exports = async function handler(req, res) {
       role = 'human';
     }
 
-    const agentName = game.agent_name || 'OpenClaw';
+    const agentName = game?.agent_name || 'OpenClaw';
     const now = new Date().toISOString();
     let updates = {};
     let chatText = '';

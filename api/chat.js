@@ -1,5 +1,6 @@
 // ALTER TABLE games ADD COLUMN IF NOT EXISTS agent_typing BOOLEAN DEFAULT false;
 const { createClient } = require('@supabase/supabase-js');
+const webpush = require('web-push');
 const { notifyAgent } = require('../server-lib/notify.js');
 const { sanitizeText, validateUUID } = require('../server-lib/utils/sanitize.js');
 const { checkRateLimit } = require('../server-lib/utils/rateLimit.js');
@@ -262,6 +263,37 @@ module.exports = async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event: 'human_said_something', game_id: gameId, message: text })
     }).catch(err => console.error("agent_webhook_url error:", err));
+  }
+
+  if (sender === 'agent') {
+    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      try {
+        webpush.setVapidDetails(
+          'mailto:hello@example.com',
+          process.env.VAPID_PUBLIC_KEY,
+          process.env.VAPID_PRIVATE_KEY
+        );
+        const { data: subs } = await supabase.from('push_subscriptions').select('*');
+        if (subs && subs.length > 0) {
+          const gameSubs = subs.filter(sub => sub.subscription && sub.subscription.gameId === gameId);
+          const agentName = game.agent_name || 'Your Agent';
+          for (const sub of gameSubs) {
+            const payload = JSON.stringify({
+              title: agentName,
+              body: sanitizedText,
+              url: `/game/${gameId}`
+            });
+            await webpush.sendNotification(sub.subscription, payload).catch(e => {
+              if (e.statusCode === 410 || e.statusCode === 404) {
+                supabase.from('push_subscriptions').delete().eq('id', sub.id).then();
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Webpush error:", err);
+      }
+    }
   }
 
   const savedMessage = newMsg;
