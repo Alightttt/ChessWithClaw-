@@ -28,7 +28,7 @@
   "crons": [
     {
       "path": "/api/actions?action=send_reengagement_push",
-      "schedule": "0 */4 * * *"
+      "schedule": "0 15 * * *"
     }
   ],
   "headers": [
