@@ -2283,9 +2283,11 @@ export default function Game() {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px',
-                  height: '50vh',
+                  height: 'min(50vh, 270px)',
                   position: 'absolute',
-                  bottom: 0, left: 0, right: 0
+                  bottom: 0, left: 0, right: 0,
+                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)',
+                  maskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Chat with {agentName}</div>
@@ -2344,7 +2346,9 @@ export default function Game() {
                   boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
                   display: 'flex',
                   flexDirection: 'column',
-                  height: '40vh'
+                  height: 'min(40vh, 230px)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)',
+                  maskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)'
                 }}>
                   <div 
                     onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
