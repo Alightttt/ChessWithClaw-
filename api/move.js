@@ -351,6 +351,7 @@ module.exports = async function handler(req, res) {
       else bMat += pieceVals[low];
     }
   }
+  const prevMaterialBalance = game.material_balance || 0;
   materialBalance = wMat - bMat;
 
   const updates = {
@@ -366,6 +367,7 @@ module.exports = async function handler(req, res) {
     legal_moves: nextLegalMoves,
     agent_name: req.headers['x-agent-name'] || game.agent_name || null,
     material_balance: materialBalance,
+    prev_material_balance: prevMaterialBalance,
     last_action_at: new Date().toISOString()
   };
 

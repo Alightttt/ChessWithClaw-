@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
 
       // Generate a unique ID based on the endpoint or gameId to avoid duplicates
       const crypto = require('crypto');
-      const subId = crypto.createHash('sha256').update(subscription.endpoint + (gameId || '')).digest('hex');
+      const subId = crypto.createHash('sha256').update(subscription.endpoint).digest('hex');
       
       const { error: insertError } = await supabase.from('push_subscriptions').upsert({
         id: subId,
@@ -133,25 +133,45 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: 'VAPID keys not configured' });
       }
 
-      // We want to fetch subscriptions where last_notified_at is null or more than 20 hours old
-      const twentyHoursAgo = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
+      // We want to fetch subscriptions where last_notified_at is null or more than 4 hours old
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
       const { data: subs, error: subsError } = await supabase
         .from('push_subscriptions')
         .select('*')
-        .or(`last_notified_at.is.null,last_notified_at.lt.${twentyHoursAgo}`);
+        .or(`last_notified_at.is.null,last_notified_at.lt.${fourHoursAgo}`);
       
       if (subsError) return res.status(500).json({ error: 'Database error' });
       
       let sentCount = 0;
       for (const sub of (subs || [])) {
         try {
+          // Check timezone to avoid sending at night
+          const userTimezone = sub.subscription.timezone || 'UTC';
+          try {
+            const localHour = new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone })).getHours();
+            if (localHour < 8 || localHour > 21) {
+              // It's nighttime (before 8 AM or after 9 PM), skip this user
+              continue;
+            }
+          } catch (e) {
+            console.error('Invalid timezone:', userTimezone);
+          }
+
           // Personalized copy based on elapsed time since created_at or last_notified_at
           const lastNotified = sub.last_notified_at ? new Date(sub.last_notified_at) : new Date(sub.created_at);
           const daysSince = Math.floor((Date.now() - lastNotified.getTime()) / (1000 * 60 * 60 * 24));
           
-          let bodyText = "Your agent's been waiting for you! 🦞 Play a match now.";
+          const hookableMessages = [
+            "Your agent just made a bold move in its mind. Are you ready to play? 🦞",
+            "Your OpenClaw is getting impatient. Don't leave it hanging! ♟️",
+            "A true chess master never backs down. Your agent is waiting. ⚔️",
+            "Can you outsmart your own AI? Your agent challenges you to a match. 🧠",
+            "Your agent is plotting its next victory. Come show who's boss! 👑"
+          ];
+          
+          let bodyText = hookableMessages[Math.floor(Math.random() * hookableMessages.length)];
           if (daysSince >= 1) {
-            bodyText = `It's been ${daysSince} day${daysSince > 1 ? 's' : ''} since you last played. Your agent is ready for a rematch.`;
+            bodyText = `It's been ${daysSince} day${daysSince > 1 ? 's' : ''} since you last played. Your agent is ready for a rematch. ♟️`;
           }
 
           const payload = JSON.stringify({

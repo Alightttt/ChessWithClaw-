@@ -22,6 +22,10 @@ const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe
 
 
 const PIECE_LETTER_MAP = { K:'K', Q:'Q', R:'R', B:'B', N:'N' };
+const MOTION = {
+  functional: '120ms cubic-bezier(0.25, 1, 0.5, 1)',   // frequent, everyday interactions: buttons, toggles, drawers
+  cinematic: '400ms cubic-bezier(0.16, 1, 0.3, 1)',      // rare, emotional moments: connection, game-over, milestones
+};
 function sanToPieceImg(san, isWhiteMove, style) {
   if (!san) return { letter: null, rest: '' };
   const firstChar = san[0];
@@ -152,10 +156,10 @@ const BottomStatusBar = ({ agentConnected, game, agentName, isMobile }) => {
   
   if (!agentConnected) {
     return (
-      <div style={{ flexShrink: 0, width: '100%', background: 'rgba(230,57,70,0.15)', borderTop: '1px solid rgba(230,57,70,0.3)', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 40, boxSizing: 'border-box', ...(isMobile ? {} : { borderRadius: '8px', border: '1px solid rgba(230,57,70,0.3)' }) }}>
-        <AlertTriangle size={16} color="#fbbf24" style={{ flexShrink: 0 }} />
-        <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, color: '#fbbf24' }}>
-          Your Agent is not here yet
+      <div style={{ flexShrink: 0, width: '100%', background: 'rgba(230,57,70,0.15)', borderTop: '1px solid rgba(230,57,70,0.3)', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 40, boxSizing: 'border-box', ...(isMobile ? { borderTopLeftRadius: '20px', borderTopRightRadius: '20px' } : { borderRadius: '8px', border: '1px solid rgba(230,57,70,0.3)' }) }}>
+        <div style={{ width: '18px', height: '18px', border: '2px solid #f2f2f2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: '#f2f2f2', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>!</span></div>
+        <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '15px', fontWeight: 600, color: '#f2f2f2' }}>
+          Your {agentName || 'OpenClaw'} is not here yet
         </span>
       </div>
     );
@@ -997,7 +1001,7 @@ export default function Game() {
       setTimeout(() => setConfirmResign(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'white', reason: 'resignation', gameId }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'resign', gameId }) });
     setShowSettings(false);
     setConfirmResign(false);
   }, [confirmResign, game?.player_color, gameId, agentToken]);
@@ -1008,7 +1012,7 @@ export default function Game() {
       setTimeout(() => setConfirmDraw(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'offer_draw', gameId }) });
     setShowSettings(false);
     setConfirmDraw(false);
   }, [confirmDraw, gameId, agentToken]);
@@ -1487,7 +1491,7 @@ export default function Game() {
                 )}
                 {game?.status === 'active' && msg.type === 'draw_offer' && (
                   <button onClick={async () => {
-                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'end_game', result: 'draw', reason: 'agreement', gameId }) });
+                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'accept_draw', gameId }) });
                   }} className="block w-full mt-3 text-white bg-green-600 rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Draw</button>
                 )}
               </div>
@@ -1682,7 +1686,7 @@ export default function Game() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 15 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+            style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto', transition: `opacity ${MOTION.cinematic}`, opacity: showSettings ? 1 : 0 }}
           >
           <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '16px' }}>
             <button onClick={() => setShowSettings(false)} style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(242,242,242,0.9)', cursor: 'pointer' }}>
@@ -1846,7 +1850,7 @@ export default function Game() {
             draggable={false}
             onContextMenu={(e) => e.preventDefault()}
             style={{ 
-              height: '36px',
+              height: '44px',
               width: 'auto',
               objectFit: 'contain',
               userSelect: 'none',
@@ -2195,9 +2199,9 @@ export default function Game() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1, minWidth: 0, paddingTop: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(230,57,70,0.12)', border: '1px solid rgba(230,57,70,0.4)', borderRadius: '14px', padding: '12px 16px' }}>
-                      <div style={{ width: '20px', height: '20px', background: '#fbbf24', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: '#1a1a1a', fontSize: '13px', fontWeight: 'bold', lineHeight: 1 }}>!</span></div>
-                      <span style={{ color: '#fbbf24', fontSize: '14px', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>Invite your Agent first</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#e63946', borderRadius: '16px', padding: '16px', boxShadow: '0 4px 12px rgba(230,57,70,0.3)' }}>
+                      <div style={{ width: '28px', height: '28px', border: '2px solid #fbbf24', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: '#fbbf24', fontSize: '16px', fontWeight: 'bold', lineHeight: 1 }}>!</span></div>
+                      <span style={{ color: '#fbbf24', fontSize: '14px', fontWeight: 700, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>Invite your {agentName || 'OpenClaw'} first</span>
                     </div>
                   </div>
                 </>
@@ -2205,7 +2209,7 @@ export default function Game() {
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
                     <span style={{ fontSize: '56px', lineHeight: 1, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>{displayedEmoji}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setShowStatusPopover(prev => !prev); }} style={{ background: '#111111', border: `1.5px solid ${presenceColor}`, borderRadius: '9999px', padding: '4px 10px', color: '#f2f2f2', fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 600, cursor: 'pointer', maxWidth: '90px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', outline: 'none' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setShowStatusPopover(prev => !prev); }} style={{ background: 'transparent', border: `2px solid ${presenceColor}`, borderRadius: '9999px', padding: '4px 12px', color: presenceColor, fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 700, cursor: 'pointer', maxWidth: '100px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', outline: 'none' }}>
                       {agentNameContent}
                     </button>
                     {showStatusPopover && (
@@ -2268,7 +2272,7 @@ export default function Game() {
               </div>
               
               {/* MOBILE OVERLAYS (ABOVE BUTTONS) */}
-              <div style={{ position: 'absolute', left: 0, right: 0, bottom: '84px', zIndex: 50, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 50, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                 {/* CHAT OVERLAY */}
                 <div style={{ 
                   pointerEvents: chatMobileOpen ? 'auto' : 'none',
@@ -2289,9 +2293,12 @@ export default function Game() {
                   WebkitMaskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)',
                   maskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Chat with {agentName}</div>
-                    <button onClick={() => setChatMobileOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer' }}><XIcon size={16} /></button>
+                  <div 
+                    onClick={() => setChatMobileOpen(false)}
+                    style={{ minHeight: '44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}
+                  >
+                    <div style={{ color: 'rgba(242,242,242,0.6)', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Chat with {agentName}</div>
+                    <ChevronDown size={20} color="rgba(255,255,255,0.6)" style={{ transform: chatMobileOpen ? 'rotate(0deg)' : 'rotate(-180deg)', transition: 'transform 280ms ease-out' }} />
                   </div>
                   <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', paddingBottom: '8px', paddingTop: '16px' }} className="scrollbar-none scroll-smooth">
                     {normalizedMessages.length === 0 ? (
@@ -2357,7 +2364,7 @@ export default function Game() {
                     <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.6)', letterSpacing: '0.05em' }}>
                       MOVE HISTORY
                     </span>
-                    <ChevronDown size={20} color="rgba(255,255,255,0.6)" style={{ transform: moveHistoryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 280ms ease-out' }} />
+                    <ChevronDown size={20} color="rgba(255,255,255,0.6)" style={{ transform: moveHistoryOpen ? 'rotate(0deg)' : 'rotate(-180deg)', transition: 'transform 280ms ease-out' }} />
                   </div>
                   <div 
                     ref={moveHistoryScrollRef}
@@ -2367,7 +2374,7 @@ export default function Game() {
                     <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}>
                       <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
                       <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>Agent</div>
                     </div>
 
                     {(!game?.move_history || game.move_history.length === 0) ? (

@@ -115,6 +115,9 @@ async function serializeGameState(game) {
     winner: game.winner || null,
     in_check: !!game.in_check,
     material_balance: game.material_balance ?? 0,
+    last_move_material_swing: (typeof game.material_balance === 'number' && typeof game.prev_material_balance === 'number') 
+      ? (game.material_balance - game.prev_material_balance) 
+      : 0,
     move_count: Array.isArray(game.move_history) ? game.move_history.length : 0,
     move_history: game.move_history || [],
     board_ascii: await boardAscii(game.fen),

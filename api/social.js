@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
       ? `Lost to ${agentName} in ${moveCount} moves`
       : `Drew with ${agentName} in ${moveCount} moves`;
 
-    const ogImageUrl = `https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/chesswithclaw-og.png?v=3`;
+    const ogImageUrl = `https://chesswithclaw.vercel.app/og-image.png`;
 
     res.setHeader('Content-Type', 'text/html');
     res.send(`<!DOCTYPE html>

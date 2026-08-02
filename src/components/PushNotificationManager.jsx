@@ -99,10 +99,13 @@ export default function PushNotificationManager() {
         applicationServerKey: convertedVapidKey
       });
       
+      const subscriptionJSON = subscription.toJSON();
+      subscriptionJSON.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
       await fetch('/api/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save_push_subscription', subscription, gameId })
+        body: JSON.stringify({ action: 'save_push_subscription', subscription: subscriptionJSON, gameId })
       });
       console.log('User is subscribed to push notifications.');
     } catch (err) {

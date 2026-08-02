@@ -573,15 +573,30 @@ export default function Home() {
       <section className="fade-in-section max-w-7xl mx-auto" style={{ marginBottom: '40px', padding: '0 20px' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
-            { customIcon: <span style={{fontSize: 28, lineHeight: 1}}><LobsterEmoji /></span>, title: "Agent Integration", desc: "Native plugin support for raw agent logic." },
-            { icon: Shield, title: "Persistent Match", desc: "Close the tab. Come back. The game remains." }
+            { bg: 'radial-gradient(circle at 30% 20%, rgba(230,57,70,0.25), transparent 60%), #161616', title: "Agent Integration", desc: "Native MCP support — no plugin, no bridge. Your agent connects directly." },
+            { bg: 'radial-gradient(circle at 70% 20%, rgba(87,112,71,0.35), transparent 60%), #161616', title: "Persistent Match", desc: "Close the tab. Come back. The board, the moves, the rivalry — still there." }
           ].map((f, i) => (
-            <div key={i} className="design-card" style={{ gap: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              {f.icon && <f.icon className="text-[#e63946]" size={28} />}
-              {f.customIcon && f.customIcon}
-              <div>
+            <div 
+              key={i} 
+              style={{ 
+                position: 'relative', 
+                borderRadius: '16px', 
+                overflow: 'hidden', 
+                minHeight: '220px', 
+                background: f.bg,
+                border: '1px solid rgba(255,255,255,0.06)',
+                display: 'flex',
+                alignItems: 'flex-end',
+                cursor: 'default',
+                transition: 'transform 120ms cubic-bezier(0.25,1,0.5,1), border-color 120ms ease-out'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0px)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+            >
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0.4) 55%, transparent 100%)' }} />
+              <div style={{ position: 'relative', padding: '24px', zIndex: 1 }}>
                 <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: '20px', fontWeight: 700, lineHeight: 1.3, marginBottom: '8px', color: '#f2f2f2', letterSpacing: '-0.02em' }}>{f.title}</h3>
-                <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', fontWeight: 300, lineHeight: 1.6, color: 'rgba(242,242,242,0.6)', margin: 0 }}>{f.desc}</p>
+                <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', fontWeight: 300, lineHeight: 1.6, color: 'rgba(242,242,242,0.7)', margin: 0 }}>{f.desc}</p>
               </div>
             </div>
           ))}
@@ -687,24 +702,21 @@ export default function Home() {
       </section>
 
       <section className="fade-in-section max-w-4xl mx-auto" style={{ marginBottom: '64px', padding: '0 20px' }}>
-        <div className="social-proof-card" style={{ display: 'flex', flexDirection: 'column', padding: '32px 40px', gap: '20px' }}>
-          <div style={{ color: '#e63946', fontSize: '24px', display: 'flex', gap: '4px', letterSpacing: '2px' }}>
-            {"★★★★★"}
-          </div>
-          <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '19px', lineHeight: 1.6, color: 'rgba(242,242,242,0.92)', fontWeight: 400 }}>
-            &quot;Holy shit the best thing I saw today, we can play Chess with our agent. Like can&apos;t believe this. We are heading towards a new era of gaming with agents.&quot;
-          </p>
-          <div className="flex items-center gap-4 mt-4">
-            <img 
-              src="https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=120&h=120&auto=format&fit=crop" 
-              alt="Jake Reynolds" 
-              style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
-            />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '16px', color: '#f2f2f2' }}>Jake Reynolds</span>
-              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400, fontSize: '14px', color: 'rgba(242,242,242,0.5)' }}>@jake_tech</span>
+        <div className="social-proof-card" style={{ display: 'flex', flexDirection: 'column', padding: '32px 40px', gap: '16px' }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(242,242,242,0.4)' }}>
+            An actual exchange
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ alignSelf: 'flex-start', maxWidth: '85%', background: '#2c2826', borderRadius: '14px 14px 14px 4px', padding: '12px 16px' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '16px', color: '#f2f2f2' }}>Hmm... you're playing aggressive today. I like it. 👀</span>
+            </div>
+            <div style={{ alignSelf: 'flex-end', maxWidth: '85%', background: '#e63946', borderRadius: '14px 14px 4px 14px', padding: '12px 16px' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '16px', color: '#fff' }}>try to win against me 😏</span>
             </div>
           </div>
+          <span style={{ fontFamily: "'Poppins', sans-serif", fontSize: '14px', fontWeight: 300, color: 'rgba(242,242,242,0.5)', marginTop: '4px' }}>
+            Not a chatbot script. Your agent, actually reacting to your actual game.
+          </span>
         </div>
       </section>
 
