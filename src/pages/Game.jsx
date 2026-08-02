@@ -2366,6 +2366,47 @@ export default function Game() {
                       <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>{agentName}</div>
                     </div>
 
+                    {(!game?.move_history || game.move_history.length === 0) ? (
+                      <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(242,242,242,0.4)', fontSize: '13px', fontFamily: "'Inter', sans-serif" }}>No moves yet</div>
+                    ) : (
+                      Array.from({ length: Math.ceil((game?.move_history || []).length / 2) }).map((_, i) => {
+                        const youMove = game?.player_color === 'b' ? game.move_history[i * 2 + 1] : game.move_history[i * 2];
+                        const agentMove = game?.player_color === 'b' ? game.move_history[i * 2] : game.move_history[i * 2 + 1];
+                        return (
+                          <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '12px 0', fontFamily: "'Inter', sans-serif", fontSize: '14px', alignItems: 'center' }}>
+                            <div style={{ color: 'rgba(242,242,242,0.25)' }}>{i + 1}.</div>
+                            <div onClick={() => { if (youMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 + 1 : i * 2); }} style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:4, cursor: 'pointer' }}>
+                              {youMove?.san && (() => {
+                                const { letter, rest } = sanToPieceImg(youMove.san, true, pieceTheme);
+                                return (
+                                  <>
+                                    <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                                      onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
+                                    />
+                                    <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                                    {(youMove?.created_at || youMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(youMove.created_at || youMove.timestamp, game?.created_at)}</span>}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            <div onClick={() => { if (agentMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 : i * 2 + 1); }} style={{ color: '#e63946', display:'flex', alignItems:'center', gap:4, cursor: 'pointer' }}>
+                              {agentMove?.san && (() => {
+                                const { letter, rest } = sanToPieceImg(agentMove.san, false, pieceTheme);
+                                return (
+                                  <>
+                                    <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
+                                      onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
+                                    />
+                                    <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
+                                    {(agentMove?.created_at || agentMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(agentMove.created_at || agentMove.timestamp, game?.created_at)}</span>}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
               
               </div></div>
             </div>
