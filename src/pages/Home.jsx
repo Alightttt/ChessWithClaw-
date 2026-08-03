@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import LivePlatformActivity from '../components/LivePlatformActivity';
 import MockChatPanel from '../components/MockChatPanel';
 import HeroBoard from '../components/HeroBoard';
+import TweetTestimonial from '../components/TweetTestimonial';
 
 
 
@@ -702,27 +703,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="fade-in-section max-w-4xl mx-auto" style={{ marginBottom: '64px', padding: '0 20px' }}>
-        <div className="social-proof-card" style={{ display: 'flex', flexDirection: 'column', padding: '32px 40px', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #e63946 0%, #111 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
-              <span style={{ color: '#fff', fontSize: '18px', fontWeight: 'bold' }}>J</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>Jake Reynolds</span>
-                <div style={{ background: '#1d9bf0', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={10} color="#fff" strokeWidth={3} /></div>
-              </div>
-              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400, fontSize: '14px', color: 'rgba(242,242,242,0.5)' }}>@jake_tech</span>
-            </div>
-          </div>
-          <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '19px', lineHeight: 1.6, color: 'rgba(242,242,242,0.92)', fontWeight: 400, margin: 0 }}>
-            &quot;Holy shit the best thing I saw today, we can play Chess with our agent. Like can&apos;t believe this. We are heading towards a new era of gaming with agents.&quot;
-          </p>
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: 'rgba(242,242,242,0.5)', marginTop: '4px' }}>
-            9:41 AM · Oct 24, 2024
-          </div>
-        </div>
+      <section className="fade-in-section max-w-2xl mx-auto" style={{ marginBottom: '64px', padding: '0 20px' }}>
+        <TweetTestimonial />
       </section>
 
       <section id="faq" className="fade-in-section max-w-3xl mx-auto" style={{ marginBottom: '64px', padding: '0 20px' }}>
