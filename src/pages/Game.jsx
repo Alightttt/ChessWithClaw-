@@ -195,6 +195,7 @@ export default function Game() {
 
   
   const [game, setGame] = useState(null);
+  const winnerColor = game?.result === 'black_wins' ? 'black' : game?.result === 'white_wins' ? 'white' : null;
 
   useEffect(() => {
     if (document.getElementById('cwc-styles-v2')) return;
@@ -747,7 +748,9 @@ export default function Game() {
     }
     
     if (game.status === 'finished' && prevStatusRef.current !== 'finished') {
-      const isAgentWinner = game.winner === (game?.player_color === 'b' ? 'black' : 'white');
+      
+      
+      const isAgentWinner = winnerColor === (game?.player_color === "b" ? "white" : "black");
       playSound(isAgentWinner ? 'agentEnd' : 'end');
     }
     
@@ -828,7 +831,7 @@ export default function Game() {
       localStorage.removeItem('chesswithclaw_active_game');
       setTimeout(() => setShowGameOverModal(true), 600);
       
-      if (game?.winner === (game?.player_color === 'b' ? 'white' : 'black')) {
+      if (winnerColor === (game?.player_color === 'b' ? 'white' : 'black')) {
         setTimeout(() => {
           toast.success('Achievement Unlocked: Bot Slayer! 🏆');
         }, 1500);
@@ -878,7 +881,7 @@ export default function Game() {
       connectedToastShown.current = true;
     }
     
-  }, [game?.id]);
+  }, [game?.agent_connected, game?.id]);
 
   useEffect(() => {
     if (game && prevAgentConnected.current === false && game.agent_connected === true && connectedToastShown.current === false) {
@@ -1041,6 +1044,15 @@ export default function Game() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [confirmResign, confirmDraw, handleDraw, handleResign]);
 
+  const getHumanId = () => {
+    let id = localStorage.getItem("cwc_human_id");
+    if (!id) {
+      id = Math.random().toString(36).substring(2);
+      localStorage.setItem("cwc_human_id", id);
+    }
+    return id;
+  };
+
   const makeMove = useCallback(async (from, to, promotion) => {
     if (!game || game.turn !== (game?.player_color || 'w') || (game.status !== 'active' && game.status !== 'waiting')) return;
     if (boardLocked || submittingRef.current) return;
@@ -1104,7 +1116,8 @@ export default function Game() {
         body: JSON.stringify({
           id: gameIdValue,
           move: from + to + (promotion || ''),
-          isHumanMove: true
+          isHumanMove: true,
+          human_id: getHumanId()
         })
       })
       .then(async res => {
@@ -1222,7 +1235,7 @@ export default function Game() {
   function handleCloseGameOverModal() { setShowGameOverModal(false) }
   async function handleShareResult(e) {
     const moves = Math.floor((game.move_history || []).length / 2) + ((game.move_history || []).length % 2);
-    const result = game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'Won' : game?.result === 'draw' ? 'Draw' : 'Lost';
+    const result = winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'Won' : game?.result === 'draw' ? 'Draw' : 'Lost';
     const text = `I played chess vs ${agentName} on ChessWithClaw! ${result} in ${moves} moves. chesswithclaw.vercel.app 🦞`;
     if (navigator.share) {
       navigator.share({ text }).catch(()=>{});
@@ -2069,7 +2082,7 @@ export default function Game() {
                 {game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}
               </div>
               <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">
-                {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
+                {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
               </div>
             </div>
           )}
@@ -2243,7 +2256,7 @@ export default function Game() {
               {(game.status === 'finished' || game.status === 'abandoned') && (
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
                   <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">{game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}</div>
-                  <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">{game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}</div>
+                  <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">{game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}</div>
                 </div>
               )}
             </div>
@@ -2477,11 +2490,11 @@ export default function Game() {
                 animation: 'popIn 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275) 180ms backwards'
               }}
             >
-              {game?.winner === (game?.player_color === 'w' ? 'white' : 'black') ? <span style={{ color: '#739552' }}>👑</span> : game?.result === 'draw' ? '🤝' : <LobsterEmoji />}
+              {winnerColor === (game?.player_color === 'w' ? 'white' : 'black') ? <span style={{ color: '#739552' }}>👑</span> : game?.result === 'draw' ? '🤝' : <LobsterEmoji />}
             </div>
             
             <h2 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: '24px', color: '#ffffff', margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
-              {game?.result === 'draw' ? 'Draw' : (game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'You Won' : `${agentName} Won`)}
+              {game?.result === 'draw' ? 'Draw' : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You Won' : `${agentName} Won`)}
             </h2>
             <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: 'rgba(242,242,242,0.5)', margin: '0 0 24px 0', fontWeight: 500 }}>
               {game?.result_reason}

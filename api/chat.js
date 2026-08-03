@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
   let { id, game_id, gameId: bodyGameId, text: bodyText, message, type, sender: bodySender, role, token, reasoning, thinking, action, messageId, emoji } = req.body || {};
   const replyTo = req.body.reply_to || null;
   let gameId = game_id || bodyGameId || id;
-  const msgId = id || messageId || require('crypto').randomUUID();
+  const msgId = messageId || require('crypto').randomUUID();
   let text = bodyText || message;
   let sender = bodySender || role || 'human';
   

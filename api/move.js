@@ -169,6 +169,7 @@ module.exports = async function handler(req, res) {
   const agentToken = req.headers['x-agent-token'];
   const isAgentMove = Boolean(agentToken);
   const isHumanMove = !isAgentMove;
+  const humanId = req.body.human_id;
   const targetGameId = id;
 
   // Fetch the game first
@@ -285,6 +286,7 @@ module.exports = async function handler(req, res) {
   const newMove = {
     game_id: id,
     move_number: moveNumber,
+    human_id: isHumanMove ? humanId : game.human_id,
     color: game.turn,
     from_square: moveObj.from,
     to_square: moveObj.to,
@@ -301,6 +303,7 @@ module.exports = async function handler(req, res) {
     if (moveInsertError.code === '42P01') {
       const newMoveHistory = [...(game.move_history || []), {
         move_number: moveNumber,
+    human_id: isHumanMove ? humanId : game.human_id,
         color: game.turn,
         from: moveObj.from,
         to: moveObj.to,
@@ -362,6 +365,7 @@ module.exports = async function handler(req, res) {
     winner: gameWinner,
     finished_at: finishedAt,
     move_number: moveNumber,
+    human_id: isHumanMove ? humanId : game.human_id,
     current_thinking: actualReasoning,
     last_commentary: isAgentMove ? (sanitizedReasoning?.split('.')[0]?.slice(0, 60) || '') : `You played ${moveObj.san}`,
     legal_moves: nextLegalMoves,
@@ -404,6 +408,7 @@ module.exports = async function handler(req, res) {
     const newThought = {
       game_id: id,
       move_number: moveNumber,
+    human_id: isHumanMove ? humanId : game.human_id,
       thought: sanitizedReasoning || '(no reasoning provided)',
       is_final: true
     };
@@ -517,6 +522,7 @@ module.exports = async function handler(req, res) {
       legal_moves: verboseMoves.map(m => m.lan || m.from + m.to),
       move_history: updated.move_history || game.move_history,
       move_number: moveNumber,
+    human_id: isHumanMove ? humanId : game.human_id,
       in_check: inCheck,
       material_balance: matBalance,
       thought_language: game.thought_language || 'english',
@@ -562,6 +568,34 @@ module.exports = async function handler(req, res) {
         console.error("Webpush error:", err);
       }
     }
+  }
+
+  if (updates.status === "finished" && gameResult === "checkmate" && game.agent_id && (humanId || game.human_id)) {
+    const finalHumanId = humanId || game.human_id;
+    const agentId = game.agent_id;
+    const resultColor = gameWinner;
+    const humanWon = (resultColor === "white" && game.player_color !== "b") || (resultColor === "black" && game.player_color === "b");
+    try {
+      const { data: existingBond } = await supabase.from("bonds").select("id, xp, matches_played, matches_won").eq("human_id", finalHumanId).eq("agent_id", agentId).single();
+      if (existingBond) {
+        await supabase.from("bonds").update({
+          matches_played: existingBond.matches_played + 1,
+          matches_won: existingBond.matches_won + (humanWon ? 1 : 0),
+          xp: existingBond.xp + (humanWon ? 500 : 100),
+          last_played_at: new Date().toISOString()
+        }).eq("id", existingBond.id);
+      } else {
+        await supabase.from("bonds").insert({
+          human_id: finalHumanId,
+          agent_id: agentId,
+          xp: humanWon ? 500 : 100,
+          matches_played: 1,
+          matches_won: humanWon ? 1 : 0,
+          last_played_at: new Date().toISOString(),
+          bond_level: 1
+        });
+      }
+    } catch (err) { console.error("Bond upsert failed", err); }
   }
 
   return res.json({

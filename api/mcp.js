@@ -478,14 +478,14 @@ function buildServer() {
         if (fresh.status === 'finished' && initial.status !== 'finished') {
           return toolText({ event: 'game_ended', state: await serializeGameState(fresh) });
         }
-        if (fresh.turn === 'b' && fresh.status === 'active') {
-          return toolText({ event: 'your_turn', state: await serializeGameState(fresh) });
+        if (fresh.draw_offer_pending && !initial.draw_offer_pending) {
+          return toolText({ event: 'draw_offered', state: await serializeGameState(fresh) });
         }
         if ((fresh.chat_history || []).length > initialChatCount) {
           return toolText({ event: 'new_chat', state: await serializeGameState(fresh) });
         }
-        if (fresh.draw_offer_pending && !initial.draw_offer_pending) {
-          return toolText({ event: 'draw_offered', state: await serializeGameState(fresh) });
+        if (fresh.turn === 'b' && fresh.status === 'active' && initial.turn !== 'b') {
+          return toolText({ event: 'your_turn', state: await serializeGameState(fresh) });
         }
       }
       return toolText({ event: 'timeout', state: await serializeGameState(initial) });
