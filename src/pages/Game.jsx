@@ -1688,14 +1688,16 @@ export default function Game() {
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto', transition: `opacity ${MOTION.cinematic}`, opacity: showSettings ? 1 : 0 }}
           >
-          <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '16px' }}>
-            <button onClick={() => setShowSettings(false)} style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(242,242,242,0.9)', cursor: 'pointer' }}>
+          <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', position: 'relative' }}>
+            <button onClick={() => setShowSettings(false)} style={{ position: 'absolute', left: '16px', minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(242,242,242,0.9)', cursor: 'pointer', zIndex: 10 }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </button>
-            <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: '22px', color: '#f2f2f2' }}>Settings</span>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: '18px', color: '#f2f2f2' }}>Settings</span>
+            </div>
           </div>
 
-          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>Game ID</span>
@@ -1730,30 +1732,19 @@ export default function Game() {
               </button>
             </div>
 
-            <div>
-              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Thoughts language</span>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                {['english', 'hindi', 'hinglish'].map((lang) => (
-                  <button 
-                    key={lang} 
-                    onClick={() => setThoughtLanguage(lang)}
-                    style={{ 
-                      flex: 1, 
-                      padding: '8px', 
-                      background: thoughtLanguage === lang ? '#e63946' : '#2a2a2a', 
-                      border: 'none', 
-                      borderRadius: '8px', 
-                      color: '#f2f2f2', 
-                      fontFamily: "'Inter', sans-serif", 
-                      fontSize: '13px', 
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'background 0.2s'
-                    }}
-                  >
-                    {lang === 'english' ? 'ENG' : lang === 'hindi' ? 'HIN' : 'HING'}
-                  </button>
-                ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>Thoughts language</span>
+              <div style={{ position: 'relative' }}>
+                <select 
+                  value={thoughtLanguage} 
+                  onChange={(e) => setThoughtLanguage(e.target.value)}
+                  style={{ appearance: 'none', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f2f2f2', padding: '8px 32px 8px 12px', fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                >
+                  <option value="english">English</option>
+                  <option value="hindi">Hindi</option>
+                  <option value="hinglish">Hinglish</option>
+                </select>
+                <ChevronDown size={16} color="rgba(242,242,242,0.6)" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               </div>
             </div>
 
@@ -1775,14 +1766,14 @@ export default function Game() {
                 {['neo', 'neo_wood', 'ocean'].map((key) => (
                   <button key={key} onClick={() => { setPieceTheme(key); localStorage.setItem('cwc_pieces', key); }} style={{ width: 80, height: 48, borderRadius: 8, border: pieceTheme === key ? '2px solid #fff' : '2px solid transparent', background: '#3a3a3a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 32, height: 32 }}>
-                      <img src={`https://images.chesscomfiles.com/chess-themes/pieces/${key}/150/wN.png`} alt={key} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.src = pieceImgUrl('N', true, 'neo'); }} />
+                      <WN pieceStyle={key} />
                     </div>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', padding: '20px 0 12px', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>
+            <div style={{ marginTop: 'auto', textAlign: 'center', padding: '20px 0 12px', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>
               <span>v0.1.3</span>
               <span>© ChessWithClaw</span>
               <span>@0xalyt</span>
