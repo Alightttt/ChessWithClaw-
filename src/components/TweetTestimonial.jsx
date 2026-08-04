@@ -52,7 +52,7 @@ export default function TweetTestimonial() {
         {/* Tweet Body Text */}
         <p className="text-[17px] md:text-[18px] leading-[1.5] text-[#e7e9ea] font-normal mb-1 whitespace-pre-wrap tracking-normal">
           Holy shit the best thing I saw today, we can play Chess with our agent on{' '}
-          <span className="text-[#1d9bf0] font-medium">ChessWithClaw</span>
+          <span className="font-medium">ChessWithClaw</span>
           . Like can&apos;t believe this. We are heading towards a new era of gaming with agents. ♟️🦞
         </p>
       </motion.div>

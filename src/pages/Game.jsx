@@ -345,7 +345,7 @@ export default function Game() {
   const bgmAudioRef = useRef(null);
   useEffect(() => { 
     localStorage.setItem('cwc_bgm', bgmEnabled); 
-    if (bgmEnabled && agentJoined && game?.status === 'active') {
+    if (bgmEnabled && agentConnected && game?.status === 'active') {
       if (!bgmAudioRef.current) {
         bgmAudioRef.current = new Audio("https://cdn.pixabay.com/audio/2022/10/25/audio_29fc96f2a7.mp3");
         bgmAudioRef.current.loop = true;
@@ -364,7 +364,7 @@ export default function Game() {
         bgmAudioRef.current.pause();
       }
     };
-  }, [bgmEnabled, agentJoined, game?.status]);
+  }, [bgmEnabled, agentConnected, game?.status]);
   
   // Also pause when navigating away
   useEffect(() => {
@@ -402,6 +402,7 @@ export default function Game() {
   }, [game?.fen]);
   
   const [copiedRoom, setCopiedRoom] = useState(false);
+  const [copyGameIdTick, setCopyGameIdTick] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
   const [confirmDraw, setConfirmDraw] = useState(false);
@@ -2177,7 +2178,7 @@ export default function Game() {
             onIllegalMove={handleIllegalMove}
             onCapture={handleCapture}
           />
-          {!agentJoined && game?.status === 'waiting' && (
+          {!agentConnected && game?.status === 'waiting' && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center pointer-events-none" style={{ borderRadius: '4px' }}>
               <div className="font-sans text-xl font-bold text-white tracking-wide drop-shadow-md">Awaiting Agent...</div>
             </div>
@@ -2358,7 +2359,7 @@ export default function Game() {
                     </div>
                   )}
                   <ChessBoard fen={reviewMoveIndex !== null ? getFenAtMove(reviewMoveIndex) : (optimisticFen || game.fen)} showCoordinates={false} onMove={makeMove} isMyTurn={isMyTurn} lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} moveHistory={game.move_history || []} boardTheme={boardTheme} pieceTheme={pieceTheme} playerColor={game?.player_color || 'w'} onIllegalMove={handleIllegalMove} onCapture={handleCapture} />
-                  {!agentJoined && game?.status === 'waiting' && (
+                  {!agentConnected && game?.status === 'waiting' && (
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center pointer-events-none" style={{ borderRadius: '4px' }}>
                       <div className="font-sans text-xl font-bold text-white tracking-wide drop-shadow-md">Awaiting Agent...</div>
                     </div>
