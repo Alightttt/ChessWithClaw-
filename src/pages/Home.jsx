@@ -34,6 +34,12 @@ const MailboxIcon = ({ size = 20, className = "" }) => (
 
 const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontStyle:'normal'}}>🦞</span>;
 
+const XLogo = ({ style, className = "w-4 h-4 fill-current text-[#a0a0a0] hover:text-white transition-colors" }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" style={style} className={className}>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
 export default function Home() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -386,7 +392,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-3 mr-4">
-              <a href="https://x.com/0xalyt" target="_blank" rel="noopener noreferrer" className="design-btn-secondary" style={{ height: '36px', padding: '0 16px', fontSize: '13px', borderRadius: '100px', background: 'rgba(255,255,255,0.03)' }}><Twitter size={14} /></a>
+              <a href="https://x.com/0xalyt" target="_blank" rel="noopener noreferrer" className="design-btn-secondary" style={{ height: '36px', padding: '0 16px', fontSize: '13px', borderRadius: '100px', background: 'rgba(255,255,255,0.03)' }}><XLogo style={{ width: "14px", height: "14px", fill: "currentColor" }} /></a>
             </div>
             <button
               onClick={handlePlayNow}
@@ -775,7 +781,7 @@ export default function Home() {
               rel="noopener noreferrer" 
               className="x-link-lovable"
             >
-              <Twitter size={14} />
+              <XLogo style={{ width: "14px", height: "14px", fill: "currentColor" }} />
             </a>
           </div>
           <div
