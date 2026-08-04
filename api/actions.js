@@ -113,6 +113,17 @@ module.exports = async function handler(req, res) {
       const crypto = require('crypto');
       const subId = crypto.createHash('sha256').update(subscription.endpoint).digest('hex');
       
+      // Since a game only has 1 human player, delete any old subscriptions for this game
+      if (gameId) {
+        const { data: existing } = await supabase.from('push_subscriptions').select('id, subscription');
+        if (existing) {
+          const toDelete = existing.filter(row => row.subscription && row.subscription.gameId === gameId && row.id !== subId);
+          for (const row of toDelete) {
+            await supabase.from('push_subscriptions').delete().eq('id', row.id);
+          }
+        }
+      }
+
       const { error: insertError } = await supabase.from('push_subscriptions').upsert({
         id: subId,
         subscription: subscription
@@ -142,20 +153,33 @@ module.exports = async function handler(req, res) {
       
       if (subsError) return res.status(500).json({ error: 'Database error' });
       
-      let sentCount = 0;
+      const uniqueSubs = new Map();
       for (const sub of (subs || [])) {
+        if (!uniqueSubs.has(sub.subscription.endpoint)) {
+          uniqueSubs.set(sub.subscription.endpoint, sub);
+        }
+      }
+      const deduplicatedSubs = Array.from(uniqueSubs.values());
+      
+      let sentCount = 0;
+      for (const sub of deduplicatedSubs) {
         try {
           // Check timezone to avoid sending at night
           const userTimezone = sub.subscription.timezone || 'UTC';
+          let skipNight = false;
           try {
             const localHour = new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone })).getHours();
             if (localHour < 8 || localHour > 21) {
-              // It's nighttime (before 8 AM or after 9 PM), skip this user
-              continue;
+              skipNight = true;
             }
           } catch (e) {
             console.error('Invalid timezone:', userTimezone);
           }
+
+          if (skipNight) continue;
+
+          // Update last_notified_at immediately to prevent concurrent cron runs from sending duplicates
+          await supabase.from('push_subscriptions').update({ last_notified_at: new Date().toISOString() }).eq('id', sub.id);
 
           // Personalized copy based on elapsed time since created_at or last_notified_at
           const lastNotified = sub.last_notified_at ? new Date(sub.last_notified_at) : new Date(sub.created_at);
@@ -181,8 +205,6 @@ module.exports = async function handler(req, res) {
           });
 
           await webpush.sendNotification(sub.subscription, payload);
-          
-          await supabase.from('push_subscriptions').update({ last_notified_at: new Date().toISOString() }).eq('id', sub.id);
           sentCount++;
         } catch (e) {
           if (e.statusCode === 410 || e.statusCode === 404) {

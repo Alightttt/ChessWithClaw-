@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useToast } from '../components/Toast';
-import { Loader2, ChevronDown, Zap, Shield, Terminal, Copy, Check, Globe, Bot, Activity, Link as LinkIcon } from "lucide-react";
+import { Loader2, ChevronDown, Zap, Shield, Terminal, Copy, Check, Globe, Bot, Activity, Link as LinkIcon, Mail } from "lucide-react";
 import { supabase } from '../lib/supabase';
 import LivePlatformActivity from '../components/LivePlatformActivity';
 import MockChatPanel from '../components/MockChatPanel';
@@ -37,6 +37,7 @@ const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe
 export default function Home() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [copiedMcp, setCopiedMcp] = useState(false);
 
   const handlePlayNow = async () => {
     if (creating) return;
@@ -64,7 +65,7 @@ export default function Home() {
   const [copied2b, setCopied2b] = useState(false);
   const [copied3, setCopied3] = useState(false);
   
-  const [activeFaqIndex, setActiveFaqIndex] = useState(null);
+  const [activeFaqIndex, setActiveFaqIndex] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [scrolled, setScrolled] = useState(false);
 
@@ -135,6 +136,18 @@ export default function Home() {
 
   
 
+
+  const AgentIntegrationIcons = () => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+      <div style={{ position: 'relative', width: '28px', height: '28px' }}>
+        <img src="https://api.dicebear.com/9.x/bottts/svg?seed=lobster&backgroundColor=e63946" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} alt="OpenClaw" />
+      </div>
+      <span style={{ color: 'rgba(242,242,242,0.4)', fontSize: '14px', fontWeight: 'bold' }}>+</span>
+      <div style={{ position: 'relative', width: '28px', height: '28px' }}>
+        <img src="https://avatars.githubusercontent.com/u/129657448?s=200&v=4" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} alt="Hermes" />
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', color: '#f2f2f2', overflowX: 'clip' }} className="font-sans selection:bg-red-500/30">
@@ -574,8 +587,8 @@ export default function Home() {
       <section className="fade-in-section max-w-7xl mx-auto" style={{ marginBottom: '40px', padding: '0 20px' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
-            { icon: Terminal, bg: 'radial-gradient(circle at 30% 20%, rgba(230,57,70,0.25), transparent 60%), #161616', title: "Agent Integration", desc: "Native MCP support — no plugin, no bridge. Your agent connects directly." },
-            { icon: Shield, bg: 'radial-gradient(circle at 70% 20%, rgba(87,112,71,0.35), transparent 60%), #161616', title: "Persistent Match", desc: "Close the tab. Come back. The board, the moves, the rivalry — still there." }
+            { customIcon: <AgentIntegrationIcons />, bg: 'radial-gradient(circle at 30% 20%, rgba(230,57,70,0.25), transparent 60%), #161616', title: "Agent Integration", desc: "Native MCP support — no plugin, no bridge. Your agent connects directly." },
+            { icon: Activity, bg: 'radial-gradient(circle at 70% 20%, rgba(87,112,71,0.35), transparent 60%), #161616', title: "Persistent Match", desc: "Close the tab. Come back. The board, the moves, the rivalry — still there." }
           ].map((f, i) => (
             <div 
               key={i} 
@@ -596,7 +609,7 @@ export default function Home() {
             >
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0.4) 55%, transparent 100%)' }} />
               <div style={{ position: 'relative', padding: '24px', zIndex: 1 }}>
-                {f.icon && <f.icon style={{ color: '#e63946', marginBottom: '12px' }} size={28} />}
+                {f.customIcon ? f.customIcon : (f.icon && <f.icon style={{ color: '#e63946', marginBottom: '12px' }} size={28} />)}
                 <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: '20px', fontWeight: 700, lineHeight: 1.3, marginBottom: '8px', color: '#f2f2f2', letterSpacing: '-0.02em' }}>{f.title}</h3>
                 <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', fontWeight: 300, lineHeight: 1.6, color: 'rgba(242,242,242,0.7)', margin: 0 }}>{f.desc}</p>
               </div>
@@ -661,11 +674,13 @@ export default function Home() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText("openclaw mcp add --url https://chesswithclaw.vercel.app/api/mcp");
+                    setCopiedMcp(true);
+                    setTimeout(() => setCopiedMcp(false), 2200);
                   }}
-                  className="design-btn-secondary-compact" style={{ marginLeft: "12px", flexShrink: 0 }}
+                  className="design-btn-secondary-compact hover:bg-white/10" style={{ marginLeft: "12px", flexShrink: 0, padding: "8px", background: "transparent", border: "none", cursor: "pointer", color: "rgba(242,242,242,0.6)", borderRadius: "6px" }}
+                  title="Copy command"
                 >
-                  <Copy size={13} />
-                  <span>Copy</span>
+                  {copiedMcp ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                 </button>
               </div>
             </div>
@@ -685,7 +700,7 @@ export default function Home() {
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                <MailboxIcon size={20} className="text-[#e63946]" />
+                <Mail size={20} className="text-[#e63946]" />
               </div>
               <div>
                 <span style={{ display: 'block', fontSize: '10px', color: '#e63946', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase' }}>

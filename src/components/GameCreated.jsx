@@ -12,6 +12,9 @@ if (typeof window !== 'undefined') {
 export default function GameCreated({ gameId }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
+  const [bounceCopy, setBounceCopy] = useState(false);
+  const [legalError, setLegalError] = useState(false);
   const [boardOpening, setBoardOpening] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [showError, setShowError] = useState(false);
@@ -36,13 +39,26 @@ export default function GameCreated({ gameId }) {
   const inviteMessage = `Hey — I set up a chess match for us. Connect to ${mcpUrl} and join match ${gameId}. You're playing Black, I'm White, I move first. Play for real — think it through, tell me what you're thinking, and talk to me while we play. Let's go.`;
 
   const handleCopyInvite = () => {
+    setHasCopied(true);
     navigator.clipboard.writeText(inviteMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2200);
   };
 
   const handleOpenBoard = () => {
-    if (!legalAccepted) return;
+    let canEnter = true;
+    if (!legalAccepted) {
+      setLegalError(true);
+      setTimeout(() => setLegalError(false), 2000);
+      canEnter = false;
+    }
+    if (!hasCopied) {
+      setBounceCopy(true);
+      setTimeout(() => setBounceCopy(false), 500);
+      canEnter = false;
+    }
+    if (!canEnter) return;
+
     setBoardOpening(true);
     setTimeout(() => {
       navigate(`/game/${gameId}`);
@@ -178,6 +194,13 @@ export default function GameCreated({ gameId }) {
         .custom-checkbox:checked::before {
           transform: scale(1);
         }
+        @keyframes bounce-anim {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); box-shadow: 0 0 15px rgba(230,57,70,0.5); }
+        }
+        .bounce-anim {
+          animation: bounce-anim 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
       `}</style>
 
       {/* Header */}
@@ -196,24 +219,12 @@ export default function GameCreated({ gameId }) {
       >
         <div className="w-full max-w-7xl mx-auto px-4 md:px-8 grid items-center" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <button 
-              onClick={() => navigate('/')} 
-              className="hover:text-white transition-colors"
-              style={{ 
-                cursor: 'pointer', 
-                background: 'transparent',
-                border: 'none',
-                padding: '8px',
-                color: 'rgba(242,242,242,0.6)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginLeft: '-8px'
-              }}
-              title="Back"
-            >
-              <ChevronLeft size={24} strokeWidth={2.5} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', cursor: 'pointer', marginLeft: '-12px' }} onClick={() => navigate('/')} title="Back">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(242,242,242,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -223,7 +234,7 @@ export default function GameCreated({ gameId }) {
               draggable={false}
               onClick={() => navigate('/')}
               style={{ 
-                width: '175px', 
+                width: '140px', 
                 height: 'auto', 
                 objectFit: 'contain', 
                 cursor: 'pointer',
@@ -346,7 +357,7 @@ export default function GameCreated({ gameId }) {
                 transition: 'color 0.2s ease'
               }}
             >
-              Send this invite message to you agent wherever it lives to invite it in match, first time takes little long , faster after that
+              Send this invite message to your agent wherever it lives to invite it in match, first time takes little long , faster after that
             </p>
             <p 
               style={{ 

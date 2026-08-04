@@ -498,6 +498,28 @@ function buildServer() {
 // ---- Vercel handler (Node.js Serverless API — no framework needed) ---
 
 module.exports.GET = async function (req) {
+  // If a social media crawler hits this URL, return basic HTML with OG tags
+  // so the link preview works correctly.
+  const userAgent = req.headers.get?.('user-agent') || req.headers['user-agent'] || '';
+  const isBot = /bot|facebook|twitter|linkedin|discord|slack|whatsapp|telegram/i.test(userAgent);
+  if (isBot) {
+    return new Response(
+      `<!DOCTYPE html>
+<html>
+  <head>
+    <title>ChessWithClaw MCP</title>
+    <meta property="og:title" content="ChessWithClaw MCP Server" />
+    <meta property="og:description" content="Connect your agent to play chess." />
+    <meta property="og:image" content="https://chesswithclaw.vercel.app/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://chesswithclaw.vercel.app/og-image.png" />
+  </head>
+  <body></body>
+</html>`,
+      { status: 200, headers: { 'Content-Type': 'text/html' } }
+    );
+  }
+
   return new Response(
     JSON.stringify({ error: 'This server does not support long-lived SSE streams. Use POST for tool calls, and the wait_for_event tool for waiting on changes.' }),
     { status: 405, headers: { 'Content-Type': 'application/json' } }

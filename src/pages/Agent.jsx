@@ -73,6 +73,12 @@ export default function Agent() {
 
   const agentName = game?.agent_name || 'Your Agent';
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(false);
+  
+  useEffect(() => {
+    let t = setTimeout(() => setShowSkeleton(true), 200);
+    return () => clearTimeout(t);
+  }, []);
 
   const getCapturedPieces = (fenString) => {
     const start = { w:{p:8,r:2,n:2,b:2,q:1}, b:{p:8,r:2,n:2,b:2,q:1} };
@@ -1143,6 +1149,7 @@ export default function Agent() {
   }, [game?.status, game?.fen, gameId, game?.agent_name]);
 
   if (loading) {
+    if (!showSkeleton) return <div style={{ backgroundColor: '#000000', height: '100dvh' }} />;
     const skeletonStyle = {
       background: 'linear-gradient(90deg, #161616 25%, #222222 50%, #161616 75%)',
       backgroundSize: '200% 100%',
@@ -1370,23 +1377,26 @@ export default function Agent() {
       
       {/* HEADER (Fixed) */}
       <header style={{ height: isDesktop ? '52px' : '64px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid #111111', background: '#0a0a0a', zIndex: 50, position: 'sticky', top: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer', transition: 'transform 0.15s ease' }} onClick={handleGoHome} className="active:translate-y-[1px] active:scale-[0.98]">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', cursor: 'pointer' }} onClick={handleGoHome}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(242,242,242,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
           <img 
             src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/logo-v2.png" 
             alt="ChessWithClaw Logo" 
             draggable={false}
             onContextMenu={(e) => e.preventDefault()}
             style={{ 
-              width: '150px', 
-              height: 'auto', 
-              objectFit: 'contain', 
-              flexShrink: 0, 
-              display: 'block',
+              height: '32px',
+              width: 'auto',
+              objectFit: 'contain',
               userSelect: 'none',
               WebkitUserSelect: 'none',
               WebkitTouchCallout: 'none',
-              pointerEvents: 'none',
-              filter: 'drop-shadow(0 2px 10px rgba(230,57,70,0.15))'
+              pointerEvents: 'none'
             }} 
           />
         </div>
@@ -1394,11 +1404,10 @@ export default function Agent() {
           data-testid="settings-button"
           onClick={handleOpenSettings}
           className="text-neutral-400 hover:text-white transition-all active:translate-y-[1px] active:scale-[0.98]"
-          style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Settings size={20} />
-        </button>
-      </header>
+        </button></header>
       {/* MAIN CONTENT AREA - RESPONSIVE */}
       {isDesktop ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', minHeight: 0 }}>

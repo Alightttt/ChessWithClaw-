@@ -225,7 +225,7 @@ export default function Game() {
 
   const agentName = game?.agent_name || 'Your Agent';
   const [loading, setLoading] = useState(true);
-
+  
   const getCapturedPieces = (fenString) => {
     const start = { w:{p:8,r:2,n:2,b:2,q:1}, b:{p:8,r:2,n:2,b:2,q:1} };
     const fen = fenString || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
@@ -1677,7 +1677,7 @@ export default function Game() {
               </div>
               <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: '20px', fontWeight: 800, color: '#f2f2f2', marginBottom: '8px' }}>Really want to exit game room?</h2>
               <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: 'rgba(242,242,242,0.6)', marginBottom: '24px' }}>
-                You might not be able to return to this game if you haven't saved the link.
+                You might not be able to return to this game if you haven&apos;t saved the link.
               </p>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button onClick={() => setShowLeaveWarning(false)} style={{ flex: 1, background: '#2a2a2a', border: 'none', padding: '12px', borderRadius: '8px', color: '#f2f2f2', fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: 'pointer', transition: 'background 0.2s' }}>
