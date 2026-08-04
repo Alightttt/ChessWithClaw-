@@ -316,9 +316,10 @@ export default function GameCreated({ gameId }) {
                   border: 'none', 
                   color: copied ? '#10b981' : '#e63946', 
                   cursor: 'pointer', 
-                  transition: 'color 0.2s ease, transform 0.2s ease',
+                  transition: 'color 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                   padding: '4px',
-                  borderRadius: '4px'
+                  borderRadius: '4px',
+                  transform: bounceCopy ? 'scale(1.3)' : 'scale(1)'
                 }}
                 title="Copy invite"
               >
@@ -397,17 +398,28 @@ export default function GameCreated({ gameId }) {
                 transition: 'all 0.2s ease'
               }}
             >
-              accept <a href="/legal" target="_blank" style={{ color: showError ? '#e63946' : '#f2f2f2', textDecoration: 'underline', textUnderlineOffset: '2px' }}>privacy policy & terms</a>
+              accept <span onClick={(e) => { e.preventDefault(); navigate('/legal', { state: { from: `/created/${gameId}` } }); }} style={{ cursor: 'pointer', color: showError ? '#e63946' : '#f2f2f2', textDecoration: 'underline', textUnderlineOffset: '2px' }}>privacy policy & terms</span>
             </label>
           </div>
 
           <button
             onClick={() => {
+              let canEnter = true;
               if (!legalAccepted) {
                 setShowError(true);
-                return;
+                canEnter = false;
               }
-              handleOpenBoard();
+              if (!hasCopied) {
+                setBounceCopy(true);
+                setTimeout(() => setBounceCopy(false), 500);
+                canEnter = false;
+              }
+              if (canEnter) {
+                setBoardOpening(true);
+                setTimeout(() => {
+                  navigate(`/game/${gameId}`);
+                }, 500);
+              }
             }}
             disabled={boardOpening}
             className="design-btn-primary"
@@ -417,7 +429,7 @@ export default function GameCreated({ gameId }) {
               height: '56px',
               fontSize: '16px',
               cursor: boardOpening ? 'not-allowed' : 'pointer',
-              opacity: legalAccepted ? 1 : 0.5,
+              opacity: (legalAccepted && hasCopied) ? 1 : 0.8,
               transition: 'all 0.2s ease'
             }}
           >

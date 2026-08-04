@@ -260,6 +260,7 @@ export default function Game() {
 
   
   const [showSettings, setShowSettings] = useState(false);
+  const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
   const [chatMobileOpen, setChatMobileOpen] = useState(false);
   const [agentSectionOpen, setAgentSectionOpen] = useState(false);
   const [moveHistoryOpen, setMoveHistoryOpen] = useState(false);
@@ -321,7 +322,38 @@ export default function Game() {
   const [isCheckState, setIsCheckState] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [bgmEnabled, setBgmEnabled] = useState(() => localStorage.getItem('cwc_bgm') === 'true');
-  useEffect(() => { localStorage.setItem('cwc_bgm', bgmEnabled); }, [bgmEnabled]);
+  const bgmAudioRef = useRef(null);
+  useEffect(() => { 
+    localStorage.setItem('cwc_bgm', bgmEnabled); 
+    if (bgmEnabled) {
+      if (!bgmAudioRef.current) {
+        bgmAudioRef.current = new Audio("https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3");
+        bgmAudioRef.current.loop = true;
+        bgmAudioRef.current.volume = 0.3;
+      }
+      bgmAudioRef.current.play().catch(e => console.log('Audio autoplay prevented:', e));
+    } else {
+      if (bgmAudioRef.current) {
+        bgmAudioRef.current.pause();
+      }
+    }
+    
+    return () => {
+      // Cleanup is mostly for component unmount
+      if (bgmAudioRef.current && !bgmEnabled) {
+        bgmAudioRef.current.pause();
+      }
+    };
+  }, [bgmEnabled]);
+  
+  // Also pause when navigating away
+  useEffect(() => {
+    return () => {
+      if (bgmAudioRef.current) {
+        bgmAudioRef.current.pause();
+      }
+    };
+  }, []);
   const [agentDisconnected, setAgentDisconnected] = useState(false);
 
   const formatMoveTime = (time, gameStartTime) => {
@@ -1660,31 +1692,50 @@ export default function Game() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(10, 10, 10, 0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ duration: 0.2 }}
-              style={{ background: '#1c1a19', border: '1px solid #2a2a2a', borderRadius: '16px', padding: '24px', maxWidth: '320px', width: '90%', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '24px', padding: '32px 24px', maxWidth: '360px', width: '100%', textAlign: 'center', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03) inset', position: 'relative', overflow: 'hidden' }}
             >
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                <div style={{ background: 'rgba(230,57,70,0.1)', color: '#e63946', padding: '12px', borderRadius: '50%' }}>
-                  <AlertTriangle size={32} />
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '120px', background: 'radial-gradient(circle at top, rgba(230,57,70,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
+              
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', position: 'relative', zIndex: 1 }}>
+                <div style={{ background: 'rgba(230,57,70,0.1)', border: '1px solid rgba(230,57,70,0.2)', color: '#e63946', padding: '14px', borderRadius: '16px', boxShadow: '0 8px 16px -4px rgba(230,57,70,0.15)' }}>
+                  <AlertTriangle size={32} strokeWidth={2} />
                 </div>
               </div>
-              <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: '20px', fontWeight: 800, color: '#f2f2f2', marginBottom: '8px' }}>Really want to exit game room?</h2>
-              <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '14px', color: 'rgba(242,242,242,0.6)', marginBottom: '24px' }}>
-                You might not be able to return to this game if you haven&apos;t saved the link.
+              
+              <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: '22px', fontWeight: 800, color: '#f2f2f2', marginBottom: '12px', letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>Leave Game Room?</h2>
+              
+              <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', fontWeight: 300, color: 'rgba(242,242,242,0.6)', marginBottom: '32px', lineHeight: 1.6, position: 'relative', zIndex: 1 }}>
+                You might not be able to return to this game if you haven&apos;t saved the link. The match will remain active on the server.
               </p>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button onClick={() => setShowLeaveWarning(false)} style={{ flex: 1, background: '#2a2a2a', border: 'none', padding: '12px', borderRadius: '8px', color: '#f2f2f2', fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: 'pointer', transition: 'background 0.2s' }}>
+              
+              <div style={{ display: 'flex', gap: '12px', position: 'relative', zIndex: 1 }}>
+                <button 
+                  onClick={() => setShowLeaveWarning(false)} 
+                  style={{ flex: 1, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', padding: '14px', borderRadius: '12px', color: '#f2f2f2', fontWeight: 600, fontFamily: "'Inter', sans-serif", fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
                   Cancel
                 </button>
-                <button onClick={() => navigate('/')} style={{ flex: 1, background: '#e63946', border: 'none', padding: '12px', borderRadius: '8px', color: '#fff', fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: 'pointer', transition: 'background 0.2s' }}>
-                  Leave
+                <button 
+                  onClick={() => navigate('/')} 
+                  style={{ flex: 1, background: '#e63946', border: 'none', padding: '14px', borderRadius: '12px', color: '#fff', fontWeight: 600, fontFamily: "'Inter', sans-serif", fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(230,57,70,0.3)' }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = '#d62828'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(230,57,70,0.4)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#e63946'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(230,57,70,0.3)'; }}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  Leave Room
                 </button>
               </div>
             </motion.div>
@@ -1745,19 +1796,55 @@ export default function Game() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>Thoughts language</span>
               <div style={{ position: 'relative' }}>
-                <select 
-                  value={thoughtLanguage} 
-                  onChange={(e) => setThoughtLanguage(e.target.value)}
-                  style={{ appearance: 'none', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f2f2f2', padding: '8px 32px 8px 12px', fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                <button 
+                  onClick={() => setIsLanguageDropdownOpen(!isLanguageDropdownOpen)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f2f2f2', padding: '8px 12px', fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer', outline: 'none', width: '110px' }}
                 >
-                  <option value="english">English</option>
-                  <option value="hindi">Hindi</option>
-                  <option value="hinglish">Hinglish</option>
-                </select>
-                <ChevronDown size={16} color="rgba(242,242,242,0.6)" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                  <span style={{ textTransform: 'capitalize' }}>{thoughtLanguage}</span>
+                  <ChevronDown size={16} color="rgba(242,242,242,0.6)" style={{ transition: 'transform 0.2s', transform: isLanguageDropdownOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                </button>
+                <AnimatePresence>
+                  {isLanguageDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', zIndex: 50, width: '130px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }}
+                    >
+                      {['english', 'hindi', 'hinglish'].map(lang => (
+                        <button
+                          key={lang}
+                          onClick={() => { setThoughtLanguage(lang); setIsLanguageDropdownOpen(false); }}
+                          style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '8px 12px',
+                            background: thoughtLanguage === lang ? 'rgba(255,255,255,0.05)' : 'transparent',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: thoughtLanguage === lang ? '#fff' : 'rgba(242,242,242,0.7)',
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: '14px',
+                            fontWeight: thoughtLanguage === lang ? 600 : 400,
+                            cursor: 'pointer',
+                            textTransform: 'capitalize',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            outline: thoughtLanguage === lang ? '1px solid rgba(255,255,255,0.2)' : 'none'
+                          }}
+                        >
+                          {lang}
+                          {thoughtLanguage === lang && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
@@ -1779,7 +1866,7 @@ export default function Game() {
                 {['neo', 'neo_wood', 'ocean'].map((key) => (
                   <button key={key} onClick={() => { setPieceTheme(key); localStorage.setItem('cwc_pieces', key); }} style={{ width: 80, height: 48, borderRadius: 8, border: pieceTheme === key ? '2px solid #fff' : '2px solid transparent', background: '#3a3a3a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 32, height: 32 }}>
-                      <WN pieceStyle={key} />
+                      <img src={`https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/pieces/${key}/wn.png`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt={`${key} knight`} draggable={false} />
                     </div>
                   </button>
                 ))}
