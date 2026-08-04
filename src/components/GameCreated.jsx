@@ -314,7 +314,7 @@ export default function GameCreated({ gameId }) {
                   justifyContent: 'center',
                   background: 'transparent', 
                   border: 'none', 
-                  color: copied ? '#10b981' : '#e63946', 
+                  color: bounceCopy ? '#ffffff' : (copied ? '#10b981' : '#e63946'), 
                   cursor: 'pointer', 
                   transition: 'color 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                   padding: '4px',

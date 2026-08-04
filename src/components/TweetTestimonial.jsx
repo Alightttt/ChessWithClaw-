@@ -22,14 +22,12 @@ export default function TweetTestimonial() {
     <div className="w-full relative">
       <motion.div
         whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 1.05, boxShadow: '0 20px 40px -10px rgba(0,0,0,0.8), 0 0 40px rgba(29, 155, 240, 0.4)' }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full bg-[#000000] border border-[#2f3336] rounded-2xl p-5 md:p-6 text-left cursor-pointer transition-colors duration-200 font-sans relative overflow-hidden group"
+        className="w-full bg-[#000000] border border-[#2f3336] rounded-2xl p-5 md:p-6 text-left cursor-default transition-colors duration-200 font-sans relative overflow-hidden group select-none"
       >
         <div className="flex justify-between items-start mb-3">
           <div className="flex gap-3 items-center">
             <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center">
-              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="David" className="w-full h-full object-cover" />
+              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="David" className="w-full h-full object-cover pointer-events-none select-none" draggable={false} />
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1">
@@ -44,10 +42,7 @@ export default function TweetTestimonial() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[11px] font-semibold text-[#1d9bf0] bg-[#1d9bf0]/10 border border-[#1d9bf0]/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1d9bf0] animate-pulse" />
-              Featured Post
-            </span>
+            
             <div className="p-1.5 rounded-full hover:bg-white/10 text-[#71767b] transition-colors">
               <XLogo />
             </div>
@@ -57,8 +52,8 @@ export default function TweetTestimonial() {
         {/* Tweet Body Text */}
         <p className="text-[17px] md:text-[18px] leading-[1.5] text-[#e7e9ea] font-normal mb-1 whitespace-pre-wrap tracking-normal">
           Holy shit the best thing I saw today, we can play Chess with our agent on{' '}
-          <span className="text-[#1d9bf0] font-medium">@ChessWithClaw</span>
-          . Like can&apos;t believe this. We are heading towards a new era of gaming with agents. ♟️🤖
+          <span className="text-[#1d9bf0] font-medium">ChessWithClaw</span>
+          . Like can&apos;t believe this. We are heading towards a new era of gaming with agents. ♟️🦞
         </p>
       </motion.div>
     </div>

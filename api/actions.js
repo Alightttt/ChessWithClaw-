@@ -219,13 +219,15 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'resign') {
       if (role === 'human') {
-        updates = { status: 'finished', result: 'black_wins', finished_at: now, result_reason: 'resignation' };
+        const humanLoses = game.player_color === 'w' ? 'black' : 'white';
+        updates = { status: 'finished', result: humanLoses, finished_at: now, result_reason: 'resignation' };
         chatText = message || `You have resigned. ${agentName} wins! 🦞`;
-        result = 'black_wins';
+        result = humanLoses;
       } else {
-        updates = { status: 'finished', result: 'white_wins', finished_at: now, result_reason: 'resignation' };
+        const agentLoses = game.player_color === 'w' ? 'white' : 'black';
+        updates = { status: 'finished', result: agentLoses, finished_at: now, result_reason: 'resignation' };
         chatText = message || `${agentName} has resigned. Well played! 🦞`;
-        result = 'white_wins';
+        result = agentLoses;
       }
     } else if (action === 'offer_draw') {
       updates = { draw_offer: role, draw_offer_pending: true };

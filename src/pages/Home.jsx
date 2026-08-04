@@ -140,12 +140,12 @@ export default function Home() {
   const AgentIntegrationIcons = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
       <div style={{ position: 'relative', width: '28px', height: '28px' }}>
-        <img src="https://api.dicebear.com/9.x/bottts/svg?seed=lobster&backgroundColor=e63946" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} alt="OpenClaw" />
+        <img src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/openclaw.png" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} alt="OpenClaw" />
       </div>
-      <span style={{ color: 'rgba(242,242,242,0.4)', fontSize: '14px', fontWeight: 'bold' }}>+</span>
       <div style={{ position: 'relative', width: '28px', height: '28px' }}>
-        <img src="https://avatars.githubusercontent.com/u/129657448?s=200&v=4" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} alt="Hermes" />
+        <img src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/hermes.png" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} alt="Hermes" />
       </div>
+      <span style={{ color: 'rgba(242,242,242,0.4)', fontSize: '14px', fontWeight: 'bold', display: 'none' }}>+</span>
     </div>
   );
 
@@ -386,7 +386,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-3 mr-4">
-              <a href="https://x.com/0xalyt" target="_blank" rel="noopener noreferrer" className="design-btn-secondary" style={{ height: '36px', padding: '0 16px', fontSize: '13px', borderRadius: '100px', background: 'rgba(255,255,255,0.03)' }}>x.com/0xalyt</a>
+              <a href="https://x.com/0xalyt" target="_blank" rel="noopener noreferrer" className="design-btn-secondary" style={{ height: '36px', padding: '0 16px', fontSize: '13px', borderRadius: '100px', background: 'rgba(255,255,255,0.03)' }}><Twitter size={14} /></a>
             </div>
             <button
               onClick={handlePlayNow}
@@ -515,7 +515,7 @@ export default function Home() {
                     opacity: creating ? 0.7 : 1
                   }}
                 >
-                  {creating ? 'Creating your match...' : 'Challenge Mine Now →'}
+                  {creating ? 'Creating your match...' : 'Challenge Mine Now'}
                 </button>
                 <a 
                   href="#how"
@@ -564,7 +564,7 @@ export default function Home() {
                 opacity: creating ? 0.7 : 1
               }}
             >
-              {creating ? 'Creating your match...' : 'Challenge Mine Now →'}
+              {creating ? 'Creating your match...' : 'Challenge Mine Now'}
             </button>
             <a 
               href="#how"
@@ -775,19 +775,16 @@ export default function Home() {
               rel="noopener noreferrer" 
               className="x-link-lovable"
             >
-              x.com
+              <Twitter size={14} />
             </a>
           </div>
           <div
             style={{
-              fontFamily: "'Poppins', sans-serif", 
-              fontWeight: "700", 
-              fontStyle: "italic",
-              color: "#f2f2f2", 
-              letterSpacing: "-0.02em",
-              fontSize: "clamp(18px, 6vw, 64px)",
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: "400",
+              color: "#a0a0a0",
+              fontSize: "14px",
               textAlign: "left",
-              whiteSpace: "nowrap",
               lineHeight: 1
             }}
           >

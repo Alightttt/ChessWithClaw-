@@ -186,6 +186,26 @@ const BottomStatusBar = ({ agentConnected, game, agentName, isMobile }) => {
   );
 };
 
+
+const SwipeableToggle = ({ checked, onChange }) => {
+  return (
+    <div 
+      onClick={() => onChange(!checked)}
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); e.currentTarget.startX = e.clientX; }}
+      onPointerMove={(e) => {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+          const delta = e.clientX - e.currentTarget.startX;
+          if (delta > 10 && !checked) { onChange(true); e.currentTarget.releasePointerCapture(e.pointerId); }
+          else if (delta < -10 && checked) { onChange(false); e.currentTarget.releasePointerCapture(e.pointerId); }
+        }
+      }}
+      style={{ width: '48px', height: '28px', borderRadius: '14px', border: 'none', cursor: 'pointer', background: checked ? '#4ade80' : '#3a3a3a', position: 'relative', transition: 'background 0.2s', touchAction: 'none' }}
+    >
+      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: checked ? '23px' : '3px', transition: 'left 0.2s', pointerEvents: 'none' }} />
+    </div>
+  );
+};
+
 export default function Game() {
   const { id: gameId } = useParams();
   const agentToken = null;
@@ -321,13 +341,13 @@ export default function Game() {
   const [agentTyping, setAgentTyping] = useState(false);
   const [isCheckState, setIsCheckState] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [bgmEnabled, setBgmEnabled] = useState(() => localStorage.getItem('cwc_bgm') === 'true');
+  const [bgmEnabled, setBgmEnabled] = useState(() => localStorage.getItem('cwc_bgm') === 'true' || false);
   const bgmAudioRef = useRef(null);
   useEffect(() => { 
     localStorage.setItem('cwc_bgm', bgmEnabled); 
-    if (bgmEnabled) {
+    if (bgmEnabled && agentJoined && game?.status === 'active') {
       if (!bgmAudioRef.current) {
-        bgmAudioRef.current = new Audio("https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3");
+        bgmAudioRef.current = new Audio("https://cdn.pixabay.com/audio/2022/10/25/audio_29fc96f2a7.mp3");
         bgmAudioRef.current.loop = true;
         bgmAudioRef.current.volume = 0.3;
       }
@@ -344,7 +364,7 @@ export default function Game() {
         bgmAudioRef.current.pause();
       }
     };
-  }, [bgmEnabled]);
+  }, [bgmEnabled, agentJoined, game?.status]);
   
   // Also pause when navigating away
   useEffect(() => {
@@ -1765,8 +1785,8 @@ export default function Game() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>Game ID</span>
-              <button onClick={() => { navigator.clipboard.writeText(gameId); toast.success('Game ID copied'); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#2a2a2a', border: 'none', borderRadius: '8px', padding: '8px 12px', color: 'rgba(242,242,242,0.7)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', cursor: 'pointer' }}>
-                <Copy size={14} />
+              <button onClick={() => { navigator.clipboard.writeText(gameId); toast.success('Game ID copied'); setCopyGameIdTick(true); setTimeout(() => setCopyGameIdTick(false), 2000); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#2a2a2a', border: 'none', borderRadius: '8px', padding: '8px 12px', color: 'rgba(242,242,242,0.7)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', cursor: 'pointer' }}>
+                {copyGameIdTick ? <Check size={14} color="#4ade80" /> : <Copy size={14} />}
                 {gameId ? `${gameId.slice(0, 13)}...` : ''}
               </button>
             </div>
@@ -1784,16 +1804,12 @@ export default function Game() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '15px', color: '#f2f2f2' }}>Sound effects</span>
-              <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ width: '48px', height: '28px', borderRadius: '14px', border: 'none', cursor: 'pointer', background: soundEnabled ? '#4ade80' : '#3a3a3a', position: 'relative', transition: 'background 0.2s' }}>
-                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: soundEnabled ? '23px' : '3px', transition: 'left 0.2s' }} />
-              </button>
+              <SwipeableToggle checked={soundEnabled} onChange={setSoundEnabled} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: '15px', color: '#f2f2f2' }}>BGM</span>
-              <button onClick={() => setBgmEnabled(!bgmEnabled)} style={{ width: '48px', height: '28px', borderRadius: '14px', border: 'none', cursor: 'pointer', background: bgmEnabled ? '#4ade80' : '#3a3a3a', position: 'relative', transition: 'background 0.2s' }}>
-                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: bgmEnabled ? '23px' : '3px', transition: 'left 0.2s' }} />
-              </button>
+              <SwipeableToggle checked={bgmEnabled} onChange={setBgmEnabled} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
@@ -2032,16 +2048,16 @@ export default function Game() {
                   <div style={{
                     width: '20px',
                     height: '20px',
-                    background: '#fbbf24',
+                    background: '#e63946',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0
                   }}>
-                    <span style={{ color: '#1a1a1a', fontSize: '13px', fontWeight: 'bold', lineHeight: 1 }}>!</span>
+                    <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 'bold', lineHeight: 1 }}>!</span>
                   </div>
-                  <span style={{ color: '#fbbf24', fontSize: '14px', fontWeight: 600, fontFamily: 'Inter, sans-serif', lineHeight: 1.2 }}>
+                  <span style={{ color: '#ffffff', fontSize: '14px', fontWeight: 600, fontFamily: 'Inter, sans-serif', lineHeight: 1.2 }}>
                     Invite your Agent first
                   </span>
                 </div>
@@ -2161,6 +2177,11 @@ export default function Game() {
             onIllegalMove={handleIllegalMove}
             onCapture={handleCapture}
           />
+          {!agentJoined && game?.status === 'waiting' && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center pointer-events-none" style={{ borderRadius: '4px' }}>
+              <div className="font-sans text-xl font-bold text-white tracking-wide drop-shadow-md">Awaiting Agent...</div>
+            </div>
+          )}
           </div></div>
           <CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} />
           {(game.status === 'finished' || game.status === 'abandoned') && (
@@ -2337,6 +2358,11 @@ export default function Game() {
                     </div>
                   )}
                   <ChessBoard fen={reviewMoveIndex !== null ? getFenAtMove(reviewMoveIndex) : (optimisticFen || game.fen)} showCoordinates={false} onMove={makeMove} isMyTurn={isMyTurn} lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} moveHistory={game.move_history || []} boardTheme={boardTheme} pieceTheme={pieceTheme} playerColor={game?.player_color || 'w'} onIllegalMove={handleIllegalMove} onCapture={handleCapture} />
+                  {!agentJoined && game?.status === 'waiting' && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center pointer-events-none" style={{ borderRadius: '4px' }}>
+                      <div className="font-sans text-xl font-bold text-white tracking-wide drop-shadow-md">Awaiting Agent...</div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ padding: '0 16px' }}><CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} /></div>
