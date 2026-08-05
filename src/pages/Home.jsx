@@ -465,7 +465,7 @@ export default function Home() {
             <h1 
               style={{
                 fontFamily: "'Inter', sans-serif",
-                fontSize: 'clamp(56px, 14vw, 84px)',
+                fontSize: 'min(92px, max(56px, 14vw))',
                 fontWeight: 800,
                 lineHeight: 1.05,
                 letterSpacing: '-0.03em',
@@ -484,7 +484,7 @@ export default function Home() {
             <p className="mx-auto md:mx-0" 
               style={{
                 fontFamily: "'Poppins', sans-serif",
-                fontSize: 'clamp(15px, 4vw, 18px)',
+                fontSize: 'min(18px, max(15px, 4vw))',
                 fontWeight: 300,
                 lineHeight: 1.65,
                 color: 'rgba(242,242,242,0.5)',

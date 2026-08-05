@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { ChevronLeft, Copy, Check, Mail } from 'lucide-react';
 
 const INVITE_IMAGE_URL = "https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/invite-image.png";
