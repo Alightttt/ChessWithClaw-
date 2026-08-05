@@ -1,141 +1,827 @@
-              Quick Start
-            </a>
 
-            <div style={{
-              fontSize: 13, color:'rgba(242,242,242,0.35)',
-              fontFamily:'Inter, sans-serif', marginTop:8, letterSpacing:'0.02em', textAlign: 'center'
-            }}>
-              No signup. No account. Just you and your agent.
-            </div>
-          </motion.div>
-      </section>
 
-      <section className="fade-in-section max-w-7xl mx-auto" style={{ marginBottom: '64px', padding: '0 20px', marginTop: '32px' }}>
-        <div style={{
-          position: 'relative',
-          background: 'linear-gradient(160deg, #111111 0%, #080808 100%)',
-          borderRadius: '24px',
-          border: '1px solid rgba(255,255,255,0.06)',
-          padding: '64px 32px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)'
-        }}>
-          {/* subtle background grid */}
-          <div style={{
-            position: 'absolute', inset: 0, opacity: 0.15, pointerEvents: 'none',
-            backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-            backgroundSize: '48px 48px', maskImage: 'radial-gradient(ellipse at center, black 0%, transparent 60%)', WebkitMaskImage: 'radial-gradient(ellipse at center, black 0%, transparent 60%)'
-          }} />
-          
-          {/* radial glow spotlight */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '800px', height: '800px',
-            background: 'radial-gradient(circle at center, rgba(230,57,70,0.08) 0%, transparent 60%)',
-            pointerEvents: 'none'
-          }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', zIndex: 1, marginBottom: '24px', background: 'rgba(230,57,70,0.1)', padding: '6px 16px', borderRadius: '30px', border: '1px solid rgba(230,57,70,0.2)' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e63946', animation: 'pulseDotRed 2s infinite' }} />
-            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#e63946', fontWeight: 700 }}>
-              Live Platform Activity
-            </span>
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px', overflow: 'hidden', position: 'relative', minWidth: '350px', zIndex: 1, filter: 'drop-shadow(0 0 50px rgba(230,57,70,0.2))' }}>
-             <AnimatePresence mode="popLayout">
-               <motion.div
-                 key={gamesPlayed}
-                 initial={{ y: 80, opacity: 0, scale: 0.9 }}
-                 animate={{ y: 0, opacity: 1, scale: 1 }}
-                 exit={{ y: -80, opacity: 0, scale: 0.9, position: 'absolute' }}
-                 transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                 style={{ 
-                   fontFamily: "'Inter', sans-serif", 
-                   fontSize: 'clamp(64px, 10vw, 96px)', 
-                   fontWeight: 900, 
-                   lineHeight: 1, 
-                   letterSpacing: '-0.04em',
-                   background: 'linear-gradient(180deg, #FFFFFF 0%, #B0B0B0 100%)',
-                   WebkitBackgroundClip: 'text',
-                   WebkitTextFillColor: 'transparent',
-                   fontVariantNumeric: 'tabular-nums'
-                 }}
-               >
-                 {gamesPlayed.toLocaleString('en-US')}
-               </motion.div>
-             </AnimatePresence>
-          </div>
-          
-          <div style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: '18px', 
-            fontWeight: 500, 
-            color: 'rgba(242,242,242,0.6)', 
-            marginTop: '16px', 
-            marginBottom: '40px',
-            zIndex: 1,
-            textAlign: 'center',
-            maxWidth: '400px',
-            lineHeight: 1.4,
-            letterSpacing: '-0.01em'
-          }}>
-            Global Matches Played
-          </div>
 
-          <div style={{
-            background: 'rgba(0,0,0,0.3)',
-            border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: '16px',
-            padding: '16px 32px',
-            zIndex: 1,
-            backdropFilter: 'blur(10px)',
-            maxWidth: '500px',
-            width: '100%'
-          }}>
-             <AnimatePresence mode="wait">
-               <motion.div
-                 key={ticker}
-                 initial={{ opacity: 0, y: 10 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 exit={{ opacity: 0, y: -10 }}
-                 transition={{ duration: 0.3 }}
-                 style={{ 
-                   fontSize: '14px', 
-                   color: 'rgba(242,242,242,0.8)', 
-                   fontFamily: "'Inter', sans-serif",
-                   textAlign: 'center',
-                   fontWeight: 500,
-                   display: 'flex',
-                   alignItems: 'center',
-                   justifyContent: 'center',
-                   gap: '10px'
-                 }}
-               >
-                 <Activity size={14} className="text-[#e63946]" />
-                 {ticker}
-               </motion.div>
-             </AnimatePresence>
-          </div>
-        </div>
-      </section>
 
-      <section className="fade-in-section max-w-7xl mx-auto" style={{ marginBottom: '64px', padding: '0 20px' }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[
-            { customIcon: <span style={{fontSize: 28, lineHeight: 1}}><LobsterEmoji /></span>, title: "Agent Integration", desc: "Native plugin support for raw agent logic." },
-            { icon: Shield, title: "Persistent Match", desc: "Close the tab. Come back. The game remains." }
-          ].map((f, i) => (
-            <div key={i} className="design-card" style={{ gap: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              {f.icon && <f.icon className="text-[#e63946]" size={28} />}
-              {f.customIcon && f.customIcon}
-              <div>
-                <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: '20px', fontWeight: 700, lineHeight: 1.3, marginBottom: '8px', color: '#f2f2f2', letterSpacing: '-0.02em' }}>{f.title}</h3>
-                <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', fontWeight: 300, lineHeight: 1.6, color: 'rgba(242,242,242,0.6)', margin: 0 }}>{f.desc}</p>
-              </div>
-            </div>
-          ))}
+
+
+
+!0;break;case"object":switch(t.$$typeof){case Za:case h2:o=!0}}if(o)return o=t,s=s(o),t=r===""?"."+qu(o,0):r,bg(s)?(n="",t!=null&&(n=t.replace(Sg,"$&/")+"/"),tc(s,e,n,"",function(u){return u})):s!=nul
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+nstable_UserBlockingPriority=2,t.unstable_cancelCallback=function(M){M.callback=null},t.unstable_continueExecution=function(){m||p||(m=!0,J(j))},t.unstable_forceFrameRate=function(M){0>M||125<M?consol
+
+
+
+
+
+
+
+ defer disabled disablePictureInPicture disableRemotePlayback formNoValidate hidden loop noModule noValidate open playsInline readOnly required reversed scoped seamless itemScope".split(" ").forEach(f
+
+
+
+rty(e)&&typeof n<"u"&&typeof n.get=="function"&&typeof n.set=="function"){var s=n.get,i=n.set;return Object.defineProperty(t,e,{configurable:!0,get:function(){return s.call(this)},set:function(o){r=""
+s),s}function Wt(t){return t=t.childContextTypes,t!=null}function Ac(){Fe(Vt),Fe(Rt)}function Zg(t,e,n){if(Rt.current!==rs)throw Error(U(168));Me(Rt,e),Me(Vt,n)}function yx(t,e,n){var r=t.stateNode;if
+
+rops,s=r.children,i=t!==null?t.memoizedState:null;if(r.mode==="hidden")if(!(e.mode&1))e.memoizedState={baseLanes:0,cachePool:null,transitions:null},Me(Bi,Xt),Xt|=n;else{if(!(n&1073741824))return t=i!=
+
+
+
+
+
+
+
+
+,get location(){return t(s,o)},listen(b){if(c)throw new Error("A history only accepts one active listener");return s.addEventListener(R0,h),c=b,()=>{s.removeEventListener(R0,h),c=null}},createHref(b){
+
+
+
+
+
+
+
+
+thnameBase:b.pathnameBase==="/"?c:Zr([c,s.encodeLocation?s.encodeLocation(b.pathnameBase).pathname:b.pathnameBase])})),i,n,r);return e&&w?g.createElement(Cu.Provider,{value:{location:Ma({pathname:"/",
+
+
+
+
+
+
+
+
+UseSubmitFetcher="useSubmitFetcher",t.UseFetcher="useFetcher",t.useViewTransitionState="useViewTransitionState"})(M0||(M0={}));var B0;(function(t){t.UseFetcher="useFetcher",t.UseFetchers="useFetchers"
+
+
+
+
+
+
+
+ext({strict:!1}),Um={animation:["animate","variants","whileHover","whileTap","exit","whileInView","whileFocus","whileDrag"],exit:["exit"],drag:["drag","dragControls"],focus:["whileFocus"],hover:["whil
+
+
+
+
+
+
+
+
+
+
+tion YE(t){const e="=".repeat((4-t.length%4)%4),n=(t+e).replace(/-/g,"+").replace(/_/g,"/"),r=window.atob(n),s=new Uint8Array(r.length);for(let i=0;i<r.length;++i)s[i]=r.charCodeAt(i);return s}functio
+if(this.globalContext)return this.globalContext;if(typeof window<"u")return window}get document(){var e;return!((e=this.globalContext)===null||e===void 0)&&e.document?this.globalContext.document:this.
+
+
+
+
+
+,bR:"bR",bQ:"bQ",bK:"bK"},G=L==="standard"?"https://lichess1.org/assets/piece/cburnett":`https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/pieces/${L}`,Y=J[L]||"png";return Obje
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+="application/json",w=JSON.stringify(u)):u&&typeof u!="string"&&!(typeof Blob<"u"&&u instanceof Blob)&&!(u instanceof ArrayBuffer)&&!(typeof FormData<"u"&&u instanceof FormData)?w=JSON.stringify(u):w=
+
+
+is.headers.set("Accept","application/geo+json"),this}explain({analyze:t=!1,verbose:e=!1,settings:n=!1,buffers:r=!1,wal:s=!1,format:i="text"}={}){var o;const a=[t?"analyze":null,e?"verbose":null,n?"set
+
+
+
+row new Error(`joinRef length ${c.length} exceeds maximum of 255`);if(a.length>255)throw new Error(`ref length ${a.length} exceeds maximum of 255`);if(o.length>255)throw new Error(`topic length ${o.le
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Timer)===null||n===void 0||n.scheduleTimeout()},ql.HEARTBEAT_TIMEOUT_FALLBACK);return}this._heartbeatSentAt=Date.now(),this.pendingHeartbeatRef=this._makeRef(),this.push({topic:"phoenix",event:"heartb
+))return!1;try{if(typeof globalThis.localStorage!="object")return!1}catch{return!1}if(ks.tested)return ks.writable;const t=`lswt-${Math.random()}${Math.random()}`;try{globalThis.localStorage.setItem(t
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+his domain`,code:"ERROR_INVALID_RP_ID",cause:t})}else return new nt({message:`${window.location.hostname} is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:t})}else if(t.name==="TypeError"){if(i
+yAllSubscribers("SIGNED_IN",c.session)),this._returnResult({data:c,error:u})}catch(n){if(te(n))return this._returnResult({data:{user:null,session:null},error:n});throw n}}async signInWithOtp(e){var n,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+x items-center justify-between",children:[l.jsx("div",{style:{display:"flex",alignItems:"center",textDecoration:"none"},children:l.jsx("img",{src:"https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/o
+
+
+
+
+
+
+
+
+
+=({byWhite:t,byBlack:e,pieceTheme:n,humanColor:r})=>{const i=((h,f)=>{const p={p:1,n:3,b:3,r:5,q:9};let m=0,w=0;for(const b in h)m+=(h[b]||0)*p[b];for(const b in f)w+=(f[b]||0)*p[b];return{w:m-w,b:w-m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+d:",_))):se.current&&se.current.pause(),()=>{se.current&&!X&&se.current.pause()}),[X,wn,s==null?void 0:s.status]),g.useEffect(()=>()=>{se.current&&se.current.pause()},[]);const[ce,we]=g.useState(!1),Q
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+",{onClick:_=>{_.stopPropagation(),L(I=>!I)},style:{background:"#111111",border:`1.5px solid ${F}`,borderRadius:"9999px",padding:"4px 10px",color:"#f2f2f2",fontFamily:"Inter, sans-serif",fontSize:"11p
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ll;g.useEffect(()=>{if(zn){const C=typeof zn=="string"?zn.substring(2,4):zn.to||zn.to_square;if(C){Zs(C);const A=setTimeout(()=>Zs(null),600);return()=>clearTimeout(A)}}},[zn]);const[ul,ti]=g.useState
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ase-in-out infinite":"none",transition:"box-shadow 0.7s ease, border-color 0.3s ease"},children:[l.jsx("span",{style:{fontSize:32,display:"flex",alignItems:"center",justifyContent:"center",userSelect:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+sx("h1",{className:"text-[12rem] leading-none font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/20 tracking-tighter select-none",children:"4"}),l.jsxs("div",{className:"rel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ntWeight:300,color:"rgba(242,242,242,0.6)",textAlign:"center",marginBottom:"40px"},children:"First invite your agent in game"}),l.jsxs("div",{className:"design-card invite-focus-glow",style:{width:"10
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Qs as u};

@@ -340,6 +340,7 @@ export default function Game() {
   const [agentTyping, setAgentTyping] = useState(false);
   const [isCheckState, setIsCheckState] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [agentConnected, setAgentConnected] = useState(false);
   const [bgmEnabled, setBgmEnabled] = useState(() => localStorage.getItem('cwc_bgm') === 'true' || false);
   const bgmAudioRef = useRef(null);
   useEffect(() => { 
@@ -457,7 +458,6 @@ export default function Game() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   const [lastMoveTo, setLastMoveTo] = useState(null);
-  const [agentConnected, setAgentConnected] = useState(false);
 
   const [chatPaddingBottom, setChatPaddingBottom] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
