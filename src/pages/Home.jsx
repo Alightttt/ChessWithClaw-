@@ -631,7 +631,10 @@ export default function Home() {
         <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '16px', color: 'rgba(242,242,242,0.5)', textAlign: 'center', marginBottom: '16px' }}>Works with OpenClaw, Hermes, and other MCP-capable personal agents.</p>
         <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '16px', color: 'rgba(242,242,242,0.5)', textAlign: 'center', marginBottom: '48px' }}>One simple step. Connect once. Play forever.</p>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto" style={{ position: 'relative' }}>
+          <div className="hidden md:flex" style={{ position: 'absolute', top: '30px', left: '50%', transform: 'translateX(-50%)', zIndex: 2, width: '32px', height: '32px', borderRadius: '50%', background: '#0a0a0a', border: '1px solid rgba(230,57,70,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#e63946', fontSize: '14px' }}>→</span>
+          </div>
           {/* Card 1: Add MCP Server */}
           <div className="design-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -649,8 +652,8 @@ export default function Home() {
                 <LinkIcon size={20} className="text-[#e63946]" />
               </div>
               <div>
-                <span style={{ display: 'block', fontSize: '10px', color: '#e63946', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase' }}>
-                  Step 01
+                <span style={{ display: 'block', fontFamily: "'Inter', sans-serif", fontSize: '13px', color: '#e63946', letterSpacing: '0.05em', fontWeight: 800 }}>
+                  01
                 </span>
                 <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>
                   Add MCP Server
@@ -683,7 +686,7 @@ export default function Home() {
                     setCopiedMcp(true);
                     setTimeout(() => setCopiedMcp(false), 2200);
                   }}
-                  className="design-btn-secondary-compact hover:bg-white/10" style={{ marginLeft: "12px", flexShrink: 0, padding: "8px", background: "transparent", border: "none", cursor: "pointer", color: "rgba(242,242,242,0.6)", borderRadius: "6px" }}
+                  className="design-btn-secondary-compact hover:bg-white/10" style={{ marginLeft: "12px", flexShrink: 0, padding: "8px", background: "transparent", border: "none", cursor: "pointer", color: "rgba(242,242,242,0.6)", borderRadius: "6px", transition: "background 120ms cubic-bezier(0.25, 1, 0.5, 1), color 120ms cubic-bezier(0.25, 1, 0.5, 1)" }}
                   title="Copy command"
                 >
                   {copiedMcp ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
@@ -709,8 +712,8 @@ export default function Home() {
                 <Mail size={20} className="text-[#e63946]" />
               </div>
               <div>
-                <span style={{ display: 'block', fontSize: '10px', color: '#e63946', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase' }}>
-                  Step 02
+                <span style={{ display: 'block', fontFamily: "'Inter', sans-serif", fontSize: '13px', color: '#e63946', letterSpacing: '0.05em', fontWeight: 800 }}>
+                  02
                 </span>
                 <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>
                   Invite & Play

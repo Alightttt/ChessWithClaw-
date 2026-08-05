@@ -9,6 +9,12 @@ if (typeof window !== 'undefined') {
   img.src = INVITE_IMAGE_URL;
 }
 
+
+const MOTION = {
+  functional: '120ms cubic-bezier(0.25, 1, 0.5, 1)',
+  cinematic: '400ms cubic-bezier(0.16, 1, 0.3, 1)',
+};
+
 export default function GameCreated({ gameId }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
@@ -78,7 +84,7 @@ export default function GameCreated({ gameId }) {
           will-change: transform;
           transform: translateZ(0);
           backface-visibility: hidden;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all ${MOTION.cinematic};
           box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
         .design-card:hover {
@@ -100,7 +106,7 @@ export default function GameCreated({ gameId }) {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          transition: all 0.15s ease;
+          transition: all ${MOTION.functional};
           box-shadow: rgba(255,255,255,0.18) 0px 1px 0px 0px inset, rgba(0,0,0,0.22) 0px -1px 0px 0px inset, rgba(0,0,0,0.22) 0px 0px 0px 0.5px inset;
         }
         .design-btn-primary:hover:not(:disabled) {
@@ -124,7 +130,7 @@ export default function GameCreated({ gameId }) {
           align-items: center;
           justify-content: center;
           cursor: not-allowed;
-          transition: all 0.2s ease;
+          transition: all ${MOTION.functional};
         }
 
         .design-btn-secondary {
@@ -316,7 +322,7 @@ export default function GameCreated({ gameId }) {
                   border: 'none', 
                   color: bounceCopy ? '#ffffff' : (copied ? '#10b981' : '#e63946'), 
                   cursor: 'pointer', 
-                  transition: 'color 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  transition: `color ${MOTION.functional}, transform ${MOTION.functional}`,
                   padding: '4px',
                   borderRadius: '4px',
                   transform: bounceCopy ? 'scale(1.3)' : 'scale(1)'
@@ -355,7 +361,7 @@ export default function GameCreated({ gameId }) {
                 textAlign: 'center', 
                 maxWidth: '500px',
                 lineHeight: 1.6,
-                transition: 'color 0.2s ease'
+                transition: `color ${MOTION.functional}`
               }}
             >
               Send this invite message to your agent wherever it lives to invite it in match, first time takes little long , faster after that
@@ -395,7 +401,7 @@ export default function GameCreated({ gameId }) {
                 textDecorationLine: showError ? 'underline' : 'none',
                 textDecorationColor: '#e63946',
                 textUnderlineOffset: '4px',
-                transition: 'all 0.2s ease'
+                transition: `all ${MOTION.functional}`
               }}
             >
               accept <span onClick={(e) => { e.preventDefault(); navigate('/legal', { state: { from: `/created/${gameId}` } }); }} style={{ cursor: 'pointer', color: showError ? '#e63946' : '#f2f2f2', textDecoration: 'underline', textUnderlineOffset: '2px' }}>privacy policy & terms</span>
@@ -430,7 +436,7 @@ export default function GameCreated({ gameId }) {
               fontSize: '16px',
               cursor: boardOpening ? 'not-allowed' : 'pointer',
               opacity: (legalAccepted && hasCopied) ? 1 : 0.8,
-              transition: 'all 0.2s ease'
+              transition: `all ${MOTION.cinematic}`
             }}
           >
             {boardOpening ? 'Entering Game...' : 'Enter game'}

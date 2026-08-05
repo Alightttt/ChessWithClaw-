@@ -8,7 +8,6 @@ import { Settings, X as XIcon, X, MessageCircle, Pause, Play, Flag, Share2, Volu
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence } from 'motion/react';
 import ChessBoard from '../components/chess/ChessBoard';
-import { wN as WN } from '../components/chess/ChessPieces';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
