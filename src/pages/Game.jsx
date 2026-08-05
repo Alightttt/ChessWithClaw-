@@ -208,6 +208,7 @@ const SwipeableToggle = ({ checked, onChange }) => {
 export default function Game() {
   const { id: gameId } = useParams();
   const agentToken = null;
+  const gameToken = localStorage.getItem('game_owner_' + gameId);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -245,6 +246,23 @@ export default function Game() {
   const agentName = game?.agent_name || 'Your Agent';
   const [loading, setLoading] = useState(true);
   
+  
+  useEffect(() => {
+    if (normalizedMessages.length > lastChatLenRef.current) {
+      if (!chatMobileOpen && normalizedMessages[normalizedMessages.length - 1]?.role === 'agent') {
+        setHasUnreadChat(true);
+      }
+    }
+    lastChatLenRef.current = normalizedMessages.length;
+  }, [normalizedMessages.length, chatMobileOpen]);
+
+  useEffect(() => {
+    if (chatMobileOpen) {
+      setHasUnreadChat(false);
+    }
+  }, [chatMobileOpen]);
+
+
   const getCapturedPieces = (fenString) => {
     const start = { w:{p:8,r:2,n:2,b:2,q:1}, b:{p:8,r:2,n:2,b:2,q:1} };
     const fen = fenString || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
@@ -281,6 +299,8 @@ export default function Game() {
   const [showSettings, setShowSettings] = useState(false);
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
   const [chatMobileOpen, setChatMobileOpen] = useState(false);
+  const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const lastChatLenRef = useRef(0);
   const [agentSectionOpen, setAgentSectionOpen] = useState(false);
   const [moveHistoryOpen, setMoveHistoryOpen] = useState(false);
   const [showStatusPopover, setShowStatusPopover] = useState(false);
@@ -841,7 +861,7 @@ export default function Game() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-agent-token': agentToken || ''
+          'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || ''
         },
         body: JSON.stringify({ gameId: gameId, action: 'heartbeat', role: 'agent' })
       }).catch(() => {});
@@ -863,11 +883,11 @@ export default function Game() {
       const rand = Math.random();
       if (rand < 0.3) {
         fetch(`/api/thoughts?gameId=${gameId}&trigger=idle_chat`, {
-           headers: { 'x-agent-token': agentToken || '' }
+           headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || '' }
         }).catch(() => {});
       } else if (rand < 0.6) {
         fetch(`/api/thoughts?gameId=${gameId}&trigger=random_thought`, {
-           headers: { 'x-agent-token': agentToken || '' }
+           headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || '' }
         }).catch(() => {});
       }
     }, 45000);
@@ -916,7 +936,7 @@ export default function Game() {
       if (Date.now() - lastMoveTs > maxTimeMs) {
         // Current turn exceeded auto-resign timer
         if (!isHumanTurn) {
-           await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: {
+           await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: {
               status: 'abandoned',
               result: game.player_color || 'w',
               result_reason: 'abandoned'
@@ -1028,7 +1048,7 @@ export default function Game() {
     setupGameSubscription();
     
     const handleBeforeUnload = () => {
-      fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) })
+      fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) })
     };
 
     const handleVisibility = () => {
@@ -1046,7 +1066,7 @@ export default function Game() {
       }
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibility);
-      try { fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) }) } catch(e) {}
+      try { fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) }) } catch(e) {}
     };
   }, [gameId, playSound, agentToken]);
 
@@ -1056,7 +1076,7 @@ export default function Game() {
       setTimeout(() => setConfirmResign(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'resign', gameId }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'resign', gameId }) });
     setShowSettings(false);
     setConfirmResign(false);
   }, [confirmResign, game?.player_color, gameId, agentToken]);
@@ -1067,7 +1087,7 @@ export default function Game() {
       setTimeout(() => setConfirmDraw(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'offer_draw', gameId }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'offer_draw', gameId }) });
     setShowSettings(false);
     setConfirmDraw(false);
   }, [confirmDraw, gameId, agentToken]);
@@ -1163,7 +1183,7 @@ export default function Game() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-agent-token': agentToken || ''
+          'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || ''
         },
         body: JSON.stringify({
           id: gameIdValue,
@@ -1229,7 +1249,7 @@ export default function Game() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-agent-token': agentToken
+          'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || ''
         },
         body: JSON.stringify({ id: gameId, text, sender: 'human' })
       });
@@ -1248,7 +1268,7 @@ export default function Game() {
 
 
   async function acceptAgentResignation() {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: {
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: {
       status: 'finished', result: game?.player_color === 'b' ? 'white' : 'black', result_reason: 'resignation'
     }, gameId}) });
   }
@@ -1293,7 +1313,7 @@ export default function Game() {
       navigator.share({ text }).catch(()=>{});
     } else { 
       navigator.clipboard.writeText(text); 
-      toast.success('Copied!'); 
+      
     }
   }
 
@@ -1556,7 +1576,7 @@ export default function Game() {
                 )}
                 {game?.status === 'active' && msg.type === 'draw_offer' && (
                   <button onClick={async () => {
-                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({ action: 'accept_draw', gameId }) });
+                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'accept_draw', gameId }) });
                   }} className="block w-full mt-3 text-white bg-green-600 rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Draw</button>
                 )}
               </div>
@@ -1766,11 +1786,11 @@ export default function Game() {
       <AnimatePresence>
         {showSettings && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 15 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto', transition: `opacity ${MOTION.cinematic}`, opacity: showSettings ? 1 : 0 }}
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.15, ease: 'easeOut' }}
+            style={{ position: 'fixed', inset: 0, background: '#1c1a19', zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto', opacity: 1 }}
           >
           <div style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 16px', position: 'relative' }}>
             <button onClick={() => setShowSettings(false)} style={{ position: 'absolute', left: '16px', minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(242,242,242,0.9)', cursor: 'pointer', zIndex: 10 }}>
@@ -1785,7 +1805,7 @@ export default function Game() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2' }}>Game ID</span>
-              <button onClick={() => { navigator.clipboard.writeText(gameId); toast.success('Game ID copied'); setCopyGameIdTick(true); setTimeout(() => setCopyGameIdTick(false), 2000); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#2a2a2a', border: 'none', borderRadius: '8px', padding: '8px 12px', color: 'rgba(242,242,242,0.7)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', cursor: 'pointer' }}>
+              <button onClick={() => { navigator.clipboard.writeText(gameId); setCopyGameIdTick(true); setTimeout(() => setCopyGameIdTick(false), 2000); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#2a2a2a', border: 'none', borderRadius: '8px', padding: '8px 12px', color: 'rgba(242,242,242,0.7)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', cursor: 'pointer' }}>
                 {copyGameIdTick ? <Check size={14} color="#4ade80" /> : <Copy size={14} />}
                 {gameId ? `${gameId.slice(0, 13)}...` : ''}
               </button>
@@ -2168,19 +2188,17 @@ export default function Game() {
             fen={reviewMoveIndex !== null ? getFenAtMove(reviewMoveIndex) : (optimisticFen || game.fen)} 
             showCoordinates={false}
             onMove={makeMove} 
-            isMyTurn={isMyTurn} 
+            turn={game?.turn} 
             lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} 
             moveHistory={game.move_history || []}
             boardTheme={boardTheme}
             pieceTheme={pieceTheme}
-            playerColor={'b'}
+            playerColor={game?.player_color || 'w'}
             onIllegalMove={handleIllegalMove}
             onCapture={handleCapture}
           />
           {!agentConnected && game?.status === 'waiting' && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center pointer-events-none" style={{ borderRadius: '4px' }}>
-              <div className="font-sans text-xl font-bold text-white tracking-wide drop-shadow-md">Awaiting Agent...</div>
-            </div>
+            <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" style={{ borderRadius: '4px' }}></div>
           )}
           </div></div>
           <CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} />
@@ -2357,11 +2375,9 @@ export default function Game() {
                       </button>
                     </div>
                   )}
-                  <ChessBoard fen={reviewMoveIndex !== null ? getFenAtMove(reviewMoveIndex) : (optimisticFen || game.fen)} showCoordinates={false} onMove={makeMove} isMyTurn={isMyTurn} lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} moveHistory={game.move_history || []} boardTheme={boardTheme} pieceTheme={pieceTheme} playerColor={game?.player_color || 'w'} onIllegalMove={handleIllegalMove} onCapture={handleCapture} />
+                  <ChessBoard fen={reviewMoveIndex !== null ? getFenAtMove(reviewMoveIndex) : (optimisticFen || game.fen)} showCoordinates={false} onMove={makeMove} turn={game?.turn} lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} moveHistory={game.move_history || []} boardTheme={boardTheme} pieceTheme={pieceTheme} playerColor={game?.player_color || 'w'} onIllegalMove={handleIllegalMove} onCapture={handleCapture} />
                   {!agentConnected && game?.status === 'waiting' && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center pointer-events-none" style={{ borderRadius: '4px' }}>
-                      <div className="font-sans text-xl font-bold text-white tracking-wide drop-shadow-md">Awaiting Agent...</div>
-                    </div>
+                    <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" style={{ borderRadius: '4px' }}></div>
                   )}
                 </div>
               </div>
@@ -2382,8 +2398,8 @@ export default function Game() {
                 </button>
                 <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, height: '60px', background: 'linear-gradient(180deg, #46423f 0%, #3d3937 100%)', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#e0dbd9', position: 'relative', cursor: 'pointer', transition: 'color 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                   <MessageSquare size={28} />
-                  {chatMobileOpen === false && normalizedMessages.length > 0 && normalizedMessages[normalizedMessages.length - 1].role === 'agent' && (
-                    <div style={{ position: 'absolute', top: '16px', right: '36px', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
+                  {hasUnreadChat && (
+                    <div style={{ position: 'absolute', top: '12px', right: 'calc(50% - 16px)', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
                   )}
                 </button>
               </div>

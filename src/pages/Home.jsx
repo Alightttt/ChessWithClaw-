@@ -768,36 +768,53 @@ export default function Home() {
         </div>
       </section>
 
-      <footer style={{ borderTop: '1px solid #1a1a1a', padding: '16px 0', background: '#0a0a0a', overflow: 'hidden' }}>
+      <footer style={{ borderTop: '1px solid #1a1a1a', padding: '32px 0 24px', background: '#0a0a0a', overflow: 'hidden' }}>
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-between font-['Inter'] text-sm text-[rgba(242,242,242,0.5)] mb-4">
-            <span 
-              onClick={() => navigate('/legal')}
-              style={{ fontWeight: 500, cursor: 'pointer' }} 
-              className="hover:text-white transition-colors"
-            >
-              © 2026 ChessWithClaw
-            </span>
+          <div className="flex flex-col items-start gap-4 mb-10">
             <a 
               href="https://x.com/0xalyt" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="x-link-lovable"
+              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors"
             >
-              <XLogo style={{ width: "14px", height: "14px", fill: "currentColor" }} />
+              <XLogo style={{ width: "20px", height: "20px", fill: "currentColor" }} />
             </a>
+            
+            <a 
+              href="https://github.com/Alightttt/ChessWithClaw" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-sm"
+              style={{ textDecoration: 'none' }}
+            >
+              Install
+            </a>
+
+            <span 
+              onClick={() => navigate('/legal')}
+              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-sm cursor-pointer"
+            >
+              Legal
+            </span>
           </div>
-          <div
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: "400",
-              color: "#a0a0a0",
-              fontSize: "16px",
-              textAlign: "left",
-              lineHeight: 1
-            }}
-          >
-            Have fun with your agent
+
+          <div className="flex flex-col items-center gap-6">
+            <div
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: "400",
+                color: "#a0a0a0",
+                fontSize: "16px",
+                textAlign: "center",
+                lineHeight: 1
+              }}
+            >
+              Have fun with your agent
+            </div>
+
+            <div className="font-['Inter'] text-sm text-[rgba(242,242,242,0.5)] text-center">
+              © 2026 ChessWithClaw
+            </div>
           </div>
         </div>
       </footer>

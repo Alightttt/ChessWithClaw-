@@ -1019,7 +1019,7 @@ export default function Agent() {
       navigator.share({ text }).catch(()=>{});
     } else { 
       navigator.clipboard.writeText(text); 
-      toast.success('Copied!'); 
+      
     }
   }
 

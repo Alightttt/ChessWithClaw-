@@ -42,7 +42,7 @@ export default function CookieBanner() {
         >
           <div className="p-5 flex flex-col gap-3">
             <h3 className="text-white font-semibold text-base flex items-center gap-2">
-              <span className="text-xl">🍪</span> We value your privacy
+              Cookies
             </h3>
             <p className="text-neutral-400 text-xs leading-relaxed">
               We use cookies for game session identification and optional analytics. By clicking &quot;Accept All&quot;, you consent to our use of cookies.

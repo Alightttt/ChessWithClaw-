@@ -18,11 +18,13 @@ const MOTION = {
 export default function GameCreated({ gameId }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const [hasCopied, setHasCopied] = useState(false);
+  const [hasCopied, setHasCopiedState] = useState(() => localStorage.getItem('cwc_copied_' + gameId) === 'true');
+  const setHasCopied = (val) => { setHasCopiedState(val); if(val) localStorage.setItem('cwc_copied_' + gameId, 'true'); };
   const [bounceCopy, setBounceCopy] = useState(false);
   const [legalError, setLegalError] = useState(false);
   const [boardOpening, setBoardOpening] = useState(false);
-  const [legalAccepted, setLegalAccepted] = useState(false);
+  const [legalAccepted, setLegalAcceptedState] = useState(() => localStorage.getItem('cwc_legal_' + gameId) === 'true');
+  const setLegalAccepted = (val) => { setLegalAcceptedState(val); if(val) localStorage.setItem('cwc_legal_' + gameId, 'true'); else localStorage.removeItem('cwc_legal_' + gameId); };
   const [showError, setShowError] = useState(false);
   const [scrolled, setScrolled] = useState(() => typeof window !== 'undefined' ? window.scrollY > 10 : false);
 

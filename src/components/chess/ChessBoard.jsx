@@ -52,7 +52,7 @@ export default function ChessBoard({
   const activePieceStyle = rawPieceStyle === 'standard' ? 'neo' : rawPieceStyle;
 
   // Build legal move map: from square → [to squares]
-  const legalMoveMap = useMemo(() => {
+  const legalMoveMap = useMemo(() => { try { const tempChess = new Chess(fen === "start" ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : (fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")); const moves = tempChess.moves({ verbose: true }); const map = {}; moves.forEach(m => { if(!map[m.from]) map[m.from] = []; map[m.from].push(m.to); }); return map; } catch(e) { return {}; } 
     const map = {};
     (legalMoves || []).forEach(move => {
       const from = move.slice(0, 2);
@@ -61,7 +61,7 @@ export default function ChessBoard({
       map[from].push(to);
     });
     return map;
-  }, [legalMoves]);
+  }, [fen]);
 
   // Robust parsing of lastMove (string of 'e2e4', or object {from, to})
   const parsedLastMove = useMemo(() => {
@@ -150,7 +150,7 @@ export default function ChessBoard({
   }, [selectedSquare, legalMoveMap, parsedLastMove, checkedKingSquare]);
 
   const handleSquareClick = useCallback((square) => {
-    if (disabled || (gameStatus !== 'active' && gameStatus !== 'waiting') || turn !== playerColor) return;
+    if (disabled || (turn && turn !== playerColor)) return;
 
     if (selectedSquare) {
       const moves = legalMoveMap[selectedSquare] || [];
@@ -186,7 +186,7 @@ export default function ChessBoard({
   }, [selectedSquare, legalMoveMap, disabled, gameStatus, turn, playerColor, fen, onMove]);
 
   const handlePieceDrop = useCallback((sourceSquare, targetSquare) => {
-    if (disabled || (gameStatus !== 'active' && gameStatus !== 'waiting') || turn !== playerColor) return false;
+    if (disabled || (turn && turn !== playerColor)) return false;
     const moves = legalMoveMap[sourceSquare] || [];
     if (!moves.includes(targetSquare)) return false;
     onMove?.(sourceSquare, targetSquare);

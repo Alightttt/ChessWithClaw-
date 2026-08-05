@@ -51,7 +51,7 @@ export default function ThinkingPanel({ agentConnected, agentUrl, currentThinkin
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
+    
   };
 
   const isActive = isAgentTurn && currentThinking;
