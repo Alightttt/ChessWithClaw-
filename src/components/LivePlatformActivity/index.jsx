@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, useInView } from 'motion/react';
+import { motion, useInView } from 'framer-motion';
 import { useLiveActivity } from '../../hooks/useLiveActivity';
 import { Activity } from 'lucide-react';
 

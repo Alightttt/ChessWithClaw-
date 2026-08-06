@@ -1,24 +1,29 @@
 /* eslint-env serviceworker */
+
 self.addEventListener('push', (event) => {
+  let title = 'ChessWithClaw';
+  let options = {
+    body: 'Your agent is waiting for you!',
+    icon: '/logo.png', // Fallback if logo.png doesn't exist
+    badge: '/logo.png',
+    data: {
+      url: '/'
+    },
+    vibrate: [200, 100, 200]
+  };
+
   if (event.data) {
     try {
       const data = event.data.json();
-      const title = data.title || 'ChessWithClaw';
-      const options = {
-        body: data.body || 'Your agent is waiting for you!',
-        icon: '/logo.png', // Fallback if logo.png doesn't exist
-        badge: '/logo.png',
-        data: {
-          url: data.url || '/'
-        },
-        vibrate: [200, 100, 200]
-      };
-
-      event.waitUntil(self.registration.showNotification(title, options));
+      title = data.title || title;
+      options.body = data.body || options.body;
+      options.data.url = data.url || options.data.url;
     } catch (e) {
       console.error('Error parsing push data', e);
     }
   }
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -32,7 +37,6 @@ self.addEventListener('notificationclick', (event) => {
       includeUncontrolled: true
     }).then((windowClients) => {
       let matchingClient = null;
-
       for (let i = 0; i < windowClients.length; i++) {
         const windowClient = windowClients[i];
         if (windowClient.url.includes(urlToOpen)) {
@@ -40,7 +44,6 @@ self.addEventListener('notificationclick', (event) => {
           break;
         }
       }
-
       if (matchingClient) {
         return matchingClient.focus();
       } else {

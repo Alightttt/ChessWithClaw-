@@ -1,7 +1,7 @@
 import ChessBoard from '../components/chess/ChessBoard';
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from '../components/Toast';
 import { Loader2, ChevronDown, Zap, Shield, Terminal, Copy, Check, Globe, Bot, Activity, Link as LinkIcon, Mail } from "lucide-react";
 import { supabase } from '../lib/supabase';
@@ -768,23 +768,23 @@ export default function Home() {
         </div>
       </section>
 
-      <footer style={{ borderTop: '1px solid #1a1a1a', padding: '32px 0 24px', background: '#0a0a0a', overflow: 'hidden' }}>
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex flex-col items-start gap-4 mb-10">
+      <footer style={{ borderTop: '1px solid #1a1a1a', padding: '24px 16px', background: '#0a0a0a', overflow: 'hidden' }}>
+        <div className="max-w-7xl mx-auto flex flex-col items-center gap-5">
+          <div className="flex flex-row items-center justify-center gap-8 w-full max-w-[300px]">
             <a 
               href="https://x.com/0xalyt" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors"
+              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors flex items-center justify-center flex-1"
             >
-              <XLogo style={{ width: "20px", height: "20px", fill: "currentColor" }} />
+              <XLogo style={{ width: "22px", height: "22px", fill: "currentColor" }} />
             </a>
             
             <a 
               href="https://github.com/Alightttt/ChessWithClaw" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-sm"
+              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-[16px] font-medium flex items-center justify-center flex-1"
               style={{ textDecoration: 'none' }}
             >
               Install
@@ -792,27 +792,29 @@ export default function Home() {
 
             <span 
               onClick={() => navigate('/legal')}
-              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-sm cursor-pointer"
+              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-[16px] font-medium cursor-pointer flex items-center justify-center flex-1"
             >
               Legal
             </span>
           </div>
 
-          <div className="flex flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-1">
             <div
               style={{
                 fontFamily: "'Inter', sans-serif",
-                fontWeight: "400",
-                color: "#a0a0a0",
-                fontSize: "16px",
+                fontWeight: "600",
+                color: "#e2e2e2",
+                fontSize: "22px",
                 textAlign: "center",
-                lineHeight: 1
+                lineHeight: 1,
+                letterSpacing: '-0.02em',
+                marginBottom: '4px'
               }}
             >
               Have fun with your agent
             </div>
 
-            <div className="font-['Inter'] text-sm text-[rgba(242,242,242,0.5)] text-center">
+            <div className="font-['Inter'] text-[13px] text-[rgba(242,242,242,0.4)]">
               © 2026 ChessWithClaw
             </div>
           </div>

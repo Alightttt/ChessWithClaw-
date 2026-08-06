@@ -182,9 +182,9 @@ function buildServer() {
       title: 'Join a ChessWithClaw game',
       description:
         'Connects to a game using the invite code your human gave you. Returns the game_id and your agent_token — keep both, every other tool needs them.',
-      inputSchema: { invite_code: z.string() },
+      inputSchema: { invite_code: z.string(), agent_name: z.string().optional() },
     },
-    async ({ invite_code }) => {
+    async ({ invite_code, agent_name }) => {
       const { data: game, error } = await getSupabase()
         .from('games')
         .select('*')
@@ -200,7 +200,8 @@ function buildServer() {
           agent_connected: true, 
           agent_last_seen: nowIso,
           status: 'active',
-          player_connected: true
+          player_connected: true,
+          ...(agent_name && !game.agent_name ? { agent_name } : {})
         })
         .eq('id', game.id);
       return toolText({
@@ -416,6 +417,23 @@ function buildServer() {
         await getSupabase().from('games').update({ draw_offer_pending: false }).eq('id', game_id);
       }
       return toolText({ accepted: accept });
+    }
+  );
+
+  server.registerTool(
+    'resign',
+    {
+      title: 'Resign the game',
+      description: 'End the game by resigning — your own real decision, not something to do lightly. Your human wins immediately.',
+      inputSchema: { game_id: z.string(), agent_token: z.string() },
+    },
+    async ({ game_id, agent_token }) => {
+      const { game, error } = await requireAuthedGame(game_id, agent_token);
+      if (error) return toolText({ error });
+      await getSupabase().from('games').update({
+        status: 'finished', result: 'resignation', winner: 'white',
+      }).eq('id', game_id);
+      return toolText({ resigned: true });
     }
   );
 

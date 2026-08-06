@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useParams } from 'react-router-dom';
-import { MotionConfig } from 'motion/react';
+import { MotionConfig } from 'framer-motion';
 import PageTransition from './components/PageTransition';
 import ScrollToTop from './components/ScrollToTop';
 import CookieBanner from './components/CookieBanner';

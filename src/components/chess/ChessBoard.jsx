@@ -219,7 +219,7 @@ export default function ChessBoard({
         customLightSquareStyle={{ backgroundColor: theme.light }}
         customDarkSquareStyle={{ backgroundColor: theme.dark }}
         animationDuration={animationDuration}
-        arePiecesDraggable={false}
+        arePiecesDraggable={true}
         customPieces={customPiecesMap}
         boardStyle={{
           borderRadius: '4px',

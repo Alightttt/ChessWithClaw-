@@ -4,9 +4,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { Settings, X as XIcon, X, MessageCircle, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Clock, AlertTriangle, RotateCcw, History, MessageSquare } from 'lucide-react';
+import { Settings, X,  MessageCircle, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, Clock, AlertTriangle, RotateCcw, History, MessageSquare } from 'lucide-react';
 import { Chess } from 'chess.js';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import ChessBoard from '../components/chess/ChessBoard';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
@@ -247,20 +247,7 @@ export default function Game() {
   const [loading, setLoading] = useState(true);
   
   
-  useEffect(() => {
-    if (normalizedMessages.length > lastChatLenRef.current) {
-      if (!chatMobileOpen && normalizedMessages[normalizedMessages.length - 1]?.role === 'agent') {
-        setHasUnreadChat(true);
-      }
-    }
-    lastChatLenRef.current = normalizedMessages.length;
-  }, [normalizedMessages.length, chatMobileOpen]);
 
-  useEffect(() => {
-    if (chatMobileOpen) {
-      setHasUnreadChat(false);
-    }
-  }, [chatMobileOpen]);
 
 
   const getCapturedPieces = (fenString) => {
@@ -861,7 +848,7 @@ export default function Game() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || ''
+          'x-agent-token': agentToken || '', 'x-game-token': gameToken || ''
         },
         body: JSON.stringify({ gameId: gameId, action: 'heartbeat', role: 'agent' })
       }).catch(() => {});
@@ -883,11 +870,11 @@ export default function Game() {
       const rand = Math.random();
       if (rand < 0.3) {
         fetch(`/api/thoughts?gameId=${gameId}&trigger=idle_chat`, {
-           headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || '' }
+           headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }
         }).catch(() => {});
       } else if (rand < 0.6) {
         fetch(`/api/thoughts?gameId=${gameId}&trigger=random_thought`, {
-           headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || '' }
+           headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }
         }).catch(() => {});
       }
     }, 45000);
@@ -936,7 +923,7 @@ export default function Game() {
       if (Date.now() - lastMoveTs > maxTimeMs) {
         // Current turn exceeded auto-resign timer
         if (!isHumanTurn) {
-           await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: {
+           await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: {
               status: 'abandoned',
               result: game.player_color || 'w',
               result_reason: 'abandoned'
@@ -1048,7 +1035,7 @@ export default function Game() {
     setupGameSubscription();
     
     const handleBeforeUnload = () => {
-      fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) })
+      fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) })
     };
 
     const handleVisibility = () => {
@@ -1066,7 +1053,7 @@ export default function Game() {
       }
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibility);
-      try { fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) }) } catch(e) {}
+      try { fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) }) } catch(e) {}
     };
   }, [gameId, playSound, agentToken]);
 
@@ -1076,7 +1063,7 @@ export default function Game() {
       setTimeout(() => setConfirmResign(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'resign', gameId }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'resign', gameId }) });
     setShowSettings(false);
     setConfirmResign(false);
   }, [confirmResign, game?.player_color, gameId, agentToken]);
@@ -1087,7 +1074,7 @@ export default function Game() {
       setTimeout(() => setConfirmDraw(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'offer_draw', gameId }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'offer_draw', gameId }) });
     setShowSettings(false);
     setConfirmDraw(false);
   }, [confirmDraw, gameId, agentToken]);
@@ -1183,7 +1170,7 @@ export default function Game() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' || ''
+          'x-agent-token': agentToken || '', 'x-game-token': gameToken || ''
         },
         body: JSON.stringify({
           id: gameIdValue,
@@ -1249,7 +1236,7 @@ export default function Game() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || ''
+          'x-agent-token': agentToken || '', 'x-game-token': gameToken || ''
         },
         body: JSON.stringify({ id: gameId, text, sender: 'human' })
       });
@@ -1268,7 +1255,7 @@ export default function Game() {
 
 
   async function acceptAgentResignation() {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: {
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: {
       status: 'finished', result: game?.player_color === 'b' ? 'white' : 'black', result_reason: 'resignation'
     }, gameId}) });
   }
@@ -1576,7 +1563,7 @@ export default function Game() {
                 )}
                 {game?.status === 'active' && msg.type === 'draw_offer' && (
                   <button onClick={async () => {
-                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'accept_draw', gameId }) });
+                    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'accept_draw', gameId }) });
                   }} className="block w-full mt-3 text-white bg-green-600 rounded py-2 font-bold transition-all hover:bg-opacity-80 active:scale-95">Accept Draw</button>
                 )}
               </div>

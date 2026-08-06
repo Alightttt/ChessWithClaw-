@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import ChessBoard from './chess/ChessBoard';
 
 const SPRING = { type: 'spring', stiffness: 350, damping: 24 };
