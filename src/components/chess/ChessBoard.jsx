@@ -52,15 +52,19 @@ export default function ChessBoard({
   const activePieceStyle = rawPieceStyle === 'standard' ? 'neo' : rawPieceStyle;
 
   // Build legal move map: from square → [to squares]
-  const legalMoveMap = useMemo(() => { try { const tempChess = new Chess(fen === "start" ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : (fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")); const moves = tempChess.moves({ verbose: true }); const map = {}; moves.forEach(m => { if(!map[m.from]) map[m.from] = []; map[m.from].push(m.to); }); return map; } catch(e) { return {}; } 
-    const map = {};
-    (legalMoves || []).forEach(move => {
-      const from = move.slice(0, 2);
-      const to   = move.slice(2, 4);
-      if (!map[from]) map[from] = [];
-      map[from].push(to);
-    });
-    return map;
+  const legalMoveMap = useMemo(() => { 
+    try { 
+      const tempChess = new Chess(fen === "start" ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : (fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")); 
+      const moves = tempChess.moves({ verbose: true }); 
+      const map = {}; 
+      moves.forEach(m => { 
+        if(!map[m.from]) map[m.from] = []; 
+        map[m.from].push(m.to); 
+      }); 
+      return map; 
+    } catch(e) { 
+      return {}; 
+    }
   }, [fen]);
 
   // Robust parsing of lastMove (string of 'e2e4', or object {from, to})
@@ -219,7 +223,7 @@ export default function ChessBoard({
         customLightSquareStyle={{ backgroundColor: theme.light }}
         customDarkSquareStyle={{ backgroundColor: theme.dark }}
         animationDuration={animationDuration}
-        arePiecesDraggable={true}
+        arePiecesDraggable={typeof window !== 'undefined' && window.innerWidth >= 768}
         customPieces={customPiecesMap}
         boardStyle={{
           borderRadius: '4px',

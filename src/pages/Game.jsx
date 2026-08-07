@@ -1113,7 +1113,8 @@ export default function Game() {
   };
 
   const makeMove = useCallback(async (from, to, promotion) => {
-    if (!game || game.turn !== (game?.player_color || 'w') || (game.status !== 'active' && game.status !== 'waiting')) return;
+    if (!game || game.turn !== (game?.player_color || 'w') || game.status !== 'active') return;
+    if (!agentConnected) return;
     if (boardLocked || submittingRef.current) return;
     
     const agentName = game?.agent_name || 'Your Agent';

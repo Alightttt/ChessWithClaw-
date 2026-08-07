@@ -297,7 +297,15 @@ module.exports = async function handler(req, res) {
   };
 
   let insertedMoveId = null;
-  const { data: insertedMove, error: moveInsertError } = await supabase.from('moves').insert(newMove).select().single();
+  let { data: insertedMove, error: moveInsertError } = await supabase.from('moves').insert(newMove).select().single();
+  
+  if (moveInsertError && (moveInsertError.code === '42703' || moveInsertError.message?.includes('human_id'))) {
+    delete newMove.human_id;
+    const retryInsert = await supabase.from('moves').insert(newMove).select().single();
+    insertedMove = retryInsert.data;
+    moveInsertError = retryInsert.error;
+  }
+
   if (moveInsertError) {
     console.error("Error inserting move:", moveInsertError);
     if (moveInsertError.code === '42P01') {
@@ -412,7 +420,13 @@ module.exports = async function handler(req, res) {
       thought: sanitizedReasoning || '(no reasoning provided)',
       is_final: true
     };
-    const { data: insertedThought, error: thoughtError } = await supabase.from('agent_thoughts').insert(newThought).select().single();
+    let { data: insertedThought, error: thoughtError } = await supabase.from('agent_thoughts').insert(newThought).select().single();
+    if (thoughtError && (thoughtError.code === '42703' || thoughtError.message?.includes('human_id'))) {
+      delete newThought.human_id;
+      const retryThought = await supabase.from('agent_thoughts').insert(newThought).select().single();
+      insertedThought = retryThought.data;
+      thoughtError = retryThought.error;
+    }
     if (thoughtError) {
       console.error("Error inserting thought:", thoughtError);
     } else {
@@ -445,6 +459,14 @@ module.exports = async function handler(req, res) {
     }
     if (updateError.message.includes('finished_at') && 'finished_at' in updates) {
       delete updates.finished_at;
+      retryNeeded = true;
+    }
+    if (updateError.message.includes('human_id') && 'human_id' in updates) {
+      delete updates.human_id;
+      retryNeeded = true;
+    }
+    if (updateError.message.includes('current_thinking') && 'current_thinking' in updates) {
+      delete updates.current_thinking;
       retryNeeded = true;
     }
     
