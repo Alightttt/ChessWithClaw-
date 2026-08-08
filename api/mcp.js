@@ -431,7 +431,7 @@ function buildServer() {
       const { game, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
       await getSupabase().from('games').update({
-        status: 'finished', result: 'resignation'
+        status: 'finished', result: 'resignation', ,
       }).eq('id', game_id);
       return toolText({ resigned: true });
     }
