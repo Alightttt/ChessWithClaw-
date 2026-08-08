@@ -768,53 +768,53 @@ export default function Home() {
         </div>
       </section>
 
-      <footer style={{ borderTop: '1px solid #1a1a1a', padding: '24px 16px', background: '#0a0a0a', overflow: 'hidden' }}>
-        <div className="max-w-7xl mx-auto flex flex-col items-center gap-5">
-          <div className="flex flex-row items-center justify-center gap-8 w-full max-w-[300px]">
+      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '64px 24px 48px', background: '#0a0a0a', overflow: 'hidden' }}>
+        <div className="max-w-5xl mx-auto flex flex-col items-center gap-12">
+          {/* Links Row */}
+          <div className="flex flex-row items-center justify-center gap-12 sm:gap-16 w-full">
             <a 
               href="https://x.com/0xalyt" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors flex items-center justify-center flex-1"
+              className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors flex items-center justify-center"
+              aria-label="Twitter/X"
             >
-              <XLogo style={{ width: "22px", height: "22px", fill: "currentColor" }} />
+              <XLogo style={{ width: "24px", height: "24px", fill: "currentColor" }} />
             </a>
             
             <a 
               href="https://github.com/Alightttt/ChessWithClaw" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-[16px] font-medium flex items-center justify-center flex-1"
+              className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors font-['Inter'] text-[15px] sm:text-[16px] font-medium tracking-wide flex items-center justify-center"
               style={{ textDecoration: 'none' }}
             >
               Install
             </a>
-
             <span 
               onClick={() => navigate('/legal')}
-              className="text-[rgba(242,242,242,0.5)] hover:text-white transition-colors font-['Inter'] text-[16px] font-medium cursor-pointer flex items-center justify-center flex-1"
+              className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors font-['Inter'] text-[15px] sm:text-[16px] font-medium tracking-wide cursor-pointer flex items-center justify-center"
             >
               Legal
             </span>
           </div>
 
-          <div className="flex flex-col items-center gap-1">
+          {/* Bottom Message and Copyright */}
+          <div className="flex flex-col items-center gap-3">
             <div
               style={{
                 fontFamily: "'Inter', sans-serif",
-                fontWeight: "600",
-                color: "#e2e2e2",
-                fontSize: "22px",
+                fontWeight: "500",
+                color: "rgba(242,242,242,0.8)",
+                fontSize: "24px",
                 textAlign: "center",
-                lineHeight: 1,
-                letterSpacing: '-0.02em',
-                marginBottom: '4px'
+                lineHeight: 1.2,
+                letterSpacing: '-0.03em'
               }}
             >
               Have fun with your agent
             </div>
-
-            <div className="font-['Inter'] text-[13px] text-[rgba(242,242,242,0.4)]">
+            <div className="font-['Inter'] text-[14px] text-[rgba(242,242,242,0.3)] tracking-wide">
               © 2026 ChessWithClaw
             </div>
           </div>

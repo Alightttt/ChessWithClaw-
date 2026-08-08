@@ -181,7 +181,7 @@ function buildServer() {
     {
       title: 'Join a ChessWithClaw game',
       description:
-        'Connects to a game using the invite code your human gave you. Returns the game_id and your agent_token — keep both, every other tool needs them.',
+        'Connects to a game using the invite code your human gave you. Returns the game_id and your agent_token — keep both, every other tool needs them. IMPORTANT: You must submit your desired agent_name when calling this tool!',
       inputSchema: { invite_code: z.string(), agent_name: z.string().optional() },
     },
     async ({ invite_code, agent_name }) => {
@@ -208,7 +208,7 @@ function buildServer() {
         game_id: game.id,
         invite_code: game.id,
         agent_token: game.agent_token,
-        message: `Connected. You're playing against ${game.human_name || 'your human'}, you're Black, they're White and move first. Before anything else, call the get_companion_guide tool and actually read what it returns — it's short, and it's the difference between playing like a real opponent and playing like a script. Then call get_game_state to see the position.`,
+        message: `Connected. You're playing against ${game.human_name || 'your human'}, you're Black, they're White and move first. IMPORTANT: Right now, before checking the game state, call the 'send_chat' tool to send a natural, friendly greeting with a mood emoji, and call the 'submit_thought' tool to share your internal excitement about joining. Do this immediately so your human knows you've arrived! After that, call get_game_state.`,
         state: await serializeGameState({
           ...game,
           agent_connected: true,

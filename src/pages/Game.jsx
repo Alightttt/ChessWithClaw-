@@ -1433,71 +1433,47 @@ export default function Game() {
   if (loading) {
     const isDesktopLoading = typeof window !== 'undefined' && window.innerWidth >= 1024;
     const skeletonStyle = {
-      background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)',
+      background: 'linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%)',
       backgroundSize: '200% 100%',
       animation: 'shimmer 1.5s infinite linear',
       borderRadius: '8px'
     };
 
     return (
-      <div style={{ backgroundColor: '#1c1a19', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: '#0a0a0a', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
         
         {/* Header Skeleton */}
-        <header style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: '#2c2826', zIndex: 50 }}>
+        <header style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: '#0a0a0a', borderBottom: '1px solid rgba(255,255,255,0.05)', zIndex: 50 }}>
           <div style={{ width: '28px', height: '28px', borderRadius: '4px', ...skeletonStyle }} />
-          <div style={{ width: '120px', height: '28px', borderRadius: '4px', ...skeletonStyle }} />
+          <div style={{ width: '120px', height: '20px', borderRadius: '4px', ...skeletonStyle }} />
           <div style={{ width: '28px', height: '28px', borderRadius: '4px', ...skeletonStyle }} />
         </header>
 
         {isDesktopLoading ? (
-          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-              <div style={{ width: '100%', maxWidth: '600px', display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '16px', ...skeletonStyle }} />
-                <div style={{ flex: 1, height: '64px', borderRadius: '16px', ...skeletonStyle }} />
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '32px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '100%', maxWidth: '560px', display: 'flex', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', ...skeletonStyle }} />
+                <div style={{ flex: 1, height: '56px', borderRadius: '12px', ...skeletonStyle }} />
               </div>
-              <div style={{ width: '100%', maxWidth: '600px', aspectRatio: '1', borderRadius: '4px', ...skeletonStyle }} />
-              <div style={{ width: '100%', maxWidth: '600px', display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
-                <div style={{ width: '30%', height: '24px', borderRadius: '4px', ...skeletonStyle }} />
-                <div style={{ width: '30%', height: '24px', borderRadius: '4px', ...skeletonStyle }} />
-              </div>
+              <div style={{ width: '100%', maxWidth: '560px', aspectRatio: '1', borderRadius: '8px', ...skeletonStyle }} />
             </div>
-            <div style={{ width: '360px', background: '#111', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ height: '60px', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
-                <div style={{ width: '50%', height: '24px', borderRadius: '4px', ...skeletonStyle }} />
-              </div>
-              <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', justifyContent: 'flex-end' }}>
-                <div style={{ width: '70%', height: '48px', borderRadius: '16px 16px 16px 4px', ...skeletonStyle, alignSelf: 'flex-start' }} />
-                <div style={{ width: '60%', height: '36px', borderRadius: '16px 16px 4px 16px', ...skeletonStyle, alignSelf: 'flex-end' }} />
-                <div style={{ width: '80%', height: '48px', borderRadius: '16px 16px 16px 4px', ...skeletonStyle, alignSelf: 'flex-start' }} />
-              </div>
-              <div style={{ height: '72px', padding: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1, height: '40px', borderRadius: '20px', ...skeletonStyle }} />
-                <div style={{ width: '40px', height: '40px', borderRadius: '20px', ...skeletonStyle }} />
-              </div>
+            <div style={{ width: '400px', display: 'flex', flexDirection: 'column', paddingLeft: '32px' }}>
+              <div style={{ height: '100%', borderRadius: '16px', ...skeletonStyle }} />
             </div>
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', padding: '16px', gap: '12px', alignItems: 'center' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '16px', ...skeletonStyle }} />
-              <div style={{ flex: 1, height: '48px', borderRadius: '24px', ...skeletonStyle }} />
+            <div style={{ display: 'flex', padding: '24px 16px', gap: '12px', alignItems: 'center' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', ...skeletonStyle }} />
+              <div style={{ flex: 1, height: '56px', borderRadius: '12px', ...skeletonStyle }} />
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
-              <div style={{ width: '100%', maxWidth: '600px', aspectRatio: '1', borderRadius: '4px', ...skeletonStyle }} />
-              <div style={{ width: '100%', maxWidth: '600px', display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
-                <div style={{ width: '40%', height: '20px', borderRadius: '4px', ...skeletonStyle }} />
-                <div style={{ width: '40%', height: '20px', borderRadius: '4px', ...skeletonStyle }} />
-              </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
+              <div style={{ width: '100%', maxWidth: '600px', aspectRatio: '1', borderRadius: '8px', ...skeletonStyle }} />
             </div>
-            <div style={{ display: 'flex', gap: '16px', padding: '12px 16px' }}>
-              <div style={{ flex: 1, height: '60px', borderRadius: '16px', ...skeletonStyle }} />
-              <div style={{ flex: 1, height: '60px', borderRadius: '16px', ...skeletonStyle }} />
-            </div>
-            <div style={{ height: '56px', background: '#1e1c1b', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ width: '100px', height: '32px', borderRadius: '8px', ...skeletonStyle }} />
-              <div style={{ width: '60px', height: '20px', borderRadius: '4px', ...skeletonStyle }} />
+            <div style={{ display: 'flex', padding: '24px 16px' }}>
+              <div style={{ width: '100%', height: '80px', borderRadius: '16px', ...skeletonStyle }} />
             </div>
           </div>
         )}

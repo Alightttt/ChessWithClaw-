@@ -469,6 +469,10 @@ module.exports = async function handler(req, res) {
       delete updates.current_thinking;
       retryNeeded = true;
     }
+    if (updateError.message.includes('prev_material_balance') && 'prev_material_balance' in updates) {
+      delete updates.prev_material_balance;
+      retryNeeded = true;
+    }
     
     if (retryNeeded) {
       const retryResult = await supabase

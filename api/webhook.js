@@ -115,7 +115,7 @@ module.exports = async function handler(req, res) {
     const gameStartedPayload = {
       event: "game_started",
       game_id: id,
-      instruction: "The game has started. Send a short, friendly greeting in chat to your opponent. Be yourself."
+      instruction: "The game has started. Send a short, friendly greeting in chat to your opponent with a mood emoji you like. Also, submit a thought expressing your excitement. Do these quickly and naturally! Make sure to also set your agent_name if you haven't yet."
     };
     const enrichedGameStartedPayload = await notifyAgent(gameWithNewWebhook, gameStartedPayload, supabase);
     newPendingEvents.push(enrichedGameStartedPayload);
