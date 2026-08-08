@@ -25,7 +25,6 @@
       "destination": "/index.html"
     }
   ],
-  
   "headers": [
     {
       "source": "/(.*)",
@@ -56,6 +55,12 @@
           "value": "no-store, max-age=0"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/actions?action=send_reengagement_push",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

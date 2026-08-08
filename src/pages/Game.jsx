@@ -2166,15 +2166,25 @@ export default function Game() {
           )}
           </div></div>
           <CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} />
-          {(game.status === 'finished' || game.status === 'abandoned') && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
-              <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">
-                {game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}
-              </div>
-              <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">
-                {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
-              </div>
-            </div>
+          {(game?.status === 'finished' || game?.status === 'abandoned') && (
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+              style={{ background: 'rgba(10, 10, 10, 0.75)', backdropFilter: 'blur(8px)' }}
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+                className="flex flex-col items-center justify-center p-8 rounded-2xl"
+                style={{ background: 'linear-gradient(180deg, rgba(30,30,30,0.9) 0%, rgba(20,20,20,0.95) 100%)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03) inset' }}
+              >
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '28px', fontWeight: 800, color: '#f2f2f2', marginBottom: '8px', letterSpacing: '0.05em' }}>
+                  {game?.status === 'abandoned' ? 'MATCH ABANDONED' : 'MATCH OVER'}
+                </div>
+                <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', color: game?.status === 'abandoned' ? 'rgba(255,255,255,0.5)' : '#e63946', fontWeight: 500, textAlign: 'center' }}>
+                  {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </div></div>
         {/* STEP 4: BOTTOM INFO BAR */}
@@ -2346,12 +2356,26 @@ export default function Game() {
                 </div>
               </div>
               <div style={{ padding: '0 16px' }}><CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} /></div>
-              {(game.status === 'finished' || game.status === 'abandoned') && (
-                <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
-                  <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">{game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}</div>
-                  <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">{game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}</div>
+                        {(game?.status === 'finished' || game?.status === 'abandoned') && (
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+              style={{ background: 'rgba(10, 10, 10, 0.75)', backdropFilter: 'blur(8px)' }}
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+                className="flex flex-col items-center justify-center p-8 rounded-2xl"
+                style={{ background: 'linear-gradient(180deg, rgba(30,30,30,0.9) 0%, rgba(20,20,20,0.95) 100%)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03) inset' }}
+              >
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '28px', fontWeight: 800, color: '#f2f2f2', marginBottom: '8px', letterSpacing: '0.05em' }}>
+                  {game?.status === 'abandoned' ? 'MATCH ABANDONED' : 'MATCH OVER'}
                 </div>
-              )}
+                <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', color: game?.status === 'abandoned' ? 'rgba(255,255,255,0.5)' : '#e63946', fontWeight: 500, textAlign: 'center' }}>
+                  {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
             </div>
             
             {/* MOBILE BUTTONS */}

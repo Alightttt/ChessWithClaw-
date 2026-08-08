@@ -370,7 +370,7 @@ module.exports = async function handler(req, res) {
     turn: nextTurn,
     status: newStatus,
     result: gameResult,
-    winner: gameWinner,
+     
     finished_at: finishedAt,
     move_number: moveNumber,
     human_id: isHumanMove ? humanId : game.human_id,
@@ -629,7 +629,7 @@ module.exports = async function handler(req, res) {
     thought_received: !!companionThought,
     agent_name: agentName || game.agent_name || 'Your Agent',
     companion_thought: companionThought,
-    winner: gameWinner,
+     
     result: gameResult,
     material_balance: materialBalance,
     game: {

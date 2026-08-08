@@ -768,8 +768,8 @@ export default function Home() {
         </div>
       </section>
 
-      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '64px 24px 48px', background: '#0a0a0a', overflow: 'hidden' }}>
-        <div className="max-w-5xl mx-auto flex flex-col items-center gap-12">
+      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '32px 24px 24px', background: '#0a0a0a', overflow: 'hidden' }}>
+        <div className="max-w-5xl mx-auto flex flex-col items-center gap-8">
           {/* Links Row */}
           <div className="flex flex-row items-center justify-center gap-12 sm:gap-16 w-full">
             <a 

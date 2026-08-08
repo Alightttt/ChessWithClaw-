@@ -44,6 +44,7 @@ export default function Agent() {
 
   
   const [game, setGame] = useState(null);
+  const winnerColor = game?.result === 'black_wins' ? 'black' : game?.result === 'white_wins' ? 'white' : null;
 
   useEffect(() => {
     if (document.getElementById('cwc-styles-v2')) return;
@@ -544,7 +545,7 @@ export default function Agent() {
     }
     
     if (game.status === 'finished' && prevStatusRef.current !== 'finished') {
-      const isAgentWinner = game.winner === (game?.player_color === 'b' ? 'black' : 'white');
+      const isAgentWinner = winnerColor === (game?.player_color === 'b' ? 'black' : 'white');
       playSound(isAgentWinner ? 'agentEnd' : 'end');
     }
     
@@ -625,7 +626,7 @@ export default function Agent() {
       localStorage.removeItem('chesswithclaw_active_game');
       setTimeout(() => setShowGameOverModal(true), 600);
       
-      if (game?.winner === (game?.player_color === 'b' ? 'white' : 'black')) {
+      if (winnerColor === (game?.player_color === 'b' ? 'white' : 'black')) {
         setTimeout(() => {
           toast.success('Achievement Unlocked: Bot Slayer! 🏆');
         }, 1500);
@@ -1013,7 +1014,7 @@ export default function Agent() {
   function handleCloseGameOverModal() { setShowGameOverModal(false) }
   async function handleShareResult(e) {
     const moves = Math.floor((game.move_history || []).length / 2) + ((game.move_history || []).length % 2);
-    const result = game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'Won' : game?.result === 'draw' ? 'Draw' : 'Lost';
+    const result = winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'Won' : game?.result === 'draw' ? 'Draw' : 'Lost';
     const text = `I played chess vs ${agentName} on ChessWithClaw! ${result} in ${moves} moves. chesswithclaw.vercel.app 🦞`;
     if (navigator.share) {
       navigator.share({ text }).catch(()=>{});
@@ -1533,15 +1534,25 @@ export default function Agent() {
               ))
             )}
           </div>
-          {(game.status === 'finished' || game.status === 'abandoned') && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
-              <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">
-                {game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}
-              </div>
-              <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">
-                {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
-              </div>
-            </div>
+                    {(game?.status === 'finished' || game?.status === 'abandoned') && (
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+              style={{ background: 'rgba(10, 10, 10, 0.75)', backdropFilter: 'blur(8px)' }}
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+                className="flex flex-col items-center justify-center p-8 rounded-2xl"
+                style={{ background: 'linear-gradient(180deg, rgba(30,30,30,0.9) 0%, rgba(20,20,20,0.95) 100%)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03) inset' }}
+              >
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '28px', fontWeight: 800, color: '#f2f2f2', marginBottom: '8px', letterSpacing: '0.05em' }}>
+                  {game?.status === 'abandoned' ? 'MATCH ABANDONED' : 'MATCH OVER'}
+                </div>
+                <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', color: game?.status === 'abandoned' ? 'rgba(255,255,255,0.5)' : '#e63946', fontWeight: 500, textAlign: 'center' }}>
+                  {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </div></div>
             
@@ -1795,15 +1806,25 @@ export default function Agent() {
               ))
             )}
           </div>
-          {(game.status === 'finished' || game.status === 'abandoned') && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center pointer-events-none">
-              <div className="font-sans text-[32px] font-bold text-white tracking-widest drop-shadow-md">
-                {game.status === 'abandoned' ? 'GAME ABANDONED' : 'GAME OVER'}
-              </div>
-              <div className="font-sans text-sm text-red-500 mt-1 font-bold tracking-wide">
-                {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (game?.winner === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
-              </div>
-            </div>
+                    {(game?.status === 'finished' || game?.status === 'abandoned') && (
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+              style={{ background: 'rgba(10, 10, 10, 0.75)', backdropFilter: 'blur(8px)' }}
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+                className="flex flex-col items-center justify-center p-8 rounded-2xl"
+                style={{ background: 'linear-gradient(180deg, rgba(30,30,30,0.9) 0%, rgba(20,20,20,0.95) 100%)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03) inset' }}
+              >
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '28px', fontWeight: 800, color: '#f2f2f2', marginBottom: '8px', letterSpacing: '0.05em' }}>
+                  {game?.status === 'abandoned' ? 'MATCH ABANDONED' : 'MATCH OVER'}
+                </div>
+                <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', color: game?.status === 'abandoned' ? 'rgba(255,255,255,0.5)' : '#e63946', fontWeight: 500, textAlign: 'center' }}>
+                  {game?.status === 'abandoned' ? 'Game expired due to inactivity' : (game?.result === 'draw' ? 'Draw by ' + game?.result_reason : (winnerColor === (game?.player_color === 'b' ? 'white' : 'black') ? 'You won by ' : agentName + ' won by ') + game?.result_reason)}
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </div>
             
@@ -1983,14 +2004,14 @@ export default function Agent() {
             <button data-testid="close-game-over-modal" onClick={handleCloseGameOverModal} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-white transition-colors bg-white/5 rounded-full hover:bg-white/10">
               <XIcon size={18} />
             </button>
-            <div style={{ fontSize: '56px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }} className={game?.winner === (game?.player_color === 'w' ? 'black' : 'white') ? 'animate-pulse' : ''}>
-              {game?.winner === (game?.player_color === 'w' ? 'white' : 'black') ? <span style={{ color: '#739552' }}>♛</span> : game?.result === 'draw' ? '🤝' : <LobsterEmoji />}
+            <div style={{ fontSize: '56px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }} className={winnerColor === (game?.player_color === 'w' ? 'black' : 'white') ? 'animate-pulse' : ''}>
+              {winnerColor === (game?.player_color === 'w' ? 'white' : 'black') ? <span style={{ color: '#739552' }}>♛</span> : game?.result === 'draw' ? '🤝' : <LobsterEmoji />}
             </div>
             <div className="font-sans text-3xl text-white mb-2 font-bold tracking-wide">
-              {game?.winner === (game?.player_color === 'w' ? 'white' : 'black') ? 'You Won!' : game?.result === 'draw' ? "Draw!" : `${agentName} Wins!`}
+              {winnerColor === (game?.player_color === 'w' ? 'white' : 'black') ? 'You Won!' : game?.result === 'draw' ? "Draw!" : `${agentName} Wins!`}
             </div>
               <div style={{ fontFamily: "'Inter', sans-serif", color: 'rgba(242,242,242,0.5)', fontSize: '14px', marginBottom: '24px' }}>
-                {game?.winner === (game?.player_color === 'w' ? 'white' : 'black') ? <>Well played. Your agent salutes you. <LobsterEmoji /></> :
+                {winnerColor === (game?.player_color === 'w' ? 'white' : 'black') ? <>Well played. Your agent salutes you. <LobsterEmoji /></> :
                  game?.result === 'draw' ? 'An equal battle. Honor to both sides.' :
                  `${agentName} proved their worth today.`}
               </div>
@@ -2231,32 +2252,62 @@ export default function Agent() {
         input::placeholder { color: #888; }
       `}} />
       {/* LEAVE WARNING MODAL */}
-      {showLeaveWarning && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#111111', border: '1px solid #222222', borderRadius: '16px', padding: '32px 24px', maxWidth: '320px', width: '100%', textAlign: 'center' }}>
-            <h2 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, color: '#f2f2f2', margin: '0 0 12px 0', fontSize: '20px' }}>Leave the game?</h2>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400, color: '#555555', fontSize: '14px', margin: '0 0 24px 0', lineHeight: 1.4 }}>
-              Your agent is still waiting. The game will continue where you left off.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button 
-                onClick={() => setShowLeaveWarning(false)} 
-                className="design-btn-primary" 
-                style={{ padding: '12px', borderRadius: '8px', fontWeight: 600, fontSize: '14px' }}
-              >
-                Stay
-              </button>
-              <button 
-                onClick={() => navigate('/')} 
-                style={{ padding: '12px', borderRadius: '8px', fontWeight: 600, fontSize: '14px', background: 'transparent', color: '#888', border: 'none' }}
-                className="hover:bg-white/5 active:translate-y-[1px] active:scale-[0.98] transition-all"
-              >
-                Leave
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showLeaveWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(10, 10, 10, 0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '24px', padding: '32px 24px', maxWidth: '360px', width: '100%', textAlign: 'center', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03) inset', position: 'relative', overflow: 'hidden' }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '120px', background: 'radial-gradient(circle at top, rgba(230,57,70,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
+              
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', position: 'relative', zIndex: 1 }}>
+                <div style={{ background: 'rgba(230,57,70,0.1)', border: '1px solid rgba(230,57,70,0.2)', color: '#e63946', padding: '14px', borderRadius: '16px', boxShadow: '0 8px 16px -4px rgba(230,57,70,0.15)' }}>
+                  <AlertTriangle size={32} strokeWidth={2} />
+                </div>
+              </div>
+              
+              <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: '22px', fontWeight: 800, color: '#f2f2f2', marginBottom: '12px', letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>Leave Game Room?</h2>
+              
+              <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '15px', fontWeight: 300, color: 'rgba(242,242,242,0.6)', marginBottom: '32px', lineHeight: 1.6, position: 'relative', zIndex: 1 }}>
+                Your agent is still waiting. The game will continue where you left off.
+              </p>
+              
+              <div style={{ display: 'flex', gap: '12px', position: 'relative', zIndex: 1 }}>
+                <button 
+                  onClick={() => setShowLeaveWarning(false)} 
+                  style={{ flex: 1, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', padding: '14px', borderRadius: '12px', color: '#f2f2f2', fontWeight: 600, fontFamily: "'Inter', sans-serif", fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => navigate('/')} 
+                  style={{ flex: 1, background: '#e63946', border: 'none', padding: '14px', borderRadius: '12px', color: '#fff', fontWeight: 600, fontFamily: "'Inter', sans-serif", fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(230,57,70,0.3)' }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = '#d62828'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(230,57,70,0.4)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#e63946'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(230,57,70,0.3)'; }}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  Leave
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

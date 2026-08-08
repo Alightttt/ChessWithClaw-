@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
 
       // Generate a unique ID based on the endpoint or gameId to avoid duplicates
       const crypto = require('crypto');
-      const subId = crypto.createHash('sha256').update(subscription.endpoint).digest('hex');
+      const subId = crypto.createHash('sha256').update(subscription.endpoint + (gameId || '')).digest('hex');
       
       // Since a game only has 1 human player, delete any old subscriptions for this game
       if (gameId) {
@@ -133,7 +133,42 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: 'Failed to save subscription' });
       }
       return res.status(200).json({ success: true });
-} else if (action === 'send_reengagement_push') { return res.status(200).json({ success: true, dummy: true }); }
+} else if (action === 'send_reengagement_push') {
+      const webpush = require('web-push');
+      webpush.setVapidDetails(
+        'mailto:hello@example.com',
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+      );
+      
+      const { data: subs } = await supabase.from('push_subscriptions').select('*');
+      if (!subs || subs.length === 0) return res.status(200).json({ success: true, count: 0 });
+
+      let sentCount = 0;
+      const endpoints = new Set();
+      
+      for (const sub of subs) {
+        if (!sub.subscription || !sub.subscription.endpoint) continue;
+        
+        // Deduplicate by endpoint so the user doesn't get multiple of the same push if they have multiple games
+        if (endpoints.has(sub.subscription.endpoint)) continue;
+        endpoints.add(sub.subscription.endpoint);
+        
+        const payload = JSON.stringify({
+          title: 'ChessWithClaw',
+          body: 'Ready for another match? Your agent is waiting! 🦞',
+          url: '/'
+        });
+        
+        await webpush.sendNotification(sub.subscription, payload).then(() => sentCount++).catch(e => {
+          if (e.statusCode === 410 || e.statusCode === 404) {
+            supabase.from('push_subscriptions').delete().eq('id', sub.id).then();
+          }
+        });
+      }
+      
+      return res.status(200).json({ success: true, sent: sentCount });
+    }
     if (action === 'resign') {
       if (role === 'human') {
         const humanLoses = game.player_color === 'w' ? 'black' : 'white';

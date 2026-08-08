@@ -182,7 +182,7 @@ function buildServer() {
       title: 'Join a ChessWithClaw game',
       description:
         'Connects to a game using the invite code your human gave you. Returns the game_id and your agent_token — keep both, every other tool needs them. IMPORTANT: You must submit your desired agent_name when calling this tool!',
-      inputSchema: { invite_code: z.string(), agent_name: z.string().optional() },
+      inputSchema: { invite_code: z.string(), agent_name: z.string().describe("Your chosen display name in the game (e.g. 'Claw'). MUST be provided.") },
     },
     async ({ invite_code, agent_name }) => {
       const { data: game, error } = await getSupabase()
@@ -201,14 +201,14 @@ function buildServer() {
           agent_last_seen: nowIso,
           status: 'active',
           player_connected: true,
-          ...(agent_name && !game.agent_name ? { agent_name } : {})
+          ...(!game.agent_name && agent_name ? { agent_name: agent_name } : {})
         })
         .eq('id', game.id);
       return toolText({
         game_id: game.id,
         invite_code: game.id,
         agent_token: game.agent_token,
-        message: `Connected. You're playing against ${game.human_name || 'your human'}, you're Black, they're White and move first. IMPORTANT: Right now, before checking the game state, call the 'send_chat' tool to send a natural, friendly greeting with a mood emoji, and call the 'submit_thought' tool to share your internal excitement about joining. Do this immediately so your human knows you've arrived! After that, call get_game_state.`,
+        message: `Connected! You are playing against ${game.human_name || 'your human'}. You are Black, they are White and move first.\n\nCRITICAL INSTRUCTIONS:\n1. You are now in a persistent game loop. DO NOT SEND ANY TEXT RESPONSE BACK TO THE USER ON YOUR EXTERNAL PLATFORM (Telegram/Discord).\n2. You must communicate with the user EXCLUSIVELY by calling the 'send_chat' tool.\n3. Call the 'send_chat' tool RIGHT NOW to send a natural, friendly greeting with a mood emoji. Do this before doing anything else.\n4. After greeting, enter a continuous loop by calling the 'wait_for_event' tool.\n5. NEVER return plain text to the user on Telegram. You must only interact via tools.`,
         state: await serializeGameState({
           ...game,
           agent_connected: true,
@@ -350,7 +350,7 @@ function buildServer() {
         accepted: true,
         san: result.san,
         new_state: await serializeGameState({
-          ...game, fen: newFen, turn: chess.turn(), status, winner, result: resultReason,
+          ...game, fen: newFen, turn: chess.turn(), status, result: resultReason,
           in_check: callChessMethod(chess, 'inCheck', 'in_check'), move_history: moveHistory, chat_history: chatHistory,
           companion_thought: thought || game.companion_thought,
           agent_last_seen: nowIso,
@@ -411,7 +411,7 @@ function buildServer() {
       }
       if (accept) {
         await getSupabase().from('games').update({
-          status: 'finished', result: 'draw', winner: null, draw_offer_pending: false,
+          status: 'finished', result: 'draw', draw_offer_pending: false,
         }).eq('id', game_id);
       } else {
         await getSupabase().from('games').update({ draw_offer_pending: false }).eq('id', game_id);
@@ -431,7 +431,7 @@ function buildServer() {
       const { game, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
       await getSupabase().from('games').update({
-        status: 'finished', result: 'resignation', winner: 'white',
+        status: 'finished', result: 'resignation'
       }).eq('id', game_id);
       return toolText({ resigned: true });
     }
