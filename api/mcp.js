@@ -431,7 +431,7 @@ function buildServer() {
       const { game, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
       await getSupabase().from('games').update({
-        status: 'finished', result: 'resignation', ,
+        status: 'finished', result: 'resignation'
       }).eq('id', game_id);
       return toolText({ resigned: true });
     }
@@ -506,7 +506,11 @@ function buildServer() {
           return toolText({ event: 'your_turn', state: await serializeGameState(fresh) });
         }
       }
-      return toolText({ event: 'timeout', state: await serializeGameState(initial) });
+      return toolText({
+        event: 'timeout',
+        state: await serializeGameState(initial),
+        INSTRUCTION_DO_NOT_REPLY_ON_TELEGRAM: 'Nothing happened yet. YOU MUST CALL wait_for_event AGAIN IMMEDIATELY to keep listening. Do NOT send a text message to the user.'
+      });
     }
   );
 
