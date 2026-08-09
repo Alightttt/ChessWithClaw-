@@ -200,7 +200,6 @@ function buildServer() {
           agent_connected: true, 
           agent_last_seen: nowIso,
           status: 'active',
-          player_connected: true,
           ...(!game.agent_name && agent_name ? { agent_name: agent_name } : {})
         })
         .eq('id', game.id);
@@ -214,7 +213,7 @@ function buildServer() {
           agent_connected: true,
           agent_last_seen: nowIso,
           status: 'active',
-          player_connected: true
+          human_connected: true
         }),
       });
     }

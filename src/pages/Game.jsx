@@ -1681,7 +1681,7 @@ export default function Game() {
   return (
     <div 
       ref={containerRef}
-      className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border scrollbar-none bg-[#2c2826]`}
+      className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border  bg-[#2c2826]`}
       style={{
         height: '100dvh',
         display: 'flex',
@@ -2208,7 +2208,7 @@ export default function Game() {
                   MOVE HISTORY · {game?.move_history?.length || 0} MOVES
                 </span>
               </div>
-              <div ref={moveHistoryScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }} className="scrollbar-none">
+              <div ref={moveHistoryScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }} className="">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '4px', borderBottom: '1px solid #111', marginBottom: '4px' }}>
                     <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', color: 'rgba(242,242,242,0.3)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
@@ -2261,7 +2261,7 @@ export default function Game() {
               <div style={{ flexShrink: 0, padding: '10px 12px', fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(242,242,242,0.3)' }}>
                 CHAT WITH {agentName.toUpperCase()}
               </div>
-              <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scrollbar-none scroll-smooth">
+              <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '6px' }} className=" scroll-smooth">
                 {normalizedMessages.length === 0 ? (
                   <div style={{ color: '#2a2a2a', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
@@ -2421,7 +2421,7 @@ export default function Game() {
                     <div style={{ color: 'rgba(242,242,242,0.6)', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Chat with {agentName}</div>
                     <ChevronDown size={20} color="rgba(255,255,255,0.6)" style={{ transform: chatMobileOpen ? 'rotate(0deg)' : 'rotate(-180deg)', transition: 'transform 280ms ease-out' }} />
                   </div>
-                  <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', paddingBottom: '8px', paddingTop: '16px' }} className="scrollbar-none scroll-smooth">
+                  <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', paddingBottom: '8px', paddingTop: '16px' }} className=" scroll-smooth">
                     {normalizedMessages.length === 0 ? (
                       <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
@@ -2490,7 +2490,7 @@ export default function Game() {
                   <div 
                     ref={moveHistoryScrollRef}
                     style={{ overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '2px' }} 
-                    className="scrollbar-none"
+                    className=""
                   >
                     <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}>
                       <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
