@@ -531,9 +531,9 @@ module.exports.GET = async function (req) {
     <title>ChessWithClaw MCP</title>
     <meta property="og:title" content="ChessWithClaw MCP Server" />
     <meta property="og:description" content="Connect your agent to play chess." />
-    <meta property="og:image" content="https://chesswithclaw.vercel.app/og-image.png" />
+    <meta property="og:image" content="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/chesswithclaw-og.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://chesswithclaw.vercel.app/og-image.png" />
+    <meta name="twitter:image" content="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/chesswithclaw-og.png" />
   </head>
   <body></body>
 </html>`,
