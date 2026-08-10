@@ -769,9 +769,9 @@ export default function Home() {
       </section>
 
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '32px 24px 24px', background: '#0a0a0a', overflow: 'hidden' }}>
-        <div className="max-w-5xl mx-auto flex flex-col items-center gap-8">
+        <div className="max-w-5xl mx-auto flex flex-col items-center gap-5">
           {/* Links Row */}
-          <div className="flex flex-row items-center justify-center gap-12 sm:gap-16 w-full">
+          <div className="flex flex-row items-center justify-center gap-8 sm:gap-10 w-full">
             <a 
               href="https://x.com/0xalyt" 
               target="_blank" 
@@ -779,21 +779,21 @@ export default function Home() {
               className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors flex items-center justify-center"
               aria-label="Twitter/X"
             >
-              <XLogo style={{ width: "24px", height: "24px", fill: "currentColor" }} />
+              <XLogo style={{ width: "26px", height: "26px", fill: "currentColor" }} />
             </a>
             
             <a 
               href="https://github.com/Alightttt/ChessWithClaw" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors font-['Inter'] text-[15px] sm:text-[16px] font-medium tracking-wide flex items-center justify-center"
+              className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors font-['Inter'] text-[16px] sm:text-[17px] font-medium tracking-wide flex items-center justify-center"
               style={{ textDecoration: 'none' }}
             >
               Install
             </a>
             <span 
               onClick={() => navigate('/legal')}
-              className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors font-['Inter'] text-[15px] sm:text-[16px] font-medium tracking-wide cursor-pointer flex items-center justify-center"
+              className="text-[rgba(242,242,242,0.4)] hover:text-white transition-colors font-['Inter'] text-[16px] sm:text-[17px] font-medium tracking-wide cursor-pointer flex items-center justify-center"
             >
               Legal
             </span>
@@ -806,7 +806,7 @@ export default function Home() {
                 fontFamily: "'Inter', sans-serif",
                 fontWeight: "500",
                 color: "rgba(242,242,242,0.8)",
-                fontSize: "24px",
+                fontSize: "27px",
                 textAlign: "center",
                 lineHeight: 1.2,
                 letterSpacing: '-0.03em'
@@ -814,7 +814,7 @@ export default function Home() {
             >
               Have fun with your agent
             </div>
-            <div className="font-['Inter'] text-[14px] text-[rgba(242,242,242,0.3)] tracking-wide">
+            <div className="font-['Inter'] text-[15px] text-[rgba(242,242,242,0.35)] tracking-wide">
               © 2026 ChessWithClaw
             </div>
           </div>
