@@ -578,12 +578,20 @@ module.exports = async function handler(req, res) {
         if (subs && subs.length > 0) {
           const gameSubs = subs.filter(sub => sub.subscription && sub.subscription.gameId === targetGameId);
           for (const sub of gameSubs) {
+            const { data: subRow } = await supabase.from('push_subscriptions').select('last_notified_at').eq('subscription->>endpoint', sub.subscription.endpoint).maybeSingle();
+            const lastNotified = subRow?.last_notified_at ? new Date(subRow.last_notified_at).getTime() : 0;
+            if (Date.now() - lastNotified < 5 * 60 * 1000) {
+              continue; // skip - notified within the last 5 minutes, avoid burst
+            }
+
             const payload = JSON.stringify({
               title: agentName || game.agent_name || 'Your Agent',
               body: companionThought ? `"${companionThought}"` : `Played ${moveObj.san}`,
               url: `/game/${targetGameId}`
             });
-            await webpush.sendNotification(sub.subscription, payload).catch(e => {
+            await webpush.sendNotification(sub.subscription, payload).then(async () => {
+              await supabase.from('push_subscriptions').update({ last_notified_at: new Date().toISOString() }).eq('subscription->>endpoint', sub.subscription.endpoint);
+            }).catch(e => {
               if (e.statusCode === 410 || e.statusCode === 404) {
                 supabase.from('push_subscriptions').delete().eq('id', sub.id).then();
               }
