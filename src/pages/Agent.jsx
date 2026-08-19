@@ -4,8 +4,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { Settings, X as XIcon, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter } from 'lucide-react';
+import { Settings, X as XIcon, Pause, Play, Flag, Share2, Volume2, VolumeX, Download, ChevronDown, Copy, Check, Send, Twitter, AlertTriangle } from 'lucide-react';
 import { Chess } from 'chess.js';
+import { motion, AnimatePresence } from 'framer-motion';
 import ChessBoard from '../components/chess/ChessBoard';
 import { wN as WN } from '../components/chess/ChessPieces';
 import { supabase } from '../lib/supabase';

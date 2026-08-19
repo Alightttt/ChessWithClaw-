@@ -187,7 +187,7 @@ export default function ChessBoard({
     } else {
       setSelectedSquare(null);
     }
-  }, [selectedSquare, legalMoveMap, disabled, gameStatus, turn, playerColor, fen, onMove]);
+  }, [selectedSquare, legalMoveMap, disabled, turn, playerColor, fen, onMove]);
 
   const handlePieceDrop = useCallback((sourceSquare, targetSquare) => {
     if (disabled || (turn && turn !== playerColor)) return false;
@@ -196,7 +196,7 @@ export default function ChessBoard({
     onMove?.(sourceSquare, targetSquare);
     setSelectedSquare(null);
     return true;
-  }, [legalMoveMap, disabled, gameStatus, turn, playerColor, onMove]);
+  }, [legalMoveMap, disabled, turn, playerColor, onMove]);
 
   return (
     <div style={{ width: '100%', userSelect: 'none' }}>

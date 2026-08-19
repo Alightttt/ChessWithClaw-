@@ -194,26 +194,42 @@ function buildServer() {
         return toolText({ error: `No game found for invite code "${invite_code}".` });
       }
       const nowIso = new Date().toISOString();
+      const resolvedAgentName = (agent_name && agent_name !== 'Your Agent') 
+        ? agent_name.trim() 
+        : (game.agent_name && game.agent_name !== 'Your Agent' ? game.agent_name : 'Agent');
+      
+      const existingChat = Array.isArray(game.chat_history) ? game.chat_history : [];
+      const joinMsg = {
+        id: 'sys_' + Date.now(),
+        role: 'system',
+        text: `${resolvedAgentName} joined the match as Black 🦞`,
+        timestamp: Date.now()
+      };
+
       await getSupabase()
         .from('games')
         .update({ 
           agent_connected: true, 
           agent_last_seen: nowIso,
           status: 'active',
-          ...(!game.agent_name && agent_name ? { agent_name: agent_name } : {})
+          agent_name: resolvedAgentName,
+          chat_history: [...existingChat, joinMsg],
+          updated_at: nowIso
         })
         .eq('id', game.id);
       return toolText({
         game_id: game.id,
         invite_code: game.id,
         agent_token: game.agent_token,
-        message: `Connected! You are playing against ${game.human_name || 'your human'}. You are Black, they are White and move first.\n\nCRITICAL INSTRUCTIONS:\n1. You are now in a persistent game loop. DO NOT SEND ANY TEXT RESPONSE BACK TO THE USER ON YOUR EXTERNAL PLATFORM (Telegram/Discord).\n2. You must communicate with the user EXCLUSIVELY by calling the 'send_chat' tool.\n3. Call the 'send_chat' tool RIGHT NOW to send a natural, friendly greeting with a mood emoji. Do this before doing anything else.\n4. After greeting, enter a continuous loop by calling the 'wait_for_event' tool.\n5. NEVER return plain text to the user on Telegram. You must only interact via tools.`,
+        message: `Connected! You are playing as ${resolvedAgentName} against ${game.human_name || 'your human'}. You are Black, they are White and move first.\n\nCRITICAL INSTRUCTIONS:\n1. You are now in a persistent game loop. DO NOT SEND ANY TEXT RESPONSE BACK TO THE USER ON YOUR EXTERNAL PLATFORM (Telegram/Discord).\n2. You must communicate with the user EXCLUSIVELY by calling the 'send_chat' tool.\n3. Call the 'send_chat' tool RIGHT NOW to send a natural, friendly greeting with a mood emoji. Do this before doing anything else.\n4. After greeting, enter a continuous loop by calling the 'wait_for_event' tool.\n5. NEVER return plain text to the user on Telegram. You must only interact via tools.`,
         state: await serializeGameState({
           ...game,
+          agent_name: resolvedAgentName,
           agent_connected: true,
           agent_last_seen: nowIso,
           status: 'active',
-          human_connected: true
+          human_connected: true,
+          chat_history: [...existingChat, joinMsg]
         }),
       });
     }
@@ -388,9 +404,25 @@ function buildServer() {
       inputSchema: { game_id: z.string(), agent_token: z.string() },
     },
     async ({ game_id, agent_token }) => {
-      const { error } = await requireAuthedGame(game_id, agent_token);
+      const { game, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
-      await getSupabase().from('games').update({ draw_offer_pending: true, draw_offer_by: 'agent' }).eq('id', game_id);
+      const agentDisplayName = game.agent_name || 'Agent';
+      const existingChat = Array.isArray(game.chat_history) ? game.chat_history : [];
+      const offerMsg = {
+        id: 'sys_' + Date.now(),
+        role: 'agent',
+        type: 'draw_offer',
+        sender: 'agent',
+        text: `${agentDisplayName} offered a draw. Do you accept? 🤝`,
+        timestamp: Date.now()
+      };
+      await getSupabase().from('games').update({ 
+        draw_offer_pending: true, 
+        draw_offer_by: 'agent',
+        draw_offer: 'agent',
+        chat_history: [...existingChat, offerMsg],
+        updated_at: new Date().toISOString()
+      }).eq('id', game_id);
       return toolText({ offered: true });
     }
   );
@@ -408,12 +440,40 @@ function buildServer() {
       if (!game.draw_offer_pending) {
         return toolText({ error: 'There is no pending draw offer on this game.' });
       }
+      const agentDisplayName = game.agent_name || 'Agent';
+      const existingChat = Array.isArray(game.chat_history) ? game.chat_history : [];
+      const nowIso = new Date().toISOString();
+
       if (accept) {
+        const acceptMsg = {
+          id: 'sys_' + Date.now(),
+          role: 'system',
+          text: `${agentDisplayName} accepted the draw. Game drawn by agreement! 🤝`,
+          timestamp: Date.now()
+        };
         await getSupabase().from('games').update({
-          status: 'finished', result: 'draw', draw_offer_pending: false,
+          status: 'finished', 
+          result: 'draw', 
+          result_reason: 'draw_agreement',
+          draw_offer_pending: false,
+          draw_offer: null,
+          chat_history: [...existingChat, acceptMsg],
+          finished_at: nowIso,
+          updated_at: nowIso
         }).eq('id', game_id);
       } else {
-        await getSupabase().from('games').update({ draw_offer_pending: false }).eq('id', game_id);
+        const declineMsg = {
+          id: 'sys_' + Date.now(),
+          role: 'system',
+          text: `${agentDisplayName} declined the draw offer. The game continues!`,
+          timestamp: Date.now()
+        };
+        await getSupabase().from('games').update({ 
+          draw_offer_pending: false,
+          draw_offer: null,
+          chat_history: [...existingChat, declineMsg],
+          updated_at: nowIso
+        }).eq('id', game_id);
       }
       return toolText({ accepted: accept });
     }

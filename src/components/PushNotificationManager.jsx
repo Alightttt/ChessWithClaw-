@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 
 function urlBase64ToUint8Array(base64String) {
@@ -42,42 +42,7 @@ export default function PushNotificationManager() {
 
   const [swRegistration, setSwRegistration] = useState(null);
 
-  useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.register('/sw.js').then((registration) => {
-        setSwRegistration(registration);
-        
-        // If already granted, ensure we are subscribed immediately
-        if (Notification.permission === 'granted' && gameId) {
-          subscribeUser(registration);
-        }
-      });
-    }
-  }, [gameId]);
-
-  useEffect(() => {
-    if (swRegistration && visitedGame) {
-      if (Notification.permission === 'default') {
-        const handleInteraction = () => {
-          Notification.requestPermission().then((permission) => {
-            if (permission === 'granted') {
-              subscribeUser(swRegistration);
-            }
-          });
-          document.removeEventListener('click', handleInteraction);
-          document.removeEventListener('touchstart', handleInteraction);
-        };
-        document.addEventListener('click', handleInteraction);
-        document.addEventListener('touchstart', handleInteraction);
-        return () => {
-          document.removeEventListener('click', handleInteraction);
-          document.removeEventListener('touchstart', handleInteraction);
-        };
-      }
-    }
-  }, [swRegistration, visitedGame, gameId]);
-
-  const subscribeUser = async (registration) => {
+  const subscribeUser = useCallback(async (registration) => {
     try {
       const res = await fetch('/api/actions', {
         method: 'POST',
@@ -111,7 +76,42 @@ export default function PushNotificationManager() {
     } catch (err) {
       console.error('Failed to subscribe the user: ', err);
     }
-  };
+  }, [gameId]);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.register('/sw.js').then((registration) => {
+        setSwRegistration(registration);
+        
+        // If already granted, ensure we are subscribed immediately
+        if (Notification.permission === 'granted' && gameId) {
+          subscribeUser(registration);
+        }
+      });
+    }
+  }, [gameId, subscribeUser]);
+
+  useEffect(() => {
+    if (swRegistration && visitedGame) {
+      if (Notification.permission === 'default') {
+        const handleInteraction = () => {
+          Notification.requestPermission().then((permission) => {
+            if (permission === 'granted') {
+              subscribeUser(swRegistration);
+            }
+          });
+          document.removeEventListener('click', handleInteraction);
+          document.removeEventListener('touchstart', handleInteraction);
+        };
+        document.addEventListener('click', handleInteraction);
+        document.addEventListener('touchstart', handleInteraction);
+        return () => {
+          document.removeEventListener('click', handleInteraction);
+          document.removeEventListener('touchstart', handleInteraction);
+        };
+      }
+    }
+  }, [swRegistration, visitedGame, gameId, subscribeUser]);
 
   return null;
 }

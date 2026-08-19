@@ -92,7 +92,7 @@ module.exports = async function handler(req, res) {
       role = 'human';
     }
 
-    const agentName = game?.agent_name || 'OpenClaw';
+    const agentName = (game?.agent_name && game?.agent_name !== 'Your Agent') ? game.agent_name : 'Agent';
     const now = new Date().toISOString();
     let updates = {};
     let chatText = '';
@@ -133,7 +133,7 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: 'Failed to save subscription' });
       }
       return res.status(200).json({ success: true });
-} else if (action === 'send_reengagement_push') {
+    } else if (action === 'send_reengagement_push') {
       const webpush = require('web-push');
       webpush.setVapidDetails(
         'mailto:hello@example.com',
@@ -183,10 +183,10 @@ module.exports = async function handler(req, res) {
       }
     } else if (action === 'offer_draw') {
       updates = { draw_offer: role, draw_offer_pending: true };
-      chatText = message || (role === 'agent' ? `${agentName} offers a draw. Do you accept? 🤝` : `You offered a draw to ${agentName}.`);
+      chatText = message || (role === 'agent' ? `${agentName} offered a draw. Do you accept? 🤝` : `You offered a draw to ${agentName}. Waiting for response...`);
     } else if (action === 'accept_draw') {
-      updates = { status: 'finished', result: 'draw', draw_offer: null, draw_offer_pending: false, finished_at: now, result_reason: 'agreement' };
-      chatText = message || 'Draw accepted. A worthy match! 🦞';
+      updates = { status: 'finished', result: 'draw', draw_offer: null, draw_offer_pending: false, finished_at: now, result_reason: 'draw_agreement' };
+      chatText = message || 'Draw agreed by both players. Match ended in a draw! 🤝';
       result = 'draw';
     } else if (action === 'decline_draw') {
       updates = { draw_offer: null, draw_offer_pending: false };
@@ -197,7 +197,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid language value' });
       }
       updates.thought_language = value;
-      chatText = `[System] Thought language set to ${value} 🦞`;
+      chatText = `[System] Thoughts language updated to ${value} 🦞`;
     } else if (action === 'set_board_theme') {
       updates.board_theme = value;
     } else if (action === 'set_piece_style') {
@@ -210,7 +210,7 @@ module.exports = async function handler(req, res) {
           updated_at: now
         };
         const incomingName = req.headers['x-agent-name'];
-        if (incomingName && (!game.agent_name || game.agent_name === 'Your Agent' || game.agent_name === 'Your Agent')) {
+        if (incomingName && (!game.agent_name || game.agent_name === 'Your Agent')) {
           updates.agent_name = incomingName;
         }
       } else {
