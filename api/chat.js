@@ -212,19 +212,25 @@ module.exports = async function handler(req, res) {
     .single();
 
   const existing = Array.isArray(gameRow?.chat_history) ? gameRow.chat_history : [];
+  const nowMs = Date.now();
+  const nowIso = new Date().toISOString();
   const newMsg = {
     id: msgId,
     role: sender,
+    sender: sender,
     text: text,
+    message: text,
     reply_to: replyTo,
-    timestamp: Date.now()
+    timestamp: nowMs,
+    ts: nowIso
   };
 
   const newHistory = [...existing, newMsg];
   
   const updates = {
     chat_history: newHistory,
-    last_action_at: new Date().toISOString()
+    last_action_at: nowIso,
+    updated_at: nowIso
   };
 
   if (sender === 'agent') {
@@ -306,8 +312,10 @@ module.exports = async function handler(req, res) {
   const updatedChatHistory = newHistory;
   return res.status(200).json({
     success: true,
+    game_id: gameId,
     message_id: savedMessage.id,
     message: savedMessage,
-    chat_count: updatedChatHistory.length
+    chat_count: updatedChatHistory.length,
+    chat_history: updatedChatHistory
   });
 }

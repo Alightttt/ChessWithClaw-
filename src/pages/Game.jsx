@@ -16,6 +16,7 @@ import StatusDot from '../components/ui/StatusDot';
 import Divider from '../components/ui/Divider';
 import Badge from '../components/ui/Badge';
 import { useRipple } from '../hooks/useRipple';
+import { recordDiagnostic } from '../lib/diagnostics';
 
 const LobsterEmoji = () => <span style={{fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontStyle:'normal'}}>🦞</span>;
 
@@ -212,6 +213,15 @@ export default function Game() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+
+  const getHumanId = useCallback(() => {
+    let id = localStorage.getItem('cwc_human_id');
+    if (!id) {
+      id = 'human_' + Math.random().toString(36).slice(2, 11);
+      localStorage.setItem('cwc_human_id', id);
+    }
+    return id;
+  }, []);
 
   
   const [game, setGame] = useState(null);
@@ -534,7 +544,7 @@ export default function Game() {
       return { ...prev, chat_history: updated };
     });
   
-    // Send to backend silently
+    // Send to backend
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -545,7 +555,9 @@ export default function Game() {
         emoji,
         reactor: 'agent'
       })
-    }).catch(() => {});
+    }).catch((err) => {
+      recordDiagnostic('chat', 'reaction_failed', { gameId, messageId: msgId, emoji }, err);
+    });
   };
 
   const handleMsgTouchStart = (msgId) => {
@@ -851,11 +863,17 @@ export default function Game() {
           'x-agent-token': agentToken || '', 'x-game-token': gameToken || ''
         },
         body: JSON.stringify({ gameId: gameId, action: 'heartbeat', role: 'agent' })
-      }).catch(() => {});
+      }).catch((err) => {
+        recordDiagnostic('heartbeat', 'request_failed', { gameId }, err);
+      });
       
       // Poll game state if it's the agent's turn to catch missed real-time events
       if (game?.turn !== (game?.player_color || 'w') && game?.status === 'active') {
-        supabase.from('games').select('turn, move_history').eq('id', gameId).single().then(({ data }) => {
+        supabase.from('games').select('turn, move_history').eq('id', gameId).single().then(({ data, error }) => {
+          if (error) {
+            recordDiagnostic('poll', 'agent_turn_check_failed', { gameId }, error);
+            return;
+          }
           if (data && data.turn === (game?.player_color || 'w')) {
             // Agent made a move but we missed the event, trigger a full reload
             document.dispatchEvent(new Event('visibilitychange'));
@@ -871,11 +889,15 @@ export default function Game() {
       if (rand < 0.3) {
         fetch(`/api/thoughts?gameId=${gameId}&trigger=idle_chat`, {
            headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }
-        }).catch(() => {});
+        }).catch((err) => {
+          recordDiagnostic('thought', 'idle_chat_failed', { gameId }, err);
+        });
       } else if (rand < 0.6) {
         fetch(`/api/thoughts?gameId=${gameId}&trigger=random_thought`, {
            headers: { 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }
-        }).catch(() => {});
+        }).catch((err) => {
+          recordDiagnostic('thought', 'random_thought_failed', { gameId }, err);
+        });
       }
     }, 45000);
 
@@ -985,11 +1007,15 @@ export default function Game() {
           prevFenRef.current = data.fen;
           setGame(data);
           setOptimisticFen(null);
-            setReviewMoveIndex(null);
+          setReviewMoveIndex(null);
         } else if (res.status === 404 || res.status === 401 || res.status === 403) {
           setNotFound(true);
+        } else {
+          recordDiagnostic('state', 'fetch_failed', { gameId, status: res.status });
         }
-      } catch (e) {}
+      } catch (e) {
+        recordDiagnostic('state', 'fetch_exception', { gameId }, e);
+      }
       setLoading(false);
 
       const channel = supabase
@@ -1010,14 +1036,18 @@ export default function Game() {
             setReviewMoveIndex(null);
 
             // Fetch fresh state to get moves from separate table
-            fetch(`/api/state?gameId=${gameId}`).then(res => res.json()).then(freshData => {
+            fetch(`/api/state?gameId=${gameId}`).then(res => {
+              if (!res.ok) throw new Error(`State refresh status: ${res.status}`);
+              return res.json();
+            }).then(freshData => {
               setGame(prev => {
                 const updated = { ...prev, ...newData };
                 if (freshData.move_history) updated.move_history = freshData.move_history;
                 if (freshData.chat_history) updated.chat_history = freshData.chat_history;
                 return updated;
               });
-            }).catch(() => {
+            }).catch((err) => {
+              recordDiagnostic('state', 'refresh_error', { gameId }, err);
               setGame(prev => ({
                 ...prev,
                 ...newData
@@ -1027,6 +1057,7 @@ export default function Game() {
         )
         .subscribe((status) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            recordDiagnostic('realtime', 'channel_status', { status, gameId });
             setTimeout(() => setupGameSubscription(), 3000);
           }
         });
@@ -1034,26 +1065,19 @@ export default function Game() {
     };
     setupGameSubscription();
     
-    const handleBeforeUnload = () => {
-      fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) })
-    };
-
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         setupGameSubscription();
       }
     };
     
-    window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibility);
-      try { fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) }) } catch(e) {}
     };
   }, [gameId, playSound, agentToken]);
 
@@ -1063,10 +1087,26 @@ export default function Game() {
       setTimeout(() => setConfirmResign(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'resign', gameId }) });
+    try {
+      const res = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' },
+        body: JSON.stringify({ action: 'resign', gameId })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        recordDiagnostic('resign', 'failed', { status: res.status, error: errData.error });
+        toast.error(errData.error || 'Failed to resign game');
+      } else {
+        toast('Resignation submitted');
+      }
+    } catch (err) {
+      recordDiagnostic('resign', 'network_error', { gameId }, err);
+      toast.error('Network error while resigning');
+    }
     setShowSettings(false);
     setConfirmResign(false);
-  }, [confirmResign, game?.player_color, gameId, agentToken]);
+  }, [confirmResign, game?.player_color, gameId, agentToken, gameToken, toast]);
 
   const handleDraw = useCallback(async () => {
     if (!confirmDraw) {
@@ -1074,10 +1114,26 @@ export default function Game() {
       setTimeout(() => setConfirmDraw(false), 3000);
       return;
     }
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({ action: 'offer_draw', gameId }) });
+    try {
+      const res = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' },
+        body: JSON.stringify({ action: 'offer_draw', gameId })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        recordDiagnostic('draw', 'failed', { status: res.status, error: errData.error });
+        toast.error(errData.error || 'Failed to offer draw');
+      } else {
+        toast.success('Draw offered to opponent');
+      }
+    } catch (err) {
+      recordDiagnostic('draw', 'network_error', { gameId }, err);
+      toast.error('Network error while offering draw');
+    }
     setShowSettings(false);
     setConfirmDraw(false);
-  }, [confirmDraw, gameId, agentToken]);
+  }, [confirmDraw, gameId, agentToken, gameToken, toast]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1090,7 +1146,7 @@ export default function Game() {
         setMoveHistoryOpen(prev => !prev);
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
-        const chatInput = document.getElementById('chat-input');
+        const chatInput = document.getElementById('chat-input') || document.getElementById('chat-input-mobile');
         if (chatInput) chatInput.focus();
       } else if (e.key === 'R' && e.shiftKey) {
         handleResign();
@@ -1102,15 +1158,6 @@ export default function Game() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [confirmResign, confirmDraw, handleDraw, handleResign]);
-
-  const getHumanId = () => {
-    let id = localStorage.getItem("cwc_human_id");
-    if (!id) {
-      id = Math.random().toString(36).substring(2);
-      localStorage.setItem("cwc_human_id", id);
-    }
-    return id;
-  };
 
   const makeMove = useCallback(async (from, to, promotion) => {
     if (!game || game.turn !== (game?.player_color || 'w') || game.status !== 'active') return;
@@ -1142,7 +1189,7 @@ export default function Game() {
         submittingRef.current = false;
         setBoardLocked(false);
         setOptimisticFen(null);
-            setReviewMoveIndex(null);
+        setReviewMoveIndex(null);
         setOptimisticLastMove(null);
         return;
       }
@@ -1185,6 +1232,7 @@ export default function Game() {
           const errData = await res.json().catch(() => ({}));
           setOptimisticFen(prevFen);
           setOptimisticLastMove(null);
+          recordDiagnostic('move', 'rejected', { from, to, promotion, code: errData.code, error: errData.error, status: res.status });
           
           if (errData.code === 'WAITING_FOR_AGENT') {
             toast(`Waiting for ${agentName} to join...`, {
@@ -1198,7 +1246,6 @@ export default function Game() {
           }
         } 
         // Realtime will clear submittingRef and boardLocked when it receives the move
-        // Setting it here to a timeout in case Realtime fails
         setTimeout(() => {
           if (submittingRef.current) {
             submittingRef.current = false;
@@ -1209,27 +1256,30 @@ export default function Game() {
       .catch((err) => {
         setOptimisticFen(prevFen);
         setOptimisticLastMove(null);
-        toast.error('Network error or failed to submit');
+        recordDiagnostic('move', 'network_error', { from, to, promotion }, err);
+        toast.error('Network error or failed to submit move');
         submittingRef.current = false;
         setBoardLocked(false);
       });
       
     } catch (e) {
+      recordDiagnostic('move', 'exception', { from, to }, e);
       toast.error(e.message || 'Illegal move or failed to submit');
       submittingRef.current = false;
       setBoardLocked(false);
       setOptimisticFen(null);
-            setReviewMoveIndex(null);
+      setReviewMoveIndex(null);
       setOptimisticLastMove(null);
     }
-  }, [game, boardLocked, gameId, toast, soundEnabled, agentToken]);
+  }, [game, boardLocked, gameId, toast, soundEnabled, agentToken, gameToken]);
 
   const sendMessage = async (e) => {
     e?.preventDefault();
     if (!chatInput.trim()) return;
     
     const text = chatInput;
-    setLocalMessages(prev => [...prev, { role: 'human', sender: 'human', text: text, timestamp: Date.now() }]);
+    const tempId = 'temp_' + Date.now();
+    setLocalMessages(prev => [...prev, { id: tempId, role: 'human', sender: 'human', text: text, message: text, timestamp: Date.now() }]);
     setChatInput('');
     
     try {
@@ -1243,22 +1293,51 @@ export default function Game() {
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
+        recordDiagnostic('chat', 'send_failed', { text, status: response.status, error: errData.error });
         toast.error(errData.error || 'Failed to send message', {
           style: { background: '#0e0e0e', border: '1px solid rgba(230,57,70,0.3)', color: '#f0f0f0' }
         });
-        throw new Error('Failed to send message');
+        setLocalMessages(prev => prev.filter(m => m.id !== tempId));
+        setChatInput(text);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        if (data?.chat_history) {
+          setGame(prev => prev ? { ...prev, chat_history: data.chat_history } : prev);
+        }
       }
     } catch (e) {
+      recordDiagnostic('chat', 'network_error', { text }, e);
       console.error('Failed to send message:', e);
+      toast.error('Network error sending message');
+      setLocalMessages(prev => prev.filter(m => m.id !== tempId));
+      setChatInput(text);
     }
   };
 
-
-
   async function acceptAgentResignation() {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' }, body: JSON.stringify({action: 'update', data: {
-      status: 'finished', result: game?.player_color === 'b' ? 'white' : 'black', result_reason: 'resignation'
-    }, gameId}) });
+    try {
+      const res = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken || '', 'x-game-token': gameToken || '' },
+        body: JSON.stringify({
+          action: 'update',
+          data: {
+            status: 'finished',
+            result: game?.player_color === 'b' ? 'white' : 'black',
+            result_reason: 'resignation'
+          },
+          gameId
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        recordDiagnostic('resign_accept', 'failed', { status: res.status, error: errData.error });
+        toast.error(errData.error || 'Failed to accept resignation');
+      }
+    } catch (err) {
+      recordDiagnostic('resign_accept', 'network_error', { gameId }, err);
+      toast.error('Network error accepting resignation');
+    }
   }
 
   function copyRoomCode() {
@@ -2378,173 +2457,181 @@ export default function Game() {
           )}
             </div>
             
-            {/* MOBILE BUTTONS */}
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: '16px', padding: '12px 16px', background: 'transparent', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 41 }}>
-                <button onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); setChatMobileOpen(false); }} style={{ flex: 1, height: '60px', background: 'linear-gradient(180deg, #46423f 0%, #3d3937 100%)', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: moveHistoryOpen ? '#e63946' : '#e0dbd9', cursor: 'pointer', transition: 'color 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                  <History size={28} />
+            {/* MOBILE BOTTOM CONTROLS & COMPOSER */}
+            <div style={{ position: 'relative', flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#1c1a19', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              {/* SLIDING DRAWERS (History & Chat Feed) */}
+              <AnimatePresence>
+                {moveHistoryOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 220, opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{
+                      background: '#161413',
+                      borderBottom: '1px solid rgba(255,255,255,0.08)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div 
+                      onClick={() => setMoveHistoryOpen(false)}
+                      style={{ minHeight: '36px', padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                    >
+                      <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '12px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.7)', letterSpacing: '0.05em' }}>
+                        MOVE HISTORY · {game?.move_history?.length || 0} MOVES
+                      </span>
+                      <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                    </div>
+                    <div 
+                      ref={moveHistoryScrollRef}
+                      style={{ overflowY: 'auto', padding: '8px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }} 
+                    >
+                      <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}>
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>Agent</div>
+                      </div>
+
+                      {(!game?.move_history || game.move_history.length === 0) ? (
+                        <div style={{ textAlign: 'center', padding: '16px 0', color: 'rgba(242,242,242,0.4)', fontSize: '13px', fontFamily: "'Inter', sans-serif" }}>No moves yet</div>
+                      ) : (
+                        Array.from({ length: Math.ceil((game?.move_history || []).length / 2) }).map((_, i) => {
+                          const youMove = game?.player_color === 'b' ? game.move_history[i * 2 + 1] : game.move_history[i * 2];
+                          const agentMove = game?.player_color === 'b' ? game.move_history[i * 2] : game.move_history[i * 2 + 1];
+                          return (
+                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '6px 0', fontFamily: "'Inter', sans-serif", fontSize: '13px', alignItems: 'center' }}>
+                              <div style={{ color: 'rgba(242,242,242,0.25)' }}>{i + 1}.</div>
+                              <div onClick={() => { if (youMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 + 1 : i * 2); }} style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:4, cursor: 'pointer' }}>
+                                {youMove?.san && (() => {
+                                  const { letter, rest } = sanToPieceImg(youMove.san, true, pieceTheme);
+                                  return (
+                                    <>
+                                      <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:14,height:14,objectFit:'contain'}}
+                                        onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
+                                      />
+                                      <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:12}}>{rest}</span>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                              <div onClick={() => { if (agentMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 : i * 2 + 1); }} style={{ color: '#e63946', display:'flex', alignItems:'center', gap:4, cursor: 'pointer' }}>
+                                {agentMove?.san && (() => {
+                                  const { letter, rest } = sanToPieceImg(agentMove.san, false, pieceTheme);
+                                  return (
+                                    <>
+                                      <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:14,height:14,objectFit:'contain'}}
+                                        onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
+                                      />
+                                      <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:12}}>{rest}</span>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {chatMobileOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 220, opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{
+                      background: '#161413',
+                      borderBottom: '1px solid rgba(255,255,255,0.08)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div 
+                      onClick={() => setChatMobileOpen(false)}
+                      style={{ minHeight: '36px', padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                    >
+                      <div style={{ color: 'rgba(242,242,242,0.7)', fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Chat with {agentName}
+                      </div>
+                      <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                    </div>
+                    <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }} className="scroll-smooth">
+                      {normalizedMessages.length === 0 ? (
+                        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '20px' }}><LobsterEmoji /></span>
+                          <span>{agentName} can chat while playing</span>
+                        </div>
+                      ) : (
+                        renderChatMessages()
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* ACTION TOGGLE ROW (Mobile) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', gap: '8px' }}>
+                <button 
+                  onClick={() => { setMoveHistoryOpen(!moveHistoryOpen); if (!moveHistoryOpen) setChatMobileOpen(false); }} 
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: moveHistoryOpen ? 'rgba(230,57,70,0.15)' : 'rgba(255,255,255,0.05)', border: moveHistoryOpen ? '1px solid rgba(230,57,70,0.4)' : '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: moveHistoryOpen ? '#e63946' : '#e0dbd9', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <History size={16} />
+                  <span>Moves ({game?.move_history?.length || 0})</span>
                 </button>
-                <button onClick={() => { setChatMobileOpen(!chatMobileOpen); setMoveHistoryOpen(false); }} style={{ flex: 1, height: '60px', background: 'linear-gradient(180deg, #46423f 0%, #3d3937 100%)', border: 'none', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: chatMobileOpen ? '#e63946' : '#e0dbd9', position: 'relative', cursor: 'pointer', transition: 'color 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                  <MessageSquare size={28} />
-                  {hasUnreadChat && (
-                    <div style={{ position: 'absolute', top: '12px', right: 'calc(50% - 16px)', width: '8px', height: '8px', background: '#e63946', borderRadius: '50%' }} />
+
+                <button 
+                  onClick={() => { setChatMobileOpen(!chatMobileOpen); if (!chatMobileOpen) setMoveHistoryOpen(false); }} 
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: chatMobileOpen ? 'rgba(230,57,70,0.15)' : 'rgba(255,255,255,0.05)', border: chatMobileOpen ? '1px solid rgba(230,57,70,0.4)' : '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: chatMobileOpen ? '#e63946' : '#e0dbd9', position: 'relative', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <MessageSquare size={16} />
+                  <span>Chat Feed</span>
+                  {hasUnreadChat && !chatMobileOpen && (
+                    <div style={{ width: '6px', height: '6px', background: '#e63946', borderRadius: '50%' }} />
                   )}
                 </button>
               </div>
-              
-              {/* MOBILE OVERLAYS (ABOVE BUTTONS) */}
-              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 50, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                {/* CHAT OVERLAY */}
-                <div style={{ 
-                  pointerEvents: chatMobileOpen ? 'auto' : 'none',
-                  opacity: chatMobileOpen ? 1 : 0,
-                  transform: chatMobileOpen ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'all 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                  background: '#1c1a19',
-                  borderTopLeftRadius: '16px',
-                  borderTopRightRadius: '16px',
-                  boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
-                  padding: '12px 16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  height: 'min(50vh, 270px)',
-                  position: 'absolute',
-                  bottom: 0, left: 0, right: 0,
-                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)',
-                  maskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)'
-                }}>
-                  <div 
-                    onClick={() => setChatMobileOpen(false)}
-                    style={{ minHeight: '44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}
-                  >
-                    <div style={{ color: 'rgba(242,242,242,0.6)', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Chat with {agentName}</div>
-                    <ChevronDown size={20} color="rgba(255,255,255,0.6)" style={{ transform: chatMobileOpen ? 'rotate(0deg)' : 'rotate(-180deg)', transition: 'transform 280ms ease-out' }} />
-                  </div>
-                  <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)', paddingBottom: '8px', paddingTop: '16px' }} className=" scroll-smooth">
-                    {normalizedMessages.length === 0 ? (
-                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', textAlign: 'center', margin: 'auto', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '24px' }}><LobsterEmoji /></span>
-                        <span>{agentName} can chat while playing</span>
-                      </div>
-                    ) : (
-                      renderChatMessages()
-                    )}
-                  </div>
-                  <form 
-                    onSubmit={sendMessage} 
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '48px', boxSizing: 'border-box' }}
-                  >
-                    <input
-                      id="chat-input-mobile"
-                      data-testid="chat-input-mobile"
-                      type="text"
-                      value={chatInput}
-                      onChange={handleChatInputChange}
-                      placeholder={isSpectator ? "Spectating..." : `Chat with ${agentName}...`}
-                      disabled={isSpectator}
-                      style={{ flex: 1, height: '44px', background: 'rgba(61,57,55,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '22px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
-                      onFocus={(e) => { e.target.style.background = 'rgba(61,57,55,1)'; e.target.style.borderColor = 'rgba(230,57,70,0.5)'; }}
-                      onBlur={(e) => { e.target.style.background = 'rgba(61,57,55,0.8)'; e.target.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                    />
-                    <button 
-                      data-testid="chat-send-mobile"
-                      type="submit"
-                      disabled={isSpectator || !chatInput.trim()}
-                      style={{ width: '44px', height: '44px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, transition: 'all 0.1s ease', boxShadow: (!isSpectator && chatInput.trim()) ? '0 4px 12px rgba(230,57,70,0.4)' : 'none' }}
-                      onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
-                      onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
-                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-                    >
-                      <Send size={18} />
-                    </button>
-                  </form>
-                </div>
 
-                {/* MOVE HISTORY OVERLAY */}
-                <div style={{ 
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  pointerEvents: moveHistoryOpen ? 'auto' : 'none',
-                  opacity: moveHistoryOpen ? 1 : 0,
-                  transform: moveHistoryOpen ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'all 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                  background: '#1c1a19',
-                  borderTopLeftRadius: '16px',
-                  borderTopRightRadius: '16px',
-                  boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  height: 'min(40vh, 230px)',
-                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)',
-                  maskImage: 'linear-gradient(to bottom, transparent 0px, black 20px)'
-                }}>
-                  <div 
-                    onClick={() => setMoveHistoryOpen(!moveHistoryOpen)}
-                    style={{ minHeight: '44px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', zIndex: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                  >
-                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.6)', letterSpacing: '0.05em' }}>
-                      MOVE HISTORY
-                    </span>
-                    <ChevronDown size={20} color="rgba(255,255,255,0.6)" style={{ transform: moveHistoryOpen ? 'rotate(0deg)' : 'rotate(-180deg)', transition: 'transform 280ms ease-out' }} />
-                  </div>
-                  <div 
-                    ref={moveHistoryScrollRef}
-                    style={{ overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '2px' }} 
-                    className=""
-                  >
-                    <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>#</div>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>You</div>
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: 'rgba(242,242,242,0.4)', textTransform: 'uppercase', fontWeight: 600 }}>Agent</div>
-                    </div>
-
-                    {(!game?.move_history || game.move_history.length === 0) ? (
-                      <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(242,242,242,0.4)', fontSize: '13px', fontFamily: "'Inter', sans-serif" }}>No moves yet</div>
-                    ) : (
-                      Array.from({ length: Math.ceil((game?.move_history || []).length / 2) }).map((_, i) => {
-                        const youMove = game?.player_color === 'b' ? game.move_history[i * 2 + 1] : game.move_history[i * 2];
-                        const agentMove = game?.player_color === 'b' ? game.move_history[i * 2] : game.move_history[i * 2 + 1];
-                        return (
-                          <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 1fr', gap: '8px', padding: '12px 0', fontFamily: "'Inter', sans-serif", fontSize: '14px', alignItems: 'center' }}>
-                            <div style={{ color: 'rgba(242,242,242,0.25)' }}>{i + 1}.</div>
-                            <div onClick={() => { if (youMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 + 1 : i * 2); }} style={{ color: '#f2f2f2', display:'flex', alignItems:'center', gap:4, cursor: 'pointer' }}>
-                              {youMove?.san && (() => {
-                                const { letter, rest } = sanToPieceImg(youMove.san, true, pieceTheme);
-                                return (
-                                  <>
-                                    <img src={pieceImgUrl(letter, true, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
-                                      onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/w${letter}.svg`;} }}
-                                    />
-                                    <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
-                                    {(youMove?.created_at || youMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(youMove.created_at || youMove.timestamp, game?.created_at)}</span>}
-                                  </>
-                                );
-                              })()}
-                            </div>
-                            <div onClick={() => { if (agentMove) setReviewMoveIndex(game.player_color === 'b' ? i * 2 : i * 2 + 1); }} style={{ color: '#e63946', display:'flex', alignItems:'center', gap:4, cursor: 'pointer' }}>
-                              {agentMove?.san && (() => {
-                                const { letter, rest } = sanToPieceImg(agentMove.san, false, pieceTheme);
-                                return (
-                                  <>
-                                    <img src={pieceImgUrl(letter, false, pieceTheme)} alt="" style={{width:15,height:15,objectFit:'contain'}}
-                                      onError={(e)=>{ if(!e.target.dataset.fb){e.target.dataset.fb='1'; e.target.src=`https://lichess1.org/assets/piece/cburnett/b${letter}.svg`;} }}
-                                    />
-                                    <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:13}}>{rest}</span>
-                                    {(agentMove?.created_at || agentMove?.timestamp) && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'rgba(242,242,242,0.35)' }}>{formatMoveTime(agentMove.created_at || agentMove.timestamp, game?.created_at)}</span>}
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-              
-              </div></div>
+              {/* ALWAYS-VISIBLE CHAT COMPOSER (Mobile) */}
+              <form 
+                id="chat-composer-mobile"
+                onSubmit={sendMessage} 
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px 10px', boxSizing: 'border-box', width: '100%' }}
+              >
+                <input
+                  id="chat-input-mobile"
+                  data-testid="chat-input-mobile"
+                  type="text"
+                  value={chatInput}
+                  onChange={handleChatInputChange}
+                  placeholder={isSpectator ? "Spectating..." : `Chat with ${agentName}...`}
+                  disabled={isSpectator}
+                  style={{ flex: 1, height: '42px', background: 'rgba(61,57,55,0.9)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '21px', color: '#f2f2f2', fontFamily: "'Inter', sans-serif", fontSize: '14px', padding: '0 16px', outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                  onFocus={(e) => { e.target.style.background = 'rgba(61,57,55,1)'; e.target.style.borderColor = 'rgba(230,57,70,0.6)'; }}
+                  onBlur={(e) => { e.target.style.background = 'rgba(61,57,55,0.9)'; e.target.style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                />
+                <button 
+                  id="chat-send-mobile"
+                  data-testid="chat-send-mobile"
+                  type="submit"
+                  disabled={isSpectator || !chatInput.trim()}
+                  style={{ width: '42px', height: '42px', background: (!isSpectator && chatInput.trim()) ? '#e63946' : 'rgba(230,57,70,0.5)', borderRadius: '21px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isSpectator && chatInput.trim()) ? 'pointer' : 'default', border: 'none', color: 'white', flexShrink: 0, transition: 'all 0.1s ease', boxShadow: (!isSpectator && chatInput.trim()) ? '0 4px 12px rgba(230,57,70,0.4)' : 'none' }}
+                  onMouseDown={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(0.92)'; } }}
+                  onMouseUp={(e) => { if(!isSpectator && chatInput.trim()) { e.currentTarget.style.transform = 'scale(1)'; } }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <Send size={18} />
+                </button>
+              </form>
             </div>
           </div>
-          
-          </div>{/* BOTTOM INFO BAR (Mobile) */}
+          {/* BOTTOM INFO BAR (Mobile) */}
           <BottomStatusBar agentConnected={agentConnected} game={game} agentName={agentName} isMobile={true} />
         </>
       )}

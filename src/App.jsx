@@ -50,7 +50,9 @@ function AnimatedRoutes() {
           />
           <Route path="/created/:id" element={<PageTransition key={location.key}><GameCreatedWrapper /></PageTransition>} />
           <Route path="/Agent" element={<PageTransition key={location.key}><Agent /></PageTransition>} />
+          <Route path="/agent" element={<PageTransition key={location.key}><Agent /></PageTransition>} />
           <Route path="/Board" element={<PageTransition key={location.key}><Agent /></PageTransition>} />
+          <Route path="/board" element={<PageTransition key={location.key}><Agent /></PageTransition>} />
           <Route path="/legal" element={<PageTransition key={location.key}><React.Suspense fallback={<div style={{minHeight:'100dvh',background:'#0a0a0a'}}/>}><Legal /></React.Suspense></PageTransition>} />
           <Route path="*" element={<PageTransition key={location.key}><NotFound /></PageTransition>} />
         </Routes>

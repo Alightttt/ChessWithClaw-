@@ -104,10 +104,76 @@ async function boardAscii(fen) {
 // Full, human-parity state — everything the person's own screen shows,
 // including exact timestamps, so the agent's situational awareness is
 // never thinner than what's rendered in front of the human.
+
+function computeStateRevisionAndCursor(game) {
+  const moveSeq = Array.isArray(game.move_history) ? game.move_history.length : 0;
+  const chatSeq = Array.isArray(game.chat_history) ? game.chat_history.length : 0;
+  const statusVal = game.status || 'waiting';
+  const drawVal = game.draw_offer_pending ? 1 : 0;
+  const turnVal = game.turn || 'w';
+  
+  const latest_event_sequence = moveSeq + chatSeq + (statusVal === 'finished' || statusVal === 'abandoned' ? 1 : 0) + (drawVal === 1 ? 1 : 0);
+  const state_revision = `rev_${moveSeq}m_${chatSeq}c_${turnVal}_${statusVal}_${drawVal}`;
+  const next_cursor = `cur_${moveSeq}_${chatSeq}_${turnVal}_${statusVal}_${drawVal}`;
+
+  return {
+    latest_event_sequence,
+    state_revision,
+    next_cursor,
+    moveSeq,
+    chatSeq,
+    statusVal,
+    drawVal,
+    turnVal
+  };
+}
+
+function parseCursor(cursorStr) {
+  if (!cursorStr || typeof cursorStr !== 'string') return null;
+  if (cursorStr.startsWith('cur_')) {
+    const parts = cursorStr.split('_');
+    if (parts.length >= 6) {
+      return {
+        moveSeq: parseInt(parts[1], 10) || 0,
+        chatSeq: parseInt(parts[2], 10) || 0,
+        turnVal: parts[3],
+        statusVal: parts[4],
+        drawVal: parseInt(parts[5], 10) || 0
+      };
+    }
+  }
+  const num = parseInt(cursorStr, 10);
+  if (!isNaN(num)) {
+    return { sequence: num };
+  }
+  return null;
+}
+
 async function serializeGameState(game) {
+  const normalizedChat = (game.chat_history || []).map((m) => ({
+    id: m.id || null,
+    role: m.role || m.sender || 'human',
+    sender: m.sender || m.role || 'human',
+    message: m.message || m.text || '',
+    text: m.text || m.message || '',
+    ts: m.ts || (m.timestamp ? new Date(m.timestamp).toISOString() : null),
+    timestamp: m.timestamp || (m.ts ? new Date(m.ts).getTime() : null),
+  }));
+
+  const humanMessages = normalizedChat.filter(m => m.role === 'human' || m.sender === 'human');
+  const lastHumanMessage = humanMessages.length > 0 ? humanMessages[humanMessages.length - 1] : null;
+
+  const revInfo = computeStateRevisionAndCursor(game);
+  
+  // Presence lease: active if agent_last_seen within 45s OR explicitly marked connected
+  const isAgentActive = game.agent_last_seen 
+    ? (Date.now() - new Date(game.agent_last_seen).getTime() < 45000)
+    : false;
+  const agentConnected = Boolean(game.agent_connected || isAgentActive);
+
   return {
     game_id: game.id,
-        invite_code: game.id,
+    invite_code: game.id,
     fen: game.fen,
     turn: game.turn,
     status: game.status,
@@ -121,13 +187,11 @@ async function serializeGameState(game) {
     move_count: Array.isArray(game.move_history) ? game.move_history.length : 0,
     move_history: game.move_history || [],
     board_ascii: await boardAscii(game.fen),
-    chat_history: (game.chat_history || []).map((m) => ({
-      role: m.role,
-      message: m.message,
-      ts: m.ts || null,
-    })),
+    chat_history: normalizedChat,
+    human_messages: humanMessages,
+    last_human_message: lastHumanMessage,
     agent_name: game.agent_name || null,
-    agent_connected: !!game.agent_connected,
+    agent_connected: agentConnected,
     agent_last_seen: game.agent_last_seen || null,
     human_last_seen: game.human_last_seen || null,
     player_color: game.player_color || 'w',
@@ -138,6 +202,9 @@ async function serializeGameState(game) {
     piece_style: game.piece_style || 'neo',
     thought_language: game.thought_language || 'english',
     updated_at: game.updated_at || null,
+    state_revision: revInfo.state_revision,
+    latest_event_sequence: revInfo.latest_event_sequence,
+    next_cursor: revInfo.next_cursor,
   };
 }
 
@@ -182,9 +249,13 @@ function buildServer() {
       title: 'Join a ChessWithClaw game',
       description:
         'Connects to a game using the invite code your human gave you. Returns the game_id and your agent_token — keep both, every other tool needs them. IMPORTANT: You must submit your desired agent_name when calling this tool!',
-      inputSchema: { invite_code: z.string(), agent_name: z.string().describe("Your chosen display name in the game (e.g. 'Claw'). MUST be provided.") },
+      inputSchema: { 
+        invite_code: z.string(), 
+        agent_name: z.string().describe("Your chosen display name in the game (e.g. 'Claw'). MUST be provided."),
+        agent_token: z.string().optional().describe("If reconnecting, the agent token previously assigned.")
+      },
     },
-    async ({ invite_code, agent_name }) => {
+    async ({ invite_code, agent_name, agent_token: incomingAgentToken }) => {
       const { data: game, error } = await getSupabase()
         .from('games')
         .select('*')
@@ -193,44 +264,76 @@ function buildServer() {
       if (error || !game) {
         return toolText({ error: `No game found for invite code "${invite_code}".` });
       }
+
+      // Safe reconnect protocol: duplicate join is idempotent for the same agent token.
+      // Reject a different agent only with an explicit conflict state.
+      if (game.agent_token) {
+        if (incomingAgentToken && incomingAgentToken !== game.agent_token) {
+          return toolText({
+            error: 'Game is already occupied by another agent.',
+            code: 'AGENT_CONFLICT',
+            status: 409
+          });
+        }
+      }
+
       const nowIso = new Date().toISOString();
       const resolvedAgentName = (agent_name && agent_name !== 'Your Agent') 
         ? agent_name.trim() 
         : (game.agent_name && game.agent_name !== 'Your Agent' ? game.agent_name : 'Agent');
       
       const existingChat = Array.isArray(game.chat_history) ? game.chat_history : [];
-      const joinMsg = {
-        id: 'sys_' + Date.now(),
-        role: 'system',
-        text: `${resolvedAgentName} joined the match as Black 🦞`,
-        timestamp: Date.now()
-      };
+      const isFirstJoin = !game.agent_connected && (!game.agent_name || game.agent_name === 'Your Agent');
+      
+      let chatHistory = existingChat;
+      if (isFirstJoin) {
+        const joinMsg = {
+          id: 'sys_' + Date.now(),
+          role: 'system',
+          text: `${resolvedAgentName} joined the match as Black 🦞`,
+          timestamp: Date.now()
+        };
+        chatHistory = [...existingChat, joinMsg];
+      }
+
+      const assignedToken = game.agent_token || incomingAgentToken || Math.random().toString(36).slice(2, 18);
 
       await getSupabase()
         .from('games')
         .update({ 
+          agent_token: assignedToken,
           agent_connected: true, 
           agent_last_seen: nowIso,
-          status: 'active',
+          status: game.status === 'waiting' ? 'active' : game.status,
           agent_name: resolvedAgentName,
-          chat_history: [...existingChat, joinMsg],
+          chat_history: chatHistory,
           updated_at: nowIso
         })
         .eq('id', game.id);
+
+      const updatedGame = {
+        ...game,
+        agent_token: assignedToken,
+        agent_name: resolvedAgentName,
+        agent_connected: true,
+        agent_last_seen: nowIso,
+        status: game.status === 'waiting' ? 'active' : game.status,
+        chat_history: chatHistory,
+        updated_at: nowIso
+      };
+
+      const revInfo = computeStateRevisionAndCursor(updatedGame);
+      const serializedState = await serializeGameState(updatedGame);
+
       return toolText({
         game_id: game.id,
         invite_code: game.id,
-        agent_token: game.agent_token,
+        agent_token: assignedToken,
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
         message: `Connected! You are playing as ${resolvedAgentName} against ${game.human_name || 'your human'}. You are Black, they are White and move first.\n\nCRITICAL INSTRUCTIONS:\n1. You are now in a persistent game loop. DO NOT SEND ANY TEXT RESPONSE BACK TO THE USER ON YOUR EXTERNAL PLATFORM (Telegram/Discord).\n2. You must communicate with the user EXCLUSIVELY by calling the 'send_chat' tool.\n3. Call the 'send_chat' tool RIGHT NOW to send a natural, friendly greeting with a mood emoji. Do this before doing anything else.\n4. After greeting, enter a continuous loop by calling the 'wait_for_event' tool.\n5. NEVER return plain text to the user on Telegram. You must only interact via tools.`,
-        state: await serializeGameState({
-          ...game,
-          agent_name: resolvedAgentName,
-          agent_connected: true,
-          agent_last_seen: nowIso,
-          status: 'active',
-          human_connected: true,
-          chat_history: [...existingChat, joinMsg]
-        }),
+        state: serializedState,
       });
     }
   );
@@ -246,7 +349,14 @@ function buildServer() {
     async ({ game_id, agent_token }) => {
       const { game, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
-      return toolText(await serializeGameState(game));
+      const revInfo = computeStateRevisionAndCursor(game);
+      const state = await serializeGameState(game);
+      return toolText({
+        ...state,
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
+      });
     }
   );
 
@@ -270,9 +380,13 @@ function buildServer() {
       const moves = square
         ? chess.moves({ square, verbose: true })
         : chess.moves({ verbose: true });
+      const revInfo = computeStateRevisionAndCursor(game);
       return toolText({
         square: square || null,
         legal_moves: moves.map((m) => ({ from: m.from, to: m.to, san: m.san, uci: m.from + m.to + (m.promotion || '') })),
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
       });
     }
   );
@@ -343,8 +457,9 @@ function buildServer() {
         by: 'agent',
         ts: nowIso,
       }];
+      const nowMs = Date.now();
       const chatHistory = chat
-        ? [...(game.chat_history || []), { role: 'agent', message: chat, ts: nowIso }]
+        ? [...(game.chat_history || []), { id: 'msg_' + nowMs, role: 'agent', text: chat, message: chat, timestamp: nowMs, ts: nowIso }]
         : (game.chat_history || []);
 
       await getSupabase().from('games').update({
@@ -361,16 +476,29 @@ function buildServer() {
         updated_at: nowIso,
       }).eq('id', game_id);
 
+      const updatedGame = {
+        ...game,
+        fen: newFen,
+        turn: chess.turn(),
+        status,
+        winner,
+        result: resultReason,
+        in_check: callChessMethod(chess, 'inCheck', 'in_check'),
+        move_history: moveHistory,
+        chat_history: chatHistory,
+        companion_thought: thought || game.companion_thought,
+        agent_last_seen: nowIso,
+        updated_at: nowIso
+      };
+
+      const revInfo = computeStateRevisionAndCursor(updatedGame);
       return toolText({
         accepted: true,
         san: result.san,
-        new_state: await serializeGameState({
-          ...game, fen: newFen, turn: chess.turn(), status, result: resultReason,
-          in_check: callChessMethod(chess, 'inCheck', 'in_check'), move_history: moveHistory, chat_history: chatHistory,
-          companion_thought: thought || game.companion_thought,
-          agent_last_seen: nowIso,
-          updated_at: nowIso
-        }),
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
+        new_state: await serializeGameState(updatedGame),
       });
     }
   );
@@ -385,14 +513,39 @@ function buildServer() {
     async ({ game_id, agent_token, message }) => {
       const { game, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
-      const chatHistory = [...(game.chat_history || []), {
-        role: 'agent', message, ts: new Date().toISOString(),
-      }];
+      const nowMs = Date.now();
+      const nowIso = new Date().toISOString();
+      const newMsg = {
+        id: 'msg_' + nowMs,
+        role: 'agent',
+        sender: 'agent',
+        text: message,
+        message: message,
+        timestamp: nowMs,
+        ts: nowIso,
+      };
+      const chatHistory = [...(game.chat_history || []), newMsg];
       await getSupabase().from('games').update({
         chat_history: chatHistory,
-        agent_last_seen: new Date().toISOString(),
+        agent_last_seen: nowIso,
+        updated_at: nowIso
       }).eq('id', game_id);
-      return toolText({ sent: true });
+
+      const updatedGame = {
+        ...game,
+        chat_history: chatHistory,
+        agent_last_seen: nowIso,
+        updated_at: nowIso
+      };
+
+      const revInfo = computeStateRevisionAndCursor(updatedGame);
+      return toolText({ 
+        sent: true,
+        message_id: newMsg.id,
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
+      });
     }
   );
 
@@ -416,14 +569,33 @@ function buildServer() {
         text: `${agentDisplayName} offered a draw. Do you accept? 🤝`,
         timestamp: Date.now()
       };
+      const nowIso = new Date().toISOString();
       await getSupabase().from('games').update({ 
         draw_offer_pending: true, 
         draw_offer_by: 'agent',
         draw_offer: 'agent',
         chat_history: [...existingChat, offerMsg],
-        updated_at: new Date().toISOString()
+        agent_last_seen: nowIso,
+        updated_at: nowIso
       }).eq('id', game_id);
-      return toolText({ offered: true });
+
+      const updatedGame = {
+        ...game,
+        draw_offer_pending: true,
+        draw_offer_by: 'agent',
+        draw_offer: 'agent',
+        chat_history: [...existingChat, offerMsg],
+        agent_last_seen: nowIso,
+        updated_at: nowIso
+      };
+      const revInfo = computeStateRevisionAndCursor(updatedGame);
+
+      return toolText({ 
+        offered: true,
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
+      });
     }
   );
 
@@ -444,6 +616,9 @@ function buildServer() {
       const existingChat = Array.isArray(game.chat_history) ? game.chat_history : [];
       const nowIso = new Date().toISOString();
 
+      let chatHistory = existingChat;
+      let updatePayload = {};
+
       if (accept) {
         const acceptMsg = {
           id: 'sys_' + Date.now(),
@@ -451,16 +626,18 @@ function buildServer() {
           text: `${agentDisplayName} accepted the draw. Game drawn by agreement! 🤝`,
           timestamp: Date.now()
         };
-        await getSupabase().from('games').update({
+        chatHistory = [...existingChat, acceptMsg];
+        updatePayload = {
           status: 'finished', 
           result: 'draw', 
           result_reason: 'draw_agreement',
           draw_offer_pending: false,
           draw_offer: null,
-          chat_history: [...existingChat, acceptMsg],
+          chat_history: chatHistory,
+          agent_last_seen: nowIso,
           finished_at: nowIso,
           updated_at: nowIso
-        }).eq('id', game_id);
+        };
       } else {
         const declineMsg = {
           id: 'sys_' + Date.now(),
@@ -468,14 +645,29 @@ function buildServer() {
           text: `${agentDisplayName} declined the draw offer. The game continues!`,
           timestamp: Date.now()
         };
-        await getSupabase().from('games').update({ 
+        chatHistory = [...existingChat, declineMsg];
+        updatePayload = { 
           draw_offer_pending: false,
           draw_offer: null,
-          chat_history: [...existingChat, declineMsg],
+          chat_history: chatHistory,
+          agent_last_seen: nowIso,
           updated_at: nowIso
-        }).eq('id', game_id);
+        };
       }
-      return toolText({ accepted: accept });
+      await getSupabase().from('games').update(updatePayload).eq('id', game_id);
+
+      const updatedGame = {
+        ...game,
+        ...updatePayload
+      };
+      const revInfo = computeStateRevisionAndCursor(updatedGame);
+
+      return toolText({ 
+        accepted: accept,
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
+      });
     }
   );
 
@@ -489,10 +681,29 @@ function buildServer() {
     async ({ game_id, agent_token }) => {
       const { game, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
-      await getSupabase().from('games').update({
-        status: 'finished', result: 'resignation'
-      }).eq('id', game_id);
-      return toolText({ resigned: true });
+      const nowIso = new Date().toISOString();
+      const updatePayload = {
+        status: 'finished',
+        result: 'resignation',
+        winner: 'white',
+        agent_last_seen: nowIso,
+        finished_at: nowIso,
+        updated_at: nowIso
+      };
+      await getSupabase().from('games').update(updatePayload).eq('id', game_id);
+
+      const updatedGame = {
+        ...game,
+        ...updatePayload
+      };
+      const revInfo = computeStateRevisionAndCursor(updatedGame);
+
+      return toolText({ 
+        resigned: true,
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
+      });
     }
   );
 
@@ -507,9 +718,14 @@ function buildServer() {
     async ({ agent_name }) => {
       const Chess = await getChessClass();
       const agentToken = Math.random().toString(36).slice(2, 18);
+      const secretToken = Math.random().toString(36).slice(2, 18);
+      const nowIso = new Date().toISOString();
       const { data: game, error } = await getSupabase().from('games').insert({
         agent_token: agentToken,
+        secret_token: secretToken,
         agent_name: agent_name || null,
+        agent_connected: true,
+        agent_last_seen: nowIso,
         fen: new Chess().fen(),
         turn: 'w',
         status: 'waiting',
@@ -518,12 +734,17 @@ function buildServer() {
         chat_history: [],
       }).select().single();
       if (error) return toolText({ error: 'Could not create game.' });
+
+      const revInfo = computeStateRevisionAndCursor(game);
       return toolText({
         game_id: game.id,
         invite_code: game.id,
         agent_token: agentToken,
         share_url: `https://chesswithclaw.vercel.app/created/${game.id}`,
         message: 'Game created. Share the share_url (or invite_code) with your human to start.',
+        state_revision: revInfo.state_revision,
+        latest_event_sequence: revInfo.latest_event_sequence,
+        next_cursor: revInfo.next_cursor,
       });
     }
   );
@@ -533,42 +754,160 @@ function buildServer() {
     {
       title: 'Wait for your turn, a chat message, or a draw offer (long-poll)',
       description:
-        'Holds the connection open, checking every couple seconds, for up to ~20 seconds. Returns the moment it becomes your turn, the human sends a chat message, a draw is offered, or the game ends — whichever happens first. Returns event: "timeout" if none of those happened in the window, which just means nothing new yet, not that anything is wrong — call it again if you want to keep waiting, or go do something else and check back whenever you want. Use this instead of repeatedly calling get_game_state in a tight loop. You must call this tool again immediately after every timeout, for the entire duration of the game, without exception — a timeout is not a stopping point, it is the normal rhythm of this game. Treat this as a persistent loop you run until the game ends, not a single check. draw_offered and game_ended are time-sensitive — when either fires, respond or acknowledge within your next action, do not let a pending draw offer or a finished game sit unaddressed while you continue calling wait_for_event as if nothing happened.',
+        'Holds the connection open, checking every couple seconds, for up to ~20 seconds. Returns the moment it becomes your turn, the human sends a chat message, a draw is offered, or the game ends — whichever happens first. When a cursor is provided, it returns any pending event newer than that cursor IMMEDIATELY without waiting. Returns event: "timeout" if none of those happened in the window. Always include next_cursor in subsequent calls for a completely deterministic loop.',
       inputSchema: {
         game_id: z.string(),
         agent_token: z.string(),
+        cursor: z.string().optional().describe('Event cursor from previous response. If provided, returns immediately if new events exist since this cursor.'),
+        since_cursor: z.string().optional().describe('Alias for cursor'),
+        since_sequence: z.number().optional().describe('Sequence number from previous response'),
         max_wait_seconds: z.number().optional().describe('Default and hard cap 20 seconds — Vercel function duration limits, not a design choice.'),
       },
     },
-    async ({ game_id, agent_token, max_wait_seconds }) => {
+    async ({ game_id, agent_token, cursor, since_cursor, since_sequence, max_wait_seconds }) => {
       const { game: initial, error } = await requireAuthedGame(game_id, agent_token);
       if (error) return toolText({ error });
-      const initialChatCount = (initial.chat_history || []).length;
+
+      const effectiveCursor = cursor || since_cursor || null;
+      const parsedCursor = parseCursor(effectiveCursor);
+
+      // Check current state immediately against the cursor
+      const currentRev = computeStateRevisionAndCursor(initial);
+
+      if (parsedCursor && parsedCursor.moveSeq !== undefined) {
+        // 1. Terminal event check
+        if ((initial.status === 'finished' || initial.status === 'abandoned') && (parsedCursor.statusVal !== 'finished' && parsedCursor.statusVal !== 'abandoned')) {
+          return toolText({
+            event: 'game_ended',
+            state_revision: currentRev.state_revision,
+            latest_event_sequence: currentRev.latest_event_sequence,
+            next_cursor: currentRev.next_cursor,
+            state: await serializeGameState(initial)
+          });
+        }
+        // 2. Draw offer check
+        if (initial.draw_offer_pending && parsedCursor.drawVal === 0) {
+          return toolText({
+            event: 'draw_offered',
+            state_revision: currentRev.state_revision,
+            latest_event_sequence: currentRev.latest_event_sequence,
+            next_cursor: currentRev.next_cursor,
+            state: await serializeGameState(initial)
+          });
+        }
+        // 3. New chat check
+        if (currentRev.chatSeq > parsedCursor.chatSeq) {
+          const serialized = await serializeGameState(initial);
+          const newMessages = (serialized.chat_history || []).slice(parsedCursor.chatSeq);
+          return toolText({
+            event: 'new_chat',
+            new_messages: newMessages,
+            latest_message: newMessages[newMessages.length - 1] || null,
+            state_revision: currentRev.state_revision,
+            latest_event_sequence: currentRev.latest_event_sequence,
+            next_cursor: currentRev.next_cursor,
+            state: serialized
+          });
+        }
+        // 4. Turn check (Human made a move)
+        if (initial.turn === 'b' && initial.status === 'active' && (parsedCursor.turnVal !== 'b' || currentRev.moveSeq > parsedCursor.moveSeq)) {
+          return toolText({
+            event: 'your_turn',
+            state_revision: currentRev.state_revision,
+            latest_event_sequence: currentRev.latest_event_sequence,
+            next_cursor: currentRev.next_cursor,
+            state: await serializeGameState(initial)
+          });
+        }
+      } else if (!effectiveCursor) {
+        // If no cursor was provided and it is already Black's turn in an active game:
+        if (initial.turn === 'b' && initial.status === 'active') {
+          return toolText({
+            event: 'your_turn',
+            state_revision: currentRev.state_revision,
+            latest_event_sequence: currentRev.latest_event_sequence,
+            next_cursor: currentRev.next_cursor,
+            state: await serializeGameState(initial)
+          });
+        }
+        if (initial.status === 'finished' || initial.status === 'abandoned') {
+          return toolText({
+            event: 'game_ended',
+            state_revision: currentRev.state_revision,
+            latest_event_sequence: currentRev.latest_event_sequence,
+            next_cursor: currentRev.next_cursor,
+            state: await serializeGameState(initial)
+          });
+        }
+      }
+
+      // No immediate pending event newer than cursor — begin long-polling
+      const initialChatCount = parsedCursor?.chatSeq !== undefined ? parsedCursor.chatSeq : (initial.chat_history || []).length;
+      const initialMoveCount = parsedCursor?.moveSeq !== undefined ? parsedCursor.moveSeq : (initial.move_history || []).length;
+      const initialStatus = parsedCursor?.statusVal || initial.status;
+      const initialDrawOffer = parsedCursor?.drawVal !== undefined ? (parsedCursor.drawVal === 1) : Boolean(initial.draw_offer_pending);
+      const initialTurn = parsedCursor?.turnVal || initial.turn;
+
       const cappedSeconds = Math.min(Math.max(max_wait_seconds || 20, 1), 20);
       const deadline = Date.now() + cappedSeconds * 1000;
 
       while (Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 1200));
         const fresh = await loadGame(game_id);
         if (!fresh) continue;
 
-        if (fresh.status === 'finished' && initial.status !== 'finished') {
-          return toolText({ event: 'game_ended', state: await serializeGameState(fresh) });
+        const freshRev = computeStateRevisionAndCursor(fresh);
+
+        if ((fresh.status === 'finished' || fresh.status === 'abandoned') && (initialStatus !== 'finished' && initialStatus !== 'abandoned')) {
+          return toolText({ 
+            event: 'game_ended', 
+            state_revision: freshRev.state_revision,
+            latest_event_sequence: freshRev.latest_event_sequence,
+            next_cursor: freshRev.next_cursor,
+            state: await serializeGameState(fresh) 
+          });
         }
-        if (fresh.draw_offer_pending && !initial.draw_offer_pending) {
-          return toolText({ event: 'draw_offered', state: await serializeGameState(fresh) });
+        if (fresh.draw_offer_pending && !initialDrawOffer) {
+          return toolText({ 
+            event: 'draw_offered', 
+            state_revision: freshRev.state_revision,
+            latest_event_sequence: freshRev.latest_event_sequence,
+            next_cursor: freshRev.next_cursor,
+            state: await serializeGameState(fresh) 
+          });
         }
         if ((fresh.chat_history || []).length > initialChatCount) {
-          return toolText({ event: 'new_chat', state: await serializeGameState(fresh) });
+          const serialized = await serializeGameState(fresh);
+          const newMessages = (serialized.chat_history || []).slice(initialChatCount);
+          return toolText({
+            event: 'new_chat',
+            new_messages: newMessages,
+            latest_message: newMessages[newMessages.length - 1] || null,
+            state_revision: freshRev.state_revision,
+            latest_event_sequence: freshRev.latest_event_sequence,
+            next_cursor: freshRev.next_cursor,
+            state: serialized
+          });
         }
-        if (fresh.turn === 'b' && fresh.status === 'active' && initial.turn !== 'b') {
-          return toolText({ event: 'your_turn', state: await serializeGameState(fresh) });
+        if (fresh.turn === 'b' && fresh.status === 'active' && (initialTurn !== 'b' || (fresh.move_history || []).length > initialMoveCount)) {
+          return toolText({ 
+            event: 'your_turn', 
+            state_revision: freshRev.state_revision,
+            latest_event_sequence: freshRev.latest_event_sequence,
+            next_cursor: freshRev.next_cursor,
+            state: await serializeGameState(fresh) 
+          });
         }
       }
+
+      const timeoutRev = computeStateRevisionAndCursor(initial);
       return toolText({
         event: 'timeout',
+        state_revision: timeoutRev.state_revision,
+        latest_event_sequence: timeoutRev.latest_event_sequence,
+        next_cursor: timeoutRev.next_cursor,
         state: await serializeGameState(initial),
-        INSTRUCTION_DO_NOT_REPLY_ON_TELEGRAM: 'Nothing happened yet. YOU MUST CALL wait_for_event AGAIN IMMEDIATELY to keep listening. Do NOT send a text message to the user.'
+        INSTRUCTION_DO_NOT_REPLY_ON_TELEGRAM: 'Nothing happened yet. YOU MUST CALL wait_for_event AGAIN IMMEDIATELY using cursor: "' + timeoutRev.next_cursor + '" to keep listening. Do NOT send a text message to the user.'
       });
     }
   );

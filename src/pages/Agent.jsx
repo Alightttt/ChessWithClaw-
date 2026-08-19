@@ -768,26 +768,19 @@ export default function Agent() {
     };
     setupGameSubscription();
     
-    const handleBeforeUnload = () => {
-      fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) })
-    };
-
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         setupGameSubscription();
       }
     };
     
-    window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibility);
-      try { fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken }, body: JSON.stringify({action: 'update', data: { agent_connected: false }, gameId}) }) } catch(e) {}
     };
   }, [gameId, playSound, agentToken]);
 

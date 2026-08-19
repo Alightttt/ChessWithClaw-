@@ -71,16 +71,114 @@ const NumberCounter = ({ count }) => {
 
 
 const OliveBranch = ({ className, style, left }) => (
-  <svg viewBox="0 0 100 310" className={`h-[300px] sm:h-[390px] md:h-[505px] lg:h-[575px] w-auto text-[#f2f2f2] opacity-[0.25] ${className || ''}`} style={{ ...style, transform: left ? 'scaleX(-1)' : 'none' }}>
-    <path d="M 55 295 Q 10 150 60 10" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.4"/>
-    <ellipse cx="52.4" cy="273.3" rx="6.2" ry="16.2" transform="rotate(94.4 52.4 273.3)" fill="currentColor" opacity="0.55"/>
-    <ellipse cx="45.2" cy="240.9" rx="5.9" ry="15.4" transform="rotate(151.8 45.2 240.9)" fill="currentColor" opacity="0.55"/>
-    <ellipse cx="42.1" cy="209.5" rx="5.6" ry="14.6" transform="rotate(76.4 42.1 209.5)" fill="currentColor" opacity="0.55"/>
-    <ellipse cx="42.4" cy="178.9" rx="5.3" ry="13.9" transform="rotate(163.6 42.4 178.9)" fill="currentColor" opacity="0.55"/>
-    <ellipse cx="45.9" cy="149.3" rx="5.0" ry="13.1" transform="rotate(58.4 45.9 149.3)" fill="currentColor" opacity="0.55"/>
-    <ellipse cx="52.4" cy="120.6" rx="4.7" ry="12.3" transform="rotate(175.4 52.4 120.6)" fill="currentColor" opacity="0.55"/>
-    <ellipse cx="61.5" cy="92.7" rx="4.4" ry="11.6" transform="rotate(40.4 61.5 92.7)" fill="currentColor" opacity="0.55"/>
-    <ellipse cx="72.9" cy="65.8" rx="4.1" ry="10.8" transform="rotate(187.2 72.9 65.8)" fill="currentColor" opacity="0.55"/>
+  <svg 
+    viewBox="0 0 110 370" 
+    className={`h-[280px] sm:h-[380px] md:h-[480px] lg:h-[540px] w-auto text-[#f2f2f2] opacity-[0.35] hover:opacity-[0.5] transition-opacity duration-300 pointer-events-none select-none ${className || ''}`} 
+    style={{ ...style, transform: left ? 'scaleX(-1)' : 'none' }}
+    aria-hidden="true"
+  >
+    <defs>
+      {/* Botanical lanceolate olive leaf definition */}
+      <g id="award-olive-leaf">
+        <path 
+          d="M 0 0 C -4.5 -7, -7 -17, 0 -27 C 7 -17, 4.5 -7, 0 0 Z" 
+          fill="currentColor" 
+        />
+        <path 
+          d="M 0 -1 L 0 -22" 
+          stroke="rgba(0,0,0,0.25)" 
+          strokeWidth="0.75" 
+          strokeLinecap="round"
+        />
+      </g>
+      <g id="award-olive-berry">
+        <circle cx="0" cy="0" r="2.2" fill="currentColor" opacity="0.85" />
+      </g>
+    </defs>
+
+    {/* Gracefully curving central laurel bough stem */}
+    <path 
+      d="M 72 352 C 18 252, 14 110, 62 16" 
+      stroke="currentColor" 
+      strokeWidth="2.8" 
+      fill="none" 
+      strokeLinecap="round" 
+      opacity="0.8"
+    />
+
+    {/* Node 0: Base */}
+    <g transform="translate(60.0, 325.3)">
+      <use href="#award-olive-leaf" transform="rotate(-151.5) scale(0.78)" />
+      <use href="#award-olive-leaf" transform="rotate(-81.5) scale(0.72)" />
+      <use href="#award-olive-berry" transform="translate(2, -1)" />
+    </g>
+
+    {/* Node 1 */}
+    <g transform="translate(47.7, 292.6)">
+      <use href="#award-olive-leaf" transform="rotate(-147.8) scale(0.88)" />
+      <use href="#award-olive-leaf" transform="rotate(-73.8) scale(0.80)" />
+      <use href="#award-olive-berry" transform="translate(-2, 1)" />
+    </g>
+
+    {/* Node 2 */}
+    <g transform="translate(38.4, 258.5)">
+      <use href="#award-olive-leaf" transform="rotate(-144.6) scale(0.96)" />
+      <use href="#award-olive-leaf" transform="rotate(-67.6) scale(0.88)" />
+      <use href="#award-olive-berry" transform="translate(1.5, -2)" />
+    </g>
+
+    {/* Node 3 */}
+    <g transform="translate(32.2, 223.4)">
+      <use href="#award-olive-leaf" transform="rotate(-139.6) scale(1.02)" />
+      <use href="#award-olive-leaf" transform="rotate(-61.6) scale(0.94)" />
+      <use href="#award-olive-berry" transform="translate(-2, -1)" />
+    </g>
+
+    {/* Node 4: Mid-crest peak width */}
+    <g transform="translate(29.0, 187.9)">
+      <use href="#award-olive-leaf" transform="rotate(-135.7) scale(1.02)" />
+      <use href="#award-olive-leaf" transform="rotate(-56.7) scale(0.94)" />
+      <use href="#award-olive-berry" transform="translate(2, 0)" />
+    </g>
+
+    {/* Node 5 */}
+    <g transform="translate(28.9, 152.4)">
+      <use href="#award-olive-leaf" transform="rotate(-129.7) scale(0.98)" />
+      <use href="#award-olive-leaf" transform="rotate(-52.7) scale(0.90)" />
+      <use href="#award-olive-berry" transform="translate(-1.5, 1.5)" />
+    </g>
+
+    {/* Node 6 */}
+    <g transform="translate(31.8, 117.6)">
+      <use href="#award-olive-leaf" transform="rotate(-122.6) scale(0.92)" />
+      <use href="#award-olive-leaf" transform="rotate(-48.6) scale(0.84)" />
+      <use href="#award-olive-berry" transform="translate(2, -1)" />
+    </g>
+
+    {/* Node 7 */}
+    <g transform="translate(37.8, 83.8)">
+      <use href="#award-olive-leaf" transform="rotate(-115.1) scale(0.85)" />
+      <use href="#award-olive-leaf" transform="rotate(-45.1) scale(0.76)" />
+      <use href="#award-olive-berry" transform="translate(-1, -2)" />
+    </g>
+
+    {/* Node 8 */}
+    <g transform="translate(47.0, 51.7)">
+      <use href="#award-olive-leaf" transform="rotate(-107.1) scale(0.76)" />
+      <use href="#award-olive-leaf" transform="rotate(-41.1) scale(0.68)" />
+      <use href="#award-olive-berry" transform="translate(1.5, 0)" />
+    </g>
+
+    {/* Node 9: Upper taper */}
+    <g transform="translate(56.5, 27.5)">
+      <use href="#award-olive-leaf" transform="rotate(-99.8) scale(0.68)" />
+      <use href="#award-olive-leaf" transform="rotate(-37.8) scale(0.60)" />
+    </g>
+
+    {/* Apex Crown Leaf at tip of branch */}
+    <g transform="translate(62, 16)">
+      <use href="#award-olive-leaf" transform="rotate(-66) scale(0.75)" />
+    </g>
   </svg>
 );
 
