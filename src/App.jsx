@@ -1,10 +1,15 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useParams, Navigate } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import PageTransition from './components/PageTransition';
 import ScrollToTop from './components/ScrollToTop';
 import CookieBanner from './components/CookieBanner';
 import PushNotificationManager from './components/PushNotificationManager';
+
+const AliasRedirect = ({ to }) => {
+  const { id } = useParams();
+  return <Navigate to={`${to}/${id}`} replace />;
+};
 
 import Home from './pages/Home';
 import Game from './pages/Game';
@@ -44,11 +49,16 @@ function AnimatedRoutes() {
       <div key={location.pathname} className="page-transition">
         <Routes location={location}>
           <Route path="/" element={<PageTransition key={location.key}><Home /></PageTransition>} />
-          <Route 
-            path="/game/:id" 
-            element={<PageTransition key={location.key}><Game /></PageTransition>} 
+          <Route
+            path="/game/:id"
+            element={<PageTransition key={location.key}><Game /></PageTransition>}
           />
           <Route path="/created/:id" element={<PageTransition key={location.key}><GameCreatedWrapper /></PageTransition>} />
+          {/* Aliases — QA hit /play/:id → map to /game/:id */}
+          <Route path="/play/:id" element={<AliasRedirect to="/game" />} />
+          <Route path="/match/:id" element={<AliasRedirect to="/game" />} />
+          <Route path="/room/:id" element={<AliasRedirect to="/game" />} />
+          <Route path="/p/:id" element={<AliasRedirect to="/game" />} />
           <Route path="/Agent" element={<PageTransition key={location.key}><Agent /></PageTransition>} />
           <Route path="/agent" element={<PageTransition key={location.key}><Agent /></PageTransition>} />
           <Route path="/Board" element={<PageTransition key={location.key}><Agent /></PageTransition>} />

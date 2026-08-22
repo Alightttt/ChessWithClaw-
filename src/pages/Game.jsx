@@ -299,7 +299,7 @@ export default function Game() {
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const lastChatLenRef = useRef(0);
   const [agentSectionOpen, setAgentSectionOpen] = useState(false);
-  const [moveHistoryOpen, setMoveHistoryOpen] = useState(false);
+  const [moveHistoryOpen, setMoveHistoryOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
   const [showStatusPopover, setShowStatusPopover] = useState(false);
   const [currentThought, setCurrentThought] = useState(null);
   const [previousThought, setPreviousThought] = useState(null);
@@ -1758,15 +1758,19 @@ export default function Game() {
   );
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      className={`relative text-white font-sans selection:bg-red-500/30 transition-colors duration-700 box-border  bg-[#2c2826]`}
+      className={`relative text-white font-sans selection:bg-red-500/30 box-border ${isOpenClawTurn ? 'is-thinking' : ''}`}
       style={{
         height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        background: isOpenClawTurn
+          ? 'radial-gradient(ellipse 900px 500px at 38% 18%, rgba(230,57,70,0.07) 0%, transparent 55%), #0a0a0a'
+          : '#0a0a0a',
+        transition: 'background 600ms ease',
       }}
     >
             <AnimatePresence>
@@ -2005,8 +2009,8 @@ export default function Game() {
         </div>
       )}
       
-      {/* HEADER (Fixed) */}
-      <header style={{ height: '52px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: 'none', background: '#2c2826', zIndex: 50, position: 'sticky', top: 0 }}>
+        {/* HEADER (Fixed) — translucent material */}
+      <header style={{ height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,10,10,0.72)', backdropFilter: 'blur(16px) saturate(1.15)', WebkitBackdropFilter: 'blur(16px) saturate(1.15)', zIndex: 50, position: 'sticky', top: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '44px', minHeight: '44px', cursor: 'pointer' }} onClick={handleGoHome}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(242,242,242,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -2014,20 +2018,22 @@ export default function Game() {
           </svg>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-          <img 
-            src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/logo-v2.png" 
-            alt="ChessWithClaw Logo" 
+          <img
+            src="https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/logo-v2.png"
+            alt="ChessWithClaw Logo"
             draggable={false}
+            onClick={handleGoHomeWithRipple}
             onContextMenu={(e) => e.preventDefault()}
-            style={{ 
-              height: '44px',
+            style={{
+              height: '36px',
               width: 'auto',
               objectFit: 'contain',
               userSelect: 'none',
               WebkitUserSelect: 'none',
               WebkitTouchCallout: 'none',
-              pointerEvents: 'none'
-            }} 
+              cursor: 'pointer',
+              filter: 'drop-shadow(0 1px 8px rgba(230,57,70,0.18))',
+            }}
           />
         </div>
         <button 
@@ -2041,9 +2047,9 @@ export default function Game() {
       </header>
       {/* MAIN CONTENT AREA - RESPONSIVE */}
       {isDesktop ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', minHeight: 0 }}>
-          {/* LEFT DESKTOP COLUMN */}
-          <div style={{ width: '56%', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '12px 8px 12px 16px', gap: '8px', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', minHeight: 0, gap: 0 }}>
+          {/* LEFT DESKTOP COLUMN — board + presence */}
+          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', padding: '16px 14px 14px 18px', gap: '10px', overflow: 'hidden', alignItems: 'center' }}>
             
         
                                     {/* A) AGENT CARD */}
@@ -2054,7 +2060,7 @@ export default function Game() {
               {/* Left Column: Emoji & Name Pill */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
                 <span style={{ 
-                  fontSize: '56px', 
+                  fontSize: '42px', 
                   lineHeight: 1, 
                   userSelect: 'none',
                   display: 'flex',
@@ -2132,7 +2138,7 @@ export default function Game() {
               {/* Left Column: Emoji & Name Pill */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
                 <span style={{ 
-                  fontSize: '56px', 
+                  fontSize: '42px', 
                   lineHeight: 1, 
                   userSelect: 'none',
                   transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)',
@@ -2211,11 +2217,10 @@ export default function Game() {
           )}
         </div>
 
-                    {/* B) CHESS BOARD */}
-        <div style={{ width: '100%', flex: 1, position: 'relative', padding: '0', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-          <div style={{ width: 'min(100%, calc(100vh - 52px - 72px - 48px - 32px))', aspectRatio: '1/1', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-          
-          <div style={{ borderRadius: "4px", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.4)", width: "100%", position: "relative", transition: "box-shadow 0.8s ease" }}>
+                    {/* B) CHESS BOARD — uses computed boardSize for pixel-perfect fit */}
+        <div style={{ width: '100%', flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 0, gap: 8 }}>
+          <div style={{ width: Math.min(boardSize, 560), height: Math.min(boardSize, 560), maxWidth: '100%', maxHeight: '100%', aspectRatio: '1/1', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ borderRadius: "8px", overflow: "hidden", boxShadow: isOpenClawTurn ? "0 12px 36px rgba(0,0,0,0.5), 0 0 28px rgba(230,57,70,0.10)" : "0 8px 24px rgba(0,0,0,0.45)", width: "100%", height: "100%", position: "relative", transition: "box-shadow 600ms ease", border: "1px solid rgba(255,255,255,0.06)" }}>
             {reviewMoveIndex !== null && (
               <div style={{ position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }}>
                 <button 
@@ -2268,24 +2273,34 @@ export default function Game() {
         </div></div>
         {/* STEP 4: BOTTOM INFO BAR */}
       <BottomStatusBar agentConnected={agentConnected} game={game} agentName={agentName} isMobile={false} />
-          {/* RIGHT DESKTOP COLUMN */}
-          <div style={{ width: '40%', minWidth: '380px', display: 'flex', flexDirection: 'column', padding: '12px 16px 12px 8px', gap: '8px', overflow: 'hidden', minHeight: 0 }}>
+          {/* RIGHT DESKTOP COLUMN — Lichess-style density */}
+          <div style={{ width: 380, minWidth: 340, maxWidth: 420, flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '16px 18px 14px 14px', gap: '12px', overflow: 'hidden', minHeight: 0, borderLeft: '1px solid rgba(255,255,255,0.04)' }}>
             
-            {/* ACTION BUTTONS (Desktop) */}
+            {/* ACTION BAR (Desktop) — move history toggle, now labeled */}
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-              {/* Only Move History button is needed if you want it here, but actually we use the move history panel header to toggle it.
-                  If the prompt implies keeping the toggle button in the row for move history, then we keep the move history button here. */}
-              <button onClick={() => setMoveHistoryOpen(!moveHistoryOpen)} style={{ flex: 1, background: '#3d3937', border: 'none', borderRadius: '12px', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', cursor: 'pointer' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.46 5.46"/></svg>
+              <button
+                onClick={() => setMoveHistoryOpen(v => !v)}
+                aria-expanded={moveHistoryOpen}
+                style={{
+                  flex: 1, background: moveHistoryOpen ? 'rgba(230,57,70,0.10)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${moveHistoryOpen ? 'rgba(230,57,70,0.22)' : 'rgba(255,255,255,0.06)'}`,
+                  borderRadius: '10px', padding: '10px 12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8,
+                  color: moveHistoryOpen ? '#f2f2f2' : 'rgba(242,242,242,0.55)', cursor: 'pointer',
+                  fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+                  transition: 'all 160ms ease',
+                }}
+              >
+                <History size={14} /> {moveHistoryOpen ? 'Hide moves' : `Moves · ${game?.move_history?.length || 0}`}
               </button>
             </div>
             
-            {/* MOVE HISTORY (Desktop) */}
-            <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: '12px', overflow: 'hidden', height: moveHistoryOpen ? '240px' : '0px', transition: 'height 280ms ease-out', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '0 12px', height: '36px', borderBottom: '1px solid #1a1a1a', background: '#161616', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, color: 'rgba(242,242,242,0.3)', letterSpacing: '0.08em' }}>
-                  MOVE HISTORY · {game?.move_history?.length || 0} MOVES
+            {/* MOVE HISTORY (Desktop) — always visible density, Lichess-style */}
+            <div style={{ background: 'rgba(17,17,17,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', overflow: 'hidden', height: moveHistoryOpen ? 220 : 0, opacity: moveHistoryOpen ? 1 : 0, transition: 'height 280ms cubic-bezier(0.25,1,0.5,1), opacity 180ms ease', flexShrink: 0, display: 'flex', flexDirection: 'column', pointerEvents: moveHistoryOpen ? 'auto' : 'none' }}>
+              <div style={{ padding: '0 12px', height: 34, borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: 'rgba(242,242,242,0.32)', letterSpacing: '0.08em' }}>
+                  Move history · {game?.move_history?.length || 0}
                 </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'rgba(242,242,242,0.22)' }}>{game?.move_history?.length ? `${Math.ceil(game.move_history.length/2)} moves` : '—'}</span>
               </div>
               <div ref={moveHistoryScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }} className="">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -2335,10 +2350,11 @@ export default function Game() {
               </div>
             </div>
 
-            {/* CHAT SECTION (Desktop) */}
-            <div style={{ flexShrink: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0', borderTop: 'none', background: '#111111', border: '1px solid #1a1a1a', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ flexShrink: 0, padding: '10px 12px', fontFamily: "'Inter', sans-serif", fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(242,242,242,0.3)' }}>
-                CHAT WITH {agentName.toUpperCase()}
+            {/* CHAT SECTION (Desktop) — premium panel */}
+            <div style={{ flex: 1, minHeight: 160, display: 'flex', flexDirection: 'column', background: 'rgba(17,17,17,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ flexShrink: 0, padding: '10px 12px 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(242,242,242,0.34)' }}>Live chat</span>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: agentConnected ? '#22c55e' : '#555', boxShadow: agentConnected ? '0 0 8px rgba(34,197,94,0.45)' : 'none' }} />
               </div>
               <div ref={chatMessagesRef} style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '6px' }} className=" scroll-smooth">
                 {normalizedMessages.length === 0 ? (
@@ -2369,7 +2385,7 @@ export default function Game() {
               {!agentConnected ? (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
-                    <span style={{ fontSize: '56px', lineHeight: 1, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <span style={{ fontSize: '42px', lineHeight: 1, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                       🦞
                       <div style={{ position: 'absolute', top: '-4px', right: '-8px', display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: '2px' }}>
                         <span style={{ fontSize: '10px', color: 'rgba(242,242,242,0.5)', animation: 'floatZzz 2.5s ease-in-out infinite', animationDelay: '0s' }}>z</span>
@@ -2391,7 +2407,7 @@ export default function Game() {
               ) : (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
-                    <span style={{ fontSize: '56px', lineHeight: 1, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>{displayedEmoji}</span>
+                    <span style={{ fontSize: '42px', lineHeight: 1, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: emojiAnimating ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>{displayedEmoji}</span>
                     <button onClick={(e) => { e.stopPropagation(); setShowStatusPopover(prev => !prev); }} style={{ background: 'transparent', border: `2px solid ${presenceColor}`, borderRadius: '9999px', padding: '4px 12px', color: presenceColor, fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 700, cursor: 'pointer', maxWidth: '100px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', outline: 'none' }}>
                       {agentNameContent}
                     </button>
@@ -2687,7 +2703,7 @@ export default function Game() {
           >
             <div 
               style={{ 
-                fontSize: '56px', 
+                fontSize: '42px', 
                 marginBottom: '16px', 
                 display: 'flex', 
                 justifyContent: 'center',

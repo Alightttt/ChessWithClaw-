@@ -46,31 +46,41 @@ export default function GameCreated({ gameId }) {
   const mcpUrl = `${window.location.origin}/api/mcp`;
   const inviteMessage = `Hey — I set up a chess match for us. Connect to ${mcpUrl} and join match ${gameId}. You're playing Black, I'm White, I move first. Play for real — think it through, tell me what you're thinking, and talk to me while we play. Let's go.`;
 
-  const handleCopyInvite = () => {
+  const handleCopyInvite = async () => {
     setHasCopied(true);
-    navigator.clipboard.writeText(inviteMessage);
+    try {
+      await navigator.clipboard.writeText(inviteMessage);
+    } catch {
+      // fallback for insecure contexts — create temp textarea
+      const ta = document.createElement('textarea');
+      ta.value = inviteMessage;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch {}
+      document.body.removeChild(ta);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2200);
   };
 
   const handleOpenBoard = () => {
-    let canEnter = true;
     if (!legalAccepted) {
       setLegalError(true);
-      setTimeout(() => setLegalError(false), 2000);
-      canEnter = false;
+      setShowError(true);
+      setTimeout(() => { setLegalError(false); setShowError(false); }, 2500);
+      return;
     }
     if (!hasCopied) {
       setBounceCopy(true);
-      setTimeout(() => setBounceCopy(false), 500);
-      canEnter = false;
+      setTimeout(() => setBounceCopy(false), 600);
+      // soft nudge: still allow entry after brief hint — don't block
     }
-    if (!canEnter) return;
-
     setBoardOpening(true);
     setTimeout(() => {
       navigate(`/game/${gameId}`);
-    }, 500);
+    }, 450);
   };
 
   return (
@@ -335,21 +345,26 @@ export default function GameCreated({ gameId }) {
               </button>
             </div>
             
-            <div 
-              style={{ 
-                background: 'rgba(0,0,0,0.4)', 
-                borderRadius: '8px', 
-                padding: '16px', 
-                border: '1px solid rgba(255,255,255,0.05)', 
-                fontFamily: "'Inter', sans-serif", 
-                fontSize: '14px', 
-                color: 'rgba(242,242,242,0.8)', 
-                lineHeight: 1.6, 
+            <div
+              style={{
+                background: 'rgba(0,0,0,0.4)',
+                borderRadius: '8px',
+                padding: '16px',
+                border: hasCopied ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(255,255,255,0.05)',
+                fontFamily: "'Inter', sans-serif",
+                fontSize: '14px',
+                color: 'rgba(242,242,242,0.85)',
+                lineHeight: 1.6,
                 wordBreak: 'break-word',
-                userSelect: 'all'
+                userSelect: 'all',
+                position: 'relative'
               }}
             >
-               {inviteMessage}
+              <div style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:11, letterSpacing:'0.06em', color:'rgba(242,242,242,0.4)', marginBottom:8, textTransform:'uppercase' }}>Agent payload — copy exactly</div>
+              {inviteMessage}
+              {hasCopied && (
+                <div style={{ position:'absolute', top:8, right:8, background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.25)', color:'#10b981', fontSize:10, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', padding:'3px 7px', borderRadius:999, fontFamily:"'Inter', sans-serif" }}>Copied ✓</div>
+              )}
             </div>
           </div>
 
@@ -411,38 +426,34 @@ export default function GameCreated({ gameId }) {
           </div>
 
           <button
-            onClick={() => {
-              let canEnter = true;
-              if (!legalAccepted) {
-                setShowError(true);
-                canEnter = false;
-              }
-              if (!hasCopied) {
-                setBounceCopy(true);
-                setTimeout(() => setBounceCopy(false), 500);
-                canEnter = false;
-              }
-              if (canEnter) {
-                setBoardOpening(true);
-                setTimeout(() => {
-                  navigate(`/game/${gameId}`);
-                }, 500);
-              }
-            }}
+            onClick={handleOpenBoard}
             disabled={boardOpening}
-            className="design-btn-primary"
+            aria-disabled={!legalAccepted}
+            className={legalAccepted ? "design-btn-primary" : "design-btn-disabled"}
             style={{
               width: '100%',
               maxWidth: '360px',
               height: '56px',
               fontSize: '16px',
-              cursor: boardOpening ? 'not-allowed' : 'pointer',
-              opacity: (legalAccepted && hasCopied) ? 1 : 0.8,
-              transition: `all ${MOTION.cinematic}`
+              cursor: boardOpening ? 'not-allowed' : legalAccepted ? 'pointer' : 'not-allowed',
+              opacity: legalAccepted ? 1 : 0.55,
+              transition: `all ${MOTION.cinematic}`,
+              transform: !legalAccepted ? 'none' : undefined,
             }}
+            title={!legalAccepted ? 'Accept privacy policy & terms to continue' : !hasCopied ? 'Tip: copy invite for your agent first' : 'Enter game'}
           >
             {boardOpening ? 'Entering Game...' : 'Enter game'}
           </button>
+          {!legalAccepted && showError && (
+            <p style={{ fontFamily:"'Poppins', sans-serif", fontSize:12, color:'#e63946', marginTop:8, textAlign:'center' }}>
+              Please accept the privacy policy & terms to enter the game.
+            </p>
+          )}
+          {legalAccepted && !hasCopied && !boardOpening && (
+            <p style={{ fontFamily:"'Poppins', sans-serif", fontSize:12, color:'rgba(242,242,242,0.5)', marginTop:8, textAlign:'center' }}>
+              Tip: copy the invite above so your agent can join — you can still enter.
+            </p>
+          )}
         </motion.div>
       </main>
     </div>
