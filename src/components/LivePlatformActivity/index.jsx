@@ -72,32 +72,32 @@ const NumberCounter = ({ count }) => {
 
 const OliveBranch = ({ className, style, left }) => (
   <svg
-    viewBox="0 0 120 380"
-    className={`h-[280px] sm:h-[380px] md:h-[480px] lg:h-[540px] w-auto text-[#E8C547] drop-shadow-[0_2px_18px_rgba(232,197,71,0.28)] pointer-events-none select-none ${className || ''}`}
+    viewBox="0 0 130 390"
+    className={`h-[260px] sm:h-[360px] md:h-[460px] lg:h-[520px] w-auto text-[#FACC15] drop-shadow-[0_2px_20px_rgba(250,204,21,0.35)] pointer-events-none select-none ${className || ''}`}
     style={{ ...style, transform: left ? 'scaleX(-1)' : 'none' }}
     aria-hidden="true"
   >
     <defs>
       <g id="laurel-leaf">
-        <path d="M 0 0 C -5.2 -5.8, -6.2 -12.2, 0 -18.5 C 6.2 -12.2, 5.2 -5.8, 0 0 Z" fill="currentColor" />
-        <path d="M 0 -0.8 L 0 -16.2" stroke="rgba(0,0,0,0.16)" strokeWidth="0.6" strokeLinecap="round" />
+        <path d="M 0 0 C -7.2 -6.5, -8.8 -14.2, 0 -22.5 C 8.8 -14.2, 7.2 -6.5, 0 0 Z" fill="currentColor" />
+        <path d="M 0 -1 L 0 -19.5" stroke="rgba(0,0,0,0.14)" strokeWidth="0.7" strokeLinecap="round" />
       </g>
     </defs>
-    <path d="M 72 358 C 6 278, 4 132, 64 10" stroke="currentColor" strokeWidth="1.9" fill="none" strokeLinecap="round" opacity="0.98" />
-    <g transform="translate(63.8,332)"><use href="#laurel-leaf" transform="rotate(-150) scale(0.95)" /><use href="#laurel-leaf" transform="rotate(-80) scale(0.88)" /></g>
-    <g transform="translate(49.2,308)"><use href="#laurel-leaf" transform="rotate(-148) scale(1.04)" /><use href="#laurel-leaf" transform="rotate(-74) scale(0.96)" /></g>
-    <g transform="translate(38.6,284)"><use href="#laurel-leaf" transform="rotate(-146) scale(1.12)" /><use href="#laurel-leaf" transform="rotate(-70) scale(1.04)" /></g>
-    <g transform="translate(30.8,260)"><use href="#laurel-leaf" transform="rotate(-143) scale(1.16)" /><use href="#laurel-leaf" transform="rotate(-66) scale(1.08)" /></g>
-    <g transform="translate(25.2,235)"><use href="#laurel-leaf" transform="rotate(-140) scale(1.18)" /><use href="#laurel-leaf" transform="rotate(-62) scale(1.10)" /></g>
-    <g transform="translate(21.6,210)"><use href="#laurel-leaf" transform="rotate(-137) scale(1.18)" /><use href="#laurel-leaf" transform="rotate(-58) scale(1.10)" /></g>
-    <g transform="translate(19.8,184)"><use href="#laurel-leaf" transform="rotate(-134) scale(1.16)" /><use href="#laurel-leaf" transform="rotate(-54) scale(1.08)" /></g>
-    <g transform="translate(19.6,158)"><use href="#laurel-leaf" transform="rotate(-130) scale(1.12)" /><use href="#laurel-leaf" transform="rotate(-50) scale(1.04)" /></g>
-    <g transform="translate(21.4,132)"><use href="#laurel-leaf" transform="rotate(-126) scale(1.08)" /><use href="#laurel-leaf" transform="rotate(-46) scale(1.00)" /></g>
-    <g transform="translate(25.6,106)"><use href="#laurel-leaf" transform="rotate(-121) scale(1.02)" /><use href="#laurel-leaf" transform="rotate(-42) scale(0.94)" /></g>
-    <g transform="translate(32.0,80)"><use href="#laurel-leaf" transform="rotate(-116) scale(0.96)" /><use href="#laurel-leaf" transform="rotate(-38) scale(0.88)" /></g>
-    <g transform="translate(40.8,56)"><use href="#laurel-leaf" transform="rotate(-110) scale(0.90)" /><use href="#laurel-leaf" transform="rotate(-34) scale(0.82)" /></g>
-    <g transform="translate(51.2,32)"><use href="#laurel-leaf" transform="rotate(-102) scale(0.82)" /><use href="#laurel-leaf" transform="rotate(-30) scale(0.74)" /></g>
-    <g transform="translate(62,12)"><use href="#laurel-leaf" transform="rotate(-66) scale(0.78)" /></g>
+    <path d="M 76 368 C 2 282, -2 138, 66 8" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.98" />
+    <g transform="translate(66.2,342)"><use href="#laurel-leaf" transform="rotate(-152) scale(1.10)" /><use href="#laurel-leaf" transform="rotate(-82) scale(1.02)" /></g>
+    <g transform="translate(49.8,318)"><use href="#laurel-leaf" transform="rotate(-150) scale(1.22)" /><use href="#laurel-leaf" transform="rotate(-76) scale(1.14)" /></g>
+    <g transform="translate(37.4,294)"><use href="#laurel-leaf" transform="rotate(-148) scale(1.32)" /><use href="#laurel-leaf" transform="rotate(-72) scale(1.24)" /></g>
+    <g transform="translate(27.6,269)"><use href="#laurel-leaf" transform="rotate(-145) scale(1.38)" /><use href="#laurel-leaf" transform="rotate(-68) scale(1.30)" /></g>
+    <g transform="translate(20.4,244)"><use href="#laurel-leaf" transform="rotate(-142) scale(1.42)" /><use href="#laurel-leaf" transform="rotate(-64) scale(1.34)" /></g>
+    <g transform="translate(15.8,218)"><use href="#laurel-leaf" transform="rotate(-139) scale(1.42)" /><use href="#laurel-leaf" transform="rotate(-60) scale(1.34)" /></g>
+    <g transform="translate(13.4,192)"><use href="#laurel-leaf" transform="rotate(-136) scale(1.40)" /><use href="#laurel-leaf" transform="rotate(-56) scale(1.32)" /></g>
+    <g transform="translate(12.8,166)"><use href="#laurel-leaf" transform="rotate(-132) scale(1.36)" /><use href="#laurel-leaf" transform="rotate(-52) scale(1.28)" /></g>
+    <g transform="translate(14.2,140)"><use href="#laurel-leaf" transform="rotate(-128) scale(1.32)" /><use href="#laurel-leaf" transform="rotate(-48) scale(1.24)" /></g>
+    <g transform="translate(17.8,114)"><use href="#laurel-leaf" transform="rotate(-123) scale(1.26)" /><use href="#laurel-leaf" transform="rotate(-44) scale(1.18)" /></g>
+    <g transform="translate(24.2,88)"><use href="#laurel-leaf" transform="rotate(-118) scale(1.18)" /><use href="#laurel-leaf" transform="rotate(-40) scale(1.10)" /></g>
+    <g transform="translate(33.0,62)"><use href="#laurel-leaf" transform="rotate(-112) scale(1.08)" /><use href="#laurel-leaf" transform="rotate(-36) scale(1.00)" /></g>
+    <g transform="translate(44.2,38)"><use href="#laurel-leaf" transform="rotate(-106) scale(0.98)" /><use href="#laurel-leaf" transform="rotate(-32) scale(0.90)" /></g>
+    <g transform="translate(58.2,14)"><use href="#laurel-leaf" transform="rotate(-70) scale(0.88)" /></g>
   </svg>
 );
 
