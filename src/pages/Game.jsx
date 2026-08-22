@@ -156,11 +156,14 @@ const BottomStatusBar = ({ agentConnected, game, agentName, isMobile }) => {
   
   if (!agentConnected) {
     return (
-      <div style={{ flexShrink: 0, width: '100%', background: 'rgba(230,57,70,0.15)', borderTop: '1px solid rgba(230,57,70,0.3)', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 40, boxSizing: 'border-box', ...(isMobile ? { borderTopLeftRadius: '20px', borderTopRightRadius: '20px' } : { borderRadius: '8px', border: '1px solid rgba(230,57,70,0.3)' }) }}>
-        <div style={{ width: '18px', height: '18px', border: '2px solid #f2f2f2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: '#f2f2f2', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>!</span></div>
-        <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '15px', fontWeight: 600, color: '#f2f2f2' }}>
-          Your {agentName || 'OpenClaw'} is not here yet
-        </span>
+      <div style={{ flexShrink: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '10px 12px 12px' : '10px 0', boxSizing: 'border-box', zIndex: 40 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'rgba(230,57,70,0.10)', border: '1px solid rgba(230,57,70,0.22)', borderRadius: 999, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: '#e63946', boxShadow: '0 0 8px rgba(230,57,70,0.45)', flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 600, color: '#f2f2f2', letterSpacing: '0.02em' }}>
+            Waiting for {agentName || 'your agent'} to join
+          </span>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 400, color: 'rgba(242,242,242,0.55)' }}>· invite sent?</span>
+        </div>
       </div>
     );
   }
@@ -2246,7 +2249,7 @@ export default function Game() {
             onCapture={handleCapture}
           />
           {!agentConnected && game?.status === 'waiting' && (
-            <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" style={{ borderRadius: '4px' }}></div>
+            <div className="absolute inset-0 z-20 pointer-events-none" style={{ borderRadius: 8, background: 'rgba(0,0,0,0.10)', backdropFilter: 'blur(0.5px)', WebkitBackdropFilter: 'blur(0.5px)', border: '1px dashed rgba(255,255,255,0.08)' }} />
           )}
           </div></div>
           <CapturedPiecesRow byWhite={getCapturedPieces(game?.fen).byWhite} byBlack={getCapturedPieces(game?.fen).byBlack} pieceTheme={pieceTheme} humanColor={game?.player_color || 'w'} />
@@ -2446,7 +2449,7 @@ export default function Game() {
                   )}
                   <ChessBoard fen={reviewMoveIndex !== null ? getFenAtMove(reviewMoveIndex) : (optimisticFen || game.fen)} showCoordinates={false} onMove={makeMove} turn={game?.turn} lastMove={lastMoveHighlight || optimisticLastMove || (game.move_history || [])[(game.move_history || [])?.length - 1] || null} arrivedSquare={arrivedSquare} moveHistory={game.move_history || []} boardTheme={boardTheme} pieceTheme={pieceTheme} playerColor={game?.player_color || 'w'} onIllegalMove={handleIllegalMove} onCapture={handleCapture} />
                   {!agentConnected && game?.status === 'waiting' && (
-                    <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" style={{ borderRadius: '4px' }}></div>
+                    <div className="absolute inset-0 z-20 pointer-events-none" style={{ borderRadius: 8, background: 'rgba(0,0,0,0.10)', backdropFilter: 'blur(0.5px)', WebkitBackdropFilter: 'blur(0.5px)', border: '1px dashed rgba(255,255,255,0.08)' }} />
                   )}
                 </div>
               </div>
