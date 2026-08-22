@@ -361,7 +361,6 @@ export default function GameCreated({ gameId }) {
                 position: 'relative'
               }}
             >
-              <div style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:11, letterSpacing:'0.06em', color:'rgba(242,242,242,0.4)', marginBottom:8, textTransform:'uppercase' }}>Agent payload — copy exactly</div>
               {inviteMessage}
               {hasCopied && (
                 <div style={{ position:'absolute', top:8, right:8, background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.25)', color:'#10b981', fontSize:10, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', padding:'3px 7px', borderRadius:999, fontFamily:"'Inter', sans-serif" }}>Copied ✓</div>
