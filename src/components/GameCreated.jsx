@@ -74,13 +74,14 @@ export default function GameCreated({ gameId }) {
     }
     if (!hasCopied) {
       setBounceCopy(true);
-      setTimeout(() => setBounceCopy(false), 600);
-      // soft nudge: still allow entry after brief hint — don't block
+      setTimeout(() => setBounceCopy(false), 700);
+      // keep hard gate visible — show helper instead of silent fail
+      return;
     }
     setBoardOpening(true);
     setTimeout(() => {
       navigate(`/game/${gameId}`);
-    }, 450);
+    }, 400);
   };
 
   return (
@@ -427,20 +428,19 @@ export default function GameCreated({ gameId }) {
 
           <button
             onClick={handleOpenBoard}
-            disabled={boardOpening}
-            aria-disabled={!legalAccepted}
-            className={legalAccepted ? "design-btn-primary" : "design-btn-disabled"}
+            disabled={boardOpening || !legalAccepted || !hasCopied}
+            aria-disabled={!legalAccepted || !hasCopied}
+            className={legalAccepted && hasCopied ? "design-btn-primary" : "design-btn-disabled"}
             style={{
               width: '100%',
               maxWidth: '360px',
               height: '56px',
               fontSize: '16px',
-              cursor: boardOpening ? 'not-allowed' : legalAccepted ? 'pointer' : 'not-allowed',
-              opacity: legalAccepted ? 1 : 0.55,
+              cursor: boardOpening ? 'not-allowed' : (legalAccepted && hasCopied) ? 'pointer' : 'not-allowed',
+              opacity: (legalAccepted && hasCopied) ? 1 : 0.45,
               transition: `all ${MOTION.cinematic}`,
-              transform: !legalAccepted ? 'none' : undefined,
             }}
-            title={!legalAccepted ? 'Accept privacy policy & terms to continue' : !hasCopied ? 'Tip: copy invite for your agent first' : 'Enter game'}
+            title={!legalAccepted ? 'Accept privacy policy & terms to continue' : !hasCopied ? 'Please copy the invite message first' : 'Enter game'}
           >
             {boardOpening ? 'Entering Game...' : 'Enter game'}
           </button>
@@ -450,8 +450,8 @@ export default function GameCreated({ gameId }) {
             </p>
           )}
           {legalAccepted && !hasCopied && !boardOpening && (
-            <p style={{ fontFamily:"'Poppins', sans-serif", fontSize:12, color:'rgba(242,242,242,0.5)', marginTop:8, textAlign:'center' }}>
-              Tip: copy the invite above so your agent can join — you can still enter.
+            <p style={{ fontFamily:"'Poppins', sans-serif", fontSize:12, color:'#f59e0b', marginTop:8, textAlign:'center', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+              <span style={{ width:6, height:6, borderRadius:999, background:'#f59e0b', flexShrink:0 }} /> Please copy the invite message first — your agent needs it to join.
             </p>
           )}
         </motion.div>

@@ -1937,24 +1937,37 @@ export default function Game() {
             <div>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Chessboard theme</span>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {['green', 'brown', 'red', 'blue', 'icy_sea'].map((key) => {
-                  const bg = { green: '#769656', brown: '#B58863', red: '#C45A41', blue: '#4B7399', icy_sea: '#8CA2AC' }[key];
-                  return (
-                    <button key={key} onClick={() => { setBoardTheme(key); localStorage.setItem('cwc_theme', key); }} style={{ width: 40, height: 40, borderRadius: 8, border: boardTheme === key ? '2px solid #fff' : '2px solid transparent', background: bg, cursor: 'pointer' }} title={key} />
-                  );
-                })}
+                {[
+                  { key: 'green', label: 'Green', bg: '#769656' },
+                  { key: 'brown', label: 'Brown', bg: '#B58863' },
+                  { key: 'red', label: 'Red', bg: '#C45A41' },
+                  { key: 'blue', label: 'Blue', bg: '#4B7399' },
+                  { key: 'icy_sea', label: 'Icy Sea', bg: '#8CA2AC' },
+                ].map(({ key, label, bg }) => (
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <button onClick={() => { setBoardTheme(key); localStorage.setItem('cwc_theme', key); }} aria-label={`Board theme ${label}`} style={{ width: 44, height: 44, borderRadius: 10, border: boardTheme === key ? '2px solid #fff' : '2px solid rgba(255,255,255,0.08)', background: bg, cursor: 'pointer', boxShadow: boardTheme === key ? '0 0 0 3px rgba(230,57,70,0.18)' : 'none' }} />
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: boardTheme === key ? 600 : 500, color: boardTheme === key ? '#f2f2f2' : 'rgba(242,242,242,0.55)', letterSpacing: '0.02em' }}>{label}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
             <div>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '16px', color: '#f2f2f2', display: 'block', marginBottom: '10px' }}>Chess pieces</span>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                {['neo', 'neo_wood', 'ocean'].map((key) => (
-                  <button key={key} onClick={() => { setPieceTheme(key); localStorage.setItem('cwc_pieces', key); }} style={{ width: 80, height: 48, borderRadius: 8, border: pieceTheme === key ? '2px solid #fff' : '2px solid transparent', background: '#3a3a3a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: 32, height: 32 }}>
-                      <img src={`https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/pieces/${key}/wn.png`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt={`${key} knight`} draggable={false} />
-                    </div>
-                  </button>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {[
+                  { key: 'neo', label: 'Neo' },
+                  { key: 'neo_wood', label: 'Neo Wood' },
+                  { key: 'ocean', label: 'Ocean' },
+                ].map(({ key, label }) => (
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <button onClick={() => { setPieceTheme(key); localStorage.setItem('cwc_pieces', key); }} aria-label={`Piece style ${label}`} style={{ width: 84, height: 56, borderRadius: 10, border: pieceTheme === key ? '2px solid #fff' : '2px solid rgba(255,255,255,0.08)', background: '#2a2a2a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: pieceTheme === key ? '0 0 0 3px rgba(230,57,70,0.18)' : 'none' }}>
+                      <div style={{ width: 32, height: 32 }}>
+                        <img src={`https://jkawzziklwoxfxicbtvf.supabase.co/storage/v1/object/public/assets/pieces/${key}/wn.png`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt={`${label} knight`} draggable={false} />
+                      </div>
+                    </button>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: pieceTheme === key ? 600 : 500, color: pieceTheme === key ? '#f2f2f2' : 'rgba(242,242,242,0.55)', letterSpacing: '0.02em' }}>{label}</span>
+                  </div>
                 ))}
               </div>
             </div>
